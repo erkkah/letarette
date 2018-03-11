@@ -26,16 +26,19 @@ func main() {
 	}
 
 	if *init {
-		_, err = db.Exec(`create virtual table stuff using fts5(txt, tokenize="unicode61");`)
+		_, err = db.Exec(`create virtual table stuff using fts5(txt, tokenize="porter unicode61 tokenchars '#'");`)
 		if err != nil {
 			panic(err)
 		}
 	}
 
 	if *load != "" {
-		wordFile, err := os.Open(*load)
-		if err != nil {
-			panic(err)
+		wordFile := os.Stdin
+		if *load != "-" {
+			wordFile, err = os.Open(*load)
+			if err != nil {
+				panic(err)
+			}
 		}
 		tx, err := db.Begin()
 		if err != nil {
@@ -78,24 +81,33 @@ func main() {
 		}
 		fmt.Printf("%v phrases loaded\n", phrases)
 
+		st, err := db.Prepare("select rowid, txt, rank from stuff where txt match ? order by rank limit 10")
+		if err != nil {
+			panic(err)
+		}
+
 		matchScanner := bufio.NewScanner(os.Stdin)
 		for matchScanner.Scan() {
 			line := matchScanner.Text()
 			start := time.Now()
-			rows, err := db.Query("select txt, rank from stuff where txt match ? order by rank", line)
+			rows, err := st.Query(line)
 			t1 := time.Now()
 			if err != nil {
 				panic(err)
 			}
 			hits := 0
 			for rows.Next() {
+				var rowid int64
 				var hit string
 				var rank float32
-				if err := rows.Scan(&hit, &rank); err != nil {
+				if err := rows.Scan(&rowid, &hit, &rank); err != nil {
 					panic(err)
 				}
 				hits++
-				fmt.Printf("%q (%v)\n", hit, rank)
+				if len(hit) > 64 {
+					hit = hit[:64] + "..."
+				}
+				fmt.Printf("%v: %q (%v)\n", rowid, hit, rank)
 			}
 			rows.Close()
 			t2 := time.Now()
