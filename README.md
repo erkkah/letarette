@@ -12,7 +12,7 @@ You might be surprised.
 
 Worker
 
-Document master
+Document manager
 
 ## Details
 

@@ -15,17 +15,26 @@ _document manager_. Due to the bus based nature
 these roles can be duplicated for redundancy /
 scalability.
 
-### Search handler
+### Search Handler
 
 Posts search queries to the cluster, matches responses
 (lists of document IDs) to documents and present these
 to application layer together with pagination info.
 
-### Document manager
+### Document Manager
 
 Responds to indexing requests from the cluster.
 All requests are based on document ID and last
 updated timestamp.
+
+### Worker Node
+
+Keeps an index updated by periodically requesting document
+updates. These requests will be handled by the Document Manager.
+
+Responds to search requests.
+
+Can perform bulk load of index from other nodes.
 
 ### Data types
 
@@ -33,6 +42,7 @@ updated timestamp.
 Document {
 	ID
 	updated_at
+	alive
 	text
 }
 ```
@@ -59,7 +69,7 @@ Response {
 ### Indexing
 
 Nodes periodically request updates from the document
-manager:
+manager using the following basic algorithm:
 
 1. Set event horizon to now
 2. Request documents up until horizon ordered by timestamp
@@ -68,12 +78,13 @@ manager:
 	recent we had before chunk - we are done!
 
 
-Document manager must keep IDs of deleted documents.
+Document manager must keep IDs of deleted documents, or
+simply keep deleted documents.
 Reusing IDs is not allowed.
 For chunking to work, Document Managers must
 follow strict document ordering.
 
-Doc IDs could be DB row id, uuid or hash.
+Document IDs could be DB row id, uuid or hash.
 
 Node: If document manager gets chunk document ID for a
 document that is updated after horizon - it must use
@@ -87,12 +98,5 @@ respond, possibly offloading the document manager.
 
 
 ### Searching
-Document collection can be sharded by different nodes as long as
+Document collections can be sharded by different nodes as long as
 strict ordering can be guaranteed.
-
-Nodes use separate calls for requesting documents from other
-noeds and from document managers.
-Start with other nodes, move on to document handler after failure.
-
-This enables a set of different topologies - need experiments
-to figure out.
