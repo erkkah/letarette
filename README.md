@@ -36,3 +36,4 @@ The following sub topics are used:
 
 - [ ] Snowball stemmer
 - [ ] Bulk initialization
+- [ ] NATS Authentication

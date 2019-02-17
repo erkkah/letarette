@@ -120,14 +120,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer db.Close()
 
 	if *load != "" {
-		loadText(*load, db)
+		loadText(*load, db.GetRawDB())
 	}
 
 	if *match {
-		matchText(db)
+		matchText(db.GetRawDB())
 	}
 
-	_ = db.Close()
 }

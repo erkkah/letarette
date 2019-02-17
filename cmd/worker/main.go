@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/erkkah/letarette/internal/letarette"
 
@@ -43,7 +44,16 @@ func main() {
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals)
-	//signal.Notify(signals, syscall.SIGHUP)
+
+	signal.Reset(syscall.SIGHUP)
+	sighup := make(chan os.Signal, 1)
+	signal.Notify(sighup, syscall.SIGHUP)
+
+	go func() {
+		for range sighup {
+			log.Println("not reloading config...")
+		}
+	}()
 
 	select {
 	case s := <-signals:
