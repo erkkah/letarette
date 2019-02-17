@@ -6,8 +6,9 @@ require (
 	github.com/golang/protobuf v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20190208070709-b421f19a5c07 // indirect
 	github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6 // indirect
+	github.com/jmoiron/sqlx v1.2.0
 	github.com/karrick/godirwalk v1.7.8 // indirect
-	github.com/mattn/go-sqlite3 v1.6.0
+	github.com/mattn/go-sqlite3 v1.9.0
 	github.com/nats-io/gnatsd v1.4.1 // indirect
 	github.com/nats-io/go-nats v1.4.0
 	github.com/nats-io/nuid v1.0.0 // indirect
