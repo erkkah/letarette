@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sort"
 	"testing"
 	"time"
 )
@@ -11,6 +12,7 @@ import (
 type testSetup struct {
 	tmpDir string
 	config Config
+	db     Database
 }
 
 func (setup *testSetup) cleanup() {
@@ -18,47 +20,44 @@ func (setup *testSetup) cleanup() {
 	if err != nil {
 		panic("Failed to delete test temp dir")
 	}
+	if setup.db != nil {
+		setup.db.Close()
+	}
 }
 
-func getTestSetup() *testSetup {
+func getTestSetup(t *testing.T) *testSetup {
 	setup := new(testSetup)
 	var err error
 	setup.tmpDir, err = ioutil.TempDir("", "letarette")
 	if err != nil {
-		panic("Failed to create test temp dir")
+		t.Fatal("Failed to create test temp dir")
 	}
 	setup.config.Db.Path = path.Join(setup.tmpDir, "leta.db")
 	setup.config.Index.Spaces = []string{"test"}
+
+	setup.db, err = OpenDatabase(setup.config)
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
 	return setup
 }
 
 func TestOpen(t *testing.T) {
-	setup := getTestSetup()
+	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	db, err := OpenDatabase(setup.config)
-	if err != nil {
-		t.Errorf("Failed to open database: %v", err)
-	}
-	defer db.Close()
-
-	if db == nil {
+	if setup.db == nil {
 		t.Errorf("Database is nil!")
 	}
 }
 
 func TestGetLastUpdateTime_ExistingSpace(t *testing.T) {
 	then := time.Unix(1, 0)
-	setup := getTestSetup()
+	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	db, err := OpenDatabase(setup.config)
-	if err != nil {
-		t.Errorf("Failed to open database: %v", err)
-	}
-	defer db.Close()
-
-	last, err := db.getLastUpdateTime("test")
+	last, err := setup.db.getLastUpdateTime("test")
 	if err != nil {
 		t.Errorf("Failed to get last update time: %v", err)
 	}
@@ -68,54 +67,36 @@ func TestGetLastUpdateTime_ExistingSpace(t *testing.T) {
 }
 
 func TestGetLastUpdateTime_NonExistingSpace(t *testing.T) {
-	setup := getTestSetup()
+	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	db, err := OpenDatabase(setup.config)
-	if err != nil {
-		t.Errorf("Failed to open database: %v", err)
-	}
-	defer db.Close()
-
-	_, err = db.getLastUpdateTime("popowkqd")
+	_, err := setup.db.getLastUpdateTime("popowkqd")
 	if err == nil {
 		t.Errorf("Fetching last update time for unknown space should fail!")
 	}
 }
 
 func TestSetLastUpdateTime_NonExistingSpace(t *testing.T) {
-	setup := getTestSetup()
+	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	db, err := OpenDatabase(setup.config)
-	if err != nil {
-		t.Errorf("Failed to open database: %v", err)
-	}
-	defer db.Close()
-
-	err = db.setLastUpdateTime("popowkqd", time.Now())
+	err := setup.db.setLastUpdateTime("popowkqd", time.Now())
 	if err == nil {
 		t.Errorf("Setting last update time for unknown space should fail!")
 	}
 }
 
 func TestSetLastUpdateTime_ExistingSpace(t *testing.T) {
-	setup := getTestSetup()
+	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	db, err := OpenDatabase(setup.config)
-	if err != nil {
-		t.Errorf("Failed to open database: %v", err)
-	}
-	defer db.Close()
-
 	theTime := time.Now()
-	err = db.setLastUpdateTime("test", theTime)
+	err := setup.db.setLastUpdateTime("test", theTime)
 	if err != nil {
 		t.Errorf("Failed to set last update time: %v", err)
 	}
 
-	readTime, err := db.getLastUpdateTime("test")
+	readTime, err := setup.db.getLastUpdateTime("test")
 	if err != nil {
 		t.Errorf("Failed to read back last update time: %v", err)
 	}
@@ -125,20 +106,80 @@ func TestSetLastUpdateTime_ExistingSpace(t *testing.T) {
 }
 
 func TestGetInterestList_Empty(t *testing.T) {
-	setup := getTestSetup()
+	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	db, err := OpenDatabase(setup.config)
-	if err != nil {
-		t.Errorf("Failed to open database: %v", err)
-	}
-	defer db.Close()
-
-	list, err := db.getInterestList("test")
+	list, err := setup.db.getInterestList("test")
 	if err != nil {
 		t.Errorf("Failed to get interest list: %v", err)
 	}
 	if len(list) != 0 {
 		t.Errorf("Length should be empty")
+	}
+}
+
+func TestGetInterestList_NonexistingSpace(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	_, err := setup.db.getInterestList("kawonka")
+	if err == nil {
+		t.Errorf("Fetching interest list for nonexisting space should fail!")
+	}
+}
+
+func TestSetInterestList_NonexistingSpace(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	err := setup.db.setInterestList("kawonka", []string{"koko"})
+	if err == nil {
+		t.Errorf("Setting interest list for nonexisting space should fail!")
+	}
+}
+
+func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	list := []string{"bello", "koko"}
+
+	err := setup.db.setInterestList("test", list)
+	if err != nil {
+		t.Errorf("Setting interest list failed: %v", err)
+	}
+
+	fetchedSlice, err := setup.db.getInterestList("test")
+	if err != nil {
+		t.Errorf("Getting interest list failed: %v", err)
+	}
+	sort.Slice(fetchedSlice, func(i int, j int) bool {
+		return fetchedSlice[i].DocID < fetchedSlice[j].DocID
+	})
+
+	for i, interest := range fetchedSlice {
+		if interest.Served {
+			t.Errorf("New interest should be unserved")
+		}
+		if interest.DocID != list[i] {
+			t.Errorf("New list does not match")
+		}
+	}
+}
+
+func TestSetInterestList_CurrentListNonEmpty(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	list := [2]string{"bello", "koko"}
+
+	err := setup.db.setInterestList("test", list[:])
+	if err != nil {
+		t.Errorf("Setting interest list failed: %v", err)
+	}
+
+	err = setup.db.setInterestList("test", list[:])
+	if err == nil {
+		t.Errorf("Setting interest list with current list should fail!")
 	}
 }

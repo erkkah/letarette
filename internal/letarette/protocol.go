@@ -39,42 +39,44 @@ chunking will be used (start, count). The document provider must therefore
 use consistent ordering within documents of the same timestamp.
 */
 
+// DocumentID is just a string, could be uuid, hash, numeric, et.c.
+type DocumentID string
+
 // IndexStatus is sent in response to "index.status" requests
 type IndexStatus struct {
-	DocCount int64
+	DocCount uint64
 	// Out of sync info here?
 	LastUpdate time.Time
 }
 
-// DocumentUpdateRequest is a request for available updates.
+// IndexUpdateRequest is a request for available updates.
 // Returns up to 'Limit' document IDs, updated at or later than
 // the specified time.
-type DocumentUpdateRequest struct {
+type IndexUpdateRequest struct {
 	Space       string
 	UpdateStart time.Time
-	Start       int64
-	Limit       int16
+	Start       uint64
+	Limit       uint16
 }
 
-// DocumentUpdate is a list of updated IDs
-type DocumentUpdate struct {
+// IndexUpdate is a list of updated IDs, sent in response to
+// the IndexUpdateRequest above.
+type IndexUpdate struct {
 	Space   string
-	Updates []int64
-	// LastUpdate is the timestamp of the last update in the returned ID range
-	LastUpdate time.Time
+	Updates []DocumentID
 }
 
 // Document is the representation of a searchable item
 type Document struct {
 	Space   string
-	ID      int64
+	ID      DocumentID
 	Updated time.Time
 	Text    string
 	Alive   bool
 }
 
-// DocumentResponse is sent in response to DocumentRequest
-type DocumentResponse struct {
+// DocumentUpdate is sent in response to DocumentRequest
+type DocumentUpdate struct {
 	Documents []Document
 }
 
@@ -82,5 +84,5 @@ type DocumentResponse struct {
 // Returned documents are broadcasted to all workers.
 type DocumentRequest struct {
 	Space  string
-	Wanted []int64
+	Wanted []DocumentID
 }

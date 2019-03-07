@@ -10,6 +10,19 @@ import (
 	_ "github.com/mattn/go-sqlite3" // Load SQLite driver
 )
 
+type Interest struct {
+	DocID  string `db:"docID"`
+	Served bool
+}
+
+type InterestListState struct {
+	CreatedAt   time.Time `db:"listCreatedAt"`
+	UpdateStart time.Time `db:"listUpdateStart"`
+	UpdateEnd   time.Time `db:"listUpdateEnd"`
+	ChunkStart  uint64    `db:"chunkStart"`
+	ChunkSize   uint16    `db:"chunkSize"`
+}
+
 type Database interface {
 	Close()
 	GetRawDB() *sql.DB
@@ -17,8 +30,11 @@ type Database interface {
 	getLastUpdateTime(string) (time.Time, error)
 	setLastUpdateTime(string, time.Time) error
 
-	setInterestList(string, []string) error
-	getInterestList(string) ([]string, error)
+	setInterestList(string, []DocumentID) error
+	getInterestList(string) ([]Interest, error)
+
+	getInterestListState(string) (InterestListState, error)
+	setChunkStart(space string, start uint64) error
 }
 
 type database struct {
@@ -40,16 +56,7 @@ func (db *database) Close() {
 }
 
 func (db *database) getLastUpdateTime(space string) (t time.Time, err error) {
-	rows, err := db.db.Query("select lastUpdate from spaces where space = ?", space)
-	if err != nil {
-		return
-	}
-
-	if rows.Next() {
-		err = rows.Scan(&t)
-	} else {
-		err = fmt.Errorf("Cannot get last update time for space %q", space)
-	}
+	err = db.db.Get(&t, "select lastUpdate from spaces where space = ?", space)
 	return
 }
 
@@ -67,49 +74,86 @@ func (db *database) setLastUpdateTime(space string, t time.Time) error {
 	return err
 }
 
-func (db *database) getInterestList(space string) (result []string, err error) {
-	rows, err := db.db.Query(`
-		select docID from interest
-		left join spaces on interest.spaceID = spaces.spaceID
-		where space = ?`, space)
+func (db *database) getInterestListState(space string) (state InterestListState, err error) {
+	err = db.db.Get(&state,
+		`select listCreatedAt, listUpdatedStart, listUpdateEnd, chunkStart from spaces where space = ?`, space)
+	return
+}
+
+func (db *database) setChunkStart(space string, start uint64) error {
+	_, err := db.db.Exec("update spaces set chunkStart = ? where space = ?", start, space)
+	return err
+}
+
+func (db *database) getInterestList(space string) (result []Interest, err error) {
+	var spaceID int
+	err = db.db.Get(&spaceID, `select spaceID from spaces where space = ?`, space)
+	if err != nil {
+		return
+	}
+	rows, err := db.db.Queryx(`
+		select docID, served from interest
+		where spaceID = ?`, spaceID)
 	if err != nil {
 		return
 	}
 	for rows.Next() {
-		var docID string
-		err = rows.Scan(&docID)
+		var interest Interest
+		err = rows.StructScan(&interest)
 		if err != nil {
 			return
 		}
-		result = append(result, docID)
+		result = append(result, interest)
 	}
 	return
 }
 
-func (db *database) setInterestList(space string, list []string) error {
+func (db *database) setInterestList(space string, list []DocumentID) error {
 	tx, err := db.db.Beginx()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	var spaceID int
-	err = tx.Get(&spaceID, `select spaceID from spaces where name = ?`, space)
+	err = tx.Get(&spaceID, `select spaceID from spaces where space = ?`, space)
 	if err != nil {
 		return err
 	}
 	var interestCount int
-	err = tx.Get(&interestCount, `select count(*) from interests where spaceID = ?`, spaceID)
+	err = tx.Get(&interestCount, `select count(*) from interest where spaceID = ?`, spaceID)
 	if err != nil {
 		return err
 	}
 	if interestCount != 0 {
 		return fmt.Errorf("Cannot overwrite current interest list")
 	}
-	st, err := tx.Preparex(`insert into interest (spaceID, docID), values(?, ?)`)
+	st, err := tx.Preparex(`insert into interest (spaceID, docID, served) values(?, ?, 0)`)
 	if err != nil {
 		return err
 	}
-	for docID := range list {
+	for _, docID := range list {
 		_, err := st.Exec(spaceID, docID)
 		if err != nil {
 			return err
 		}
+	}
+	_, err = tx.NamedExec(`
+		with now as (select datetime('now'))
+		update spaces set
+			listCreatedAt = now,
+			listUpdateStart = 0,
+			listUpdateEnd = 0
+			chunkSize = :chunkSize
+		where spaceID = :spaceID`,
+
+		map[string]interface{}{
+			"spaceID":   spaceID,
+			"chunkSize": len(list),
+		})
+	if err != nil {
+		return err
 	}
 	err = tx.Commit()
 	return err
@@ -133,14 +177,27 @@ func initDB(db *sqlx.DB, spaces []string) {
 	createSpaces := `create table if not exists spaces(
 		spaceID integer primary key,
 		space text not null unique,
+
+		-- timestamp of where we are in the index update process
 		lastUpdate datetime not null,
-		listCreatedAt datetime
+		-- interest list creation timestamp
+		listCreatedAt datetime,
+		-- timestamp when the newest list entry was updated
+		listUpdatedAt datetime,
+		-- offset into documents starting with the same timestamp
+		chunkStart integer not null
+
+		check(
+			listUpdatedAt <= listCreatedAt and
+			lastUpdate <= listCreatedAt
+		)
 	)`
 	createOrDie(db, createSpaces)
 
 	createInterest := `create table if not exists interest(
-		spaceID not null,
+		spaceID integer not null,
 		docID text not null,
+		served integer not null,
 		unique(spaceID, docID)
 		foreign key (spaceID) references spaces(spaceID)
 	)`
@@ -150,7 +207,7 @@ func initDB(db *sqlx.DB, spaces []string) {
 		indexTable := fmt.Sprintf(`space_%v`, space)
 		createIndex := fmt.Sprintf(
 			`create virtual table if not exists %q using fts5(
-				txt, updated unindexed, hash unindexed,
+				txt, updated unindexed, docID unindexed,
 				tokenize="porter unicode61 tokenchars '#'"
 			);`, indexTable)
 		createOrDie(db, createIndex)

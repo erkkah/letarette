@@ -15,7 +15,8 @@ type Config struct {
 		Path string
 	}
 	Index struct {
-		Spaces []string
+		Spaces    []string
+		ChunkSize uint16
 	}
 }
 
@@ -30,5 +31,6 @@ func LoadConfig(configFile string) (cfg Config, err error) {
 	}
 	err = tree.Unmarshal(&cfg)
 	// ??? Validate space names!
+	// ??? Validate chunk size!
 	return
 }

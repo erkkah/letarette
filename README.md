@@ -30,7 +30,11 @@ The following sub topics are used:
 - leta.index.status:
     >Index status request. Sent from worker to document master to get current state of the source.
 - leta.index.request:
-    >Index update request. Sent from worker to document master to get a batch of updates.
+    >Index update request. Sent from worker to document master to get a list of updates.
+- leta.document.request:
+    >Document request. Sent from worker to get documents. Served by other workers or the master.
+- leta.document.update:
+    >Sent in response to document requests.
 
 ## TODO
 
