@@ -184,6 +184,7 @@ func initDB(db *sqlx.DB, spaces []string) {
 		listCreatedAt datetime,
 		-- timestamp when the newest list entry was updated
 		listUpdatedAt datetime,
+		chunkSize integer not null,
 		-- offset into documents starting with the same timestamp
 		chunkStart integer not null
 
@@ -212,7 +213,7 @@ func initDB(db *sqlx.DB, spaces []string) {
 			);`, indexTable)
 		createOrDie(db, createIndex)
 
-		createSpace := `insert into spaces (space, lastUpdate) values(?, 0)`
+		createSpace := `insert into spaces (space, lastUpdate, chunkStart, chunkSize) values(?, 0, 0, 0)`
 		_, err := db.Exec(createSpace, space)
 		if err != nil {
 			log.Panicf("Failed to create space table: %v", err)
