@@ -11,7 +11,7 @@ import (
 )
 
 type Interest struct {
-	DocID  string `db:"docID"`
+	DocID  DocumentID `db:"docID"`
 	Served bool
 }
 
@@ -140,11 +140,10 @@ func (db *database) setInterestList(space string, list []DocumentID) error {
 		}
 	}
 	_, err = tx.NamedExec(`
-		with now as (select datetime('now'))
 		update spaces set
-			listCreatedAt = now,
+			listCreatedAt = datetime('now'),
 			listUpdateStart = 0,
-			listUpdateEnd = 0
+			listUpdateEnd = 0,
 			chunkSize = :chunkSize
 		where spaceID = :spaceID`,
 
@@ -182,14 +181,16 @@ func initDB(db *sqlx.DB, spaces []string) {
 		lastUpdate datetime not null,
 		-- interest list creation timestamp
 		listCreatedAt datetime,
-		-- timestamp when the newest list entry was updated
-		listUpdatedAt datetime,
+		-- range of updated entries on interest list
+		listUpdateStart datetime,
+		listUpdateEnd datetime,
 		chunkSize integer not null,
 		-- offset into documents starting with the same timestamp
 		chunkStart integer not null
 
 		check(
-			listUpdatedAt <= listCreatedAt and
+			listUpdateStart <= listCreatedAt and
+			listUpdateEnd <= listCreatedAt and
 			lastUpdate <= listCreatedAt
 		)
 	)`

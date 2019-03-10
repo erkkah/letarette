@@ -132,7 +132,7 @@ func TestSetInterestList_NonexistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	err := setup.db.setInterestList("kawonka", []string{"koko"})
+	err := setup.db.setInterestList("kawonka", []DocumentID{"koko"})
 	if err == nil {
 		t.Errorf("Setting interest list for nonexisting space should fail!")
 	}
@@ -142,7 +142,7 @@ func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	list := []string{"bello", "koko"}
+	list := []DocumentID{"bello", "koko"}
 
 	err := setup.db.setInterestList("test", list)
 	if err != nil {
@@ -171,7 +171,7 @@ func TestSetInterestList_CurrentListNonEmpty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	list := [2]string{"bello", "koko"}
+	list := [2]DocumentID{"bello", "koko"}
 
 	err := setup.db.setInterestList("test", list[:])
 	if err != nil {
