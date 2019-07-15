@@ -71,65 +71,50 @@ Response {
 All workers maintain their own index and communicate with document masters
 for updates.
 
-Indexing can use timestamps only to request changed documents, or use a combination
-of timestamps and document ids. The first is a simpler algorithm, but can fail
-for cases where many documents have the same update date, that are being updated
-during indexing.
+The most recently updated document in the index is idenfified by document ID
+and corresponding timestamp. This is the _index position_.
 
-The second is more complex, but should cover all cases.
+Each index update will move the _index position_ forward until it points to the
+most recently updated document known to the document manager.
 
-Note that lastUpdateTime, listCreationTime and the interest list are all kept
-persistently as part of the index database.
+Index update requests are done in chunks. Each worker has its own list of documents
+that it is currently interested in updating, the _interest list_.
 
-Document manager must keep IDs of deleted documents, or simply keep deleted documents.
+Document managers must keep IDs of deleted documents, or just keep deleted documents.
 Reusing IDs is not allowed. For chunking to work, Document Managers must follow strict
-document ordering, primarily sorting by timestamp, secondarily on document ID.
+document ordering, primarily sorting by timestamp, secondarily by document ID.
 
 Document IDs could be DB row id, uuid or hash.
 
-This algorithm requires cluster clocks to be somewhat in sync.
+The indexing algorithm requires cluster clocks to be somewhat in sync.
 
-#### Time - based indexing
+#### The algorithm
 
-Nodes periodically request updates from the document
-manager using the following basic algorithm:
+Nodes periodically request updates from the document manager using the following basic algorithm:
 
-0. Set lastUpdateTime = 0
-1. Set listCreationTime = now
-2. Ask for a limited list of updated documents since (>=) lastUpdateTime, save
-	this list as interestList
-3. Request updates for the documents on the interest list until all documents
-	on the list have been updated.
-4. When all documents have been updated, select the most recent update time
-	on the list that is less than the listCreationTime and store as the new
-	lastUpdateTime. This handles the case where documents on the list are
-	updated after the list was requested.
-	If lastUpdateTime is unchanged, the next request will ask for the next
-	chunk within the period.
-
-The document manager must return documents primarily sorted on update date.
-For cases where many documents are created at the exact same time,
-chunking will be used (start, count). The document manager must therefore
-use consistent ordering within documents of the same timestamp.
-
-#### Time and ID - based indexing
-
-Nodes periodically request updates from the document
-manager using the following basic algorithm:
-
-0. Set lastUpdateTime = 0
-1. Set listCreationTime = now
-2. Ask for a limited list of updated documents after the most recently updated document.
-	This document, the limit document, is identified by document ID and timestamp. Save this list as interestList.
-	1. If the document manager finds that the limit document is updated since the worker got it, timestamp will be used and documents >= the timestamp will be retrieved
-	1. If the worker has received an update for the limit document
+1. Set _interest list_ creation time to now
+2. Ask the document manager for a limited list of updated documents after the current index position. Save this list as interestList. Note that this is simply a list of document IDs.
+	1. If the document manager finds that the document at the index position has been updated since the worker got it, only timestamp will be used and documents >= the timestamp will be retrieved. Note that the worker might have received that update as well, so index position timestamp must be kept separately from the document timestamp.
 3. Request updates for the documents on the interest list until all documents
 	on the list have been updated.
 4. When all documents have been updated, select the most recent update time on the list
-	that is less than the listCreationTime and use that document ID and timestamp
-	in the next request.
+	that is less than the listCreationTime and use that document ID and timestamp as the new index position.
+5. Repeat
 
 ### Searching
 
 Document collections can be sharded by different nodes as long as
 strict ordering can be guaranteed.
+
+```mermaid
+graph TB
+	subgraph apa
+	A((Hoho))-->B{koko}
+	end
+
+	A.->D
+
+	subgraph gurka
+	C>Korv]-->D(Fisk)
+	end
+```
