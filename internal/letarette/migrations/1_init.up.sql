@@ -2,21 +2,16 @@ create table if not exists spaces(
     spaceID integer primary key,
     space text not null unique,
 
-    -- timestamp of where we are in the index update process
-    lastUpdate datetime not null,
+    -- index position timestamp
+    lastUpdatedAtNanos integer not null,
+    -- index position documentID
+    lastUpdatedDocID text not null default "",
+
     -- interest list creation timestamp
-    listCreatedAt datetime,
-    -- range of updated entries on interest list
-    listUpdateStart datetime,
-    listUpdateEnd datetime,
-    chunkSize integer not null,
-    -- offset into documents starting with the same timestamp
-    chunkStart integer not null
+    listCreatedAtNanos integer not null default 0,
 
     check(
-        listUpdateStart <= listCreatedAt and
-        listUpdateEnd <= listCreatedAt and
-        lastUpdate <= listCreatedAt
+        lastUpdatedAtNanos <= listCreatedAtNanos
     )
 );
 
@@ -28,7 +23,30 @@ create table if not exists interest(
     foreign key (spaceID) references spaces(spaceID)
 );
 
-create virtual table if not exists docs using fts5(
-    txt, spaceID unindexed, docID unindexed, updated unindexed,
+create table if not exists docs(
+    id integer primary key,
+    spaceID integer not null,
+    docID text not null,
+    updatedNanos integer not null,
+    txt text not null,
+    unique(spaceID, docID)
+    foreign key (spaceID) references spaces(spaceID)
+);
+
+create virtual table if not exists fts using fts5(
+    txt, content='docs', content_rowid='id',
     tokenize="porter unicode61 tokenchars '#'"
 );
+
+create trigger docs_ai after insert on docs begin
+    insert into fts(rowid, txt) values (new.id, new.txt);
+end;
+
+create trigger docs_ad after delete on docs begin
+    insert into fts(fts, rowid, txt) values ('delete', old.id, old.txt);
+end;
+
+create trigger docs_au after update on docs begin
+    insert into fts(fts, rowid, txt) values ('delete', old.id, old.txt);
+    insert into fts(rowid, txt) values (new.id, new.txt);
+end;

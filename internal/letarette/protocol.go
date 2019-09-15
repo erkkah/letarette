@@ -16,12 +16,12 @@ type IndexStatus struct {
 
 // IndexUpdateRequest is a request for available updates.
 // Returns up to 'Limit' document IDs, updated at or later than
-// the specified time.
+// the specified document or timestamp.
 type IndexUpdateRequest struct {
-	Space       string
-	UpdateStart time.Time
-	Start       uint64
-	Limit       uint16
+	Space         string
+	StartTime     time.Time
+	StartDocument DocumentID
+	Limit         uint16
 }
 
 // IndexUpdate is a list of updated IDs, sent in response to

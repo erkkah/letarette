@@ -1,6 +1,7 @@
 package letarette
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -24,23 +25,21 @@ func (idx *indexer) Close() {
 	<-idx.closer
 }
 
-func (idx *indexer) requestNextChunk(space string) error {
+func (idx *indexer) commitFetched(space string) error {
+	return fmt.Errorf("koko")
+}
 
+func (idx *indexer) requestNextChunk(space string) error {
 	topic := idx.cfg.Nats.Topic + ".index.request"
 	state, err := idx.db.getInterestListState(space)
 	if err != nil {
 		return err
 	}
-	chunkStart := uint64(0)
-	if state.UpdateStart == state.UpdateEnd {
-		chunkStart = state.ChunkStart + uint64(state.ChunkSize)
-		idx.db.setChunkStart(space, chunkStart)
-	}
 	updateRequest := IndexUpdateRequest{
-		Space:       space,
-		UpdateStart: state.UpdateEnd,
-		Start:       chunkStart,
-		Limit:       idx.cfg.Index.ChunkSize,
+		Space:         space,
+		StartTime:     state.lastUpdatedTime(),
+		StartDocument: state.LastUpdatedDocID,
+		Limit:         idx.cfg.Index.ChunkSize,
 	}
 	err = idx.conn.Publish(topic, updateRequest)
 	return err
@@ -94,6 +93,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 						}
 					}
 					if allServed {
+						self.commitFetched(space)
 						self.requestNextChunk(space)
 					}
 				}

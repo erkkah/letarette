@@ -52,6 +52,121 @@ func TestOpen(t *testing.T) {
 	}
 }
 
+func TestAddDocument_EmptyDocument(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	doc := Document{}
+	err := setup.db.addDocumentUpdate(doc)
+	if err == nil {
+		t.Errorf("Adding empty document should fail")
+	}
+}
+
+func TestAddDocument_NewDocument(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	doc := Document{
+		Space:   "test",
+		ID:      "myID",
+		Updated: time.Now(),
+		Text:    "tjo och hej",
+		Alive:   true,
+	}
+	err := setup.db.addDocumentUpdate(doc)
+	if err != nil {
+		t.Errorf("Failed to add new document: %v", err)
+	}
+}
+
+func TestCommitInterestList_Empty(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	err := setup.db.commitInterestList("test")
+	if err != nil {
+		t.Errorf("Failed to commit empty list: %v", err)
+	}
+}
+
+func TestCommitInterestList_NonEmptyNoUpdates(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	beforeState, err := setup.db.getInterestListState("test")
+	if err != nil {
+		t.Errorf("Failed to get list state: %v", err)
+	}
+
+	list := []DocumentID{"bello", "koko"}
+
+	err = setup.db.setInterestList("test", list)
+	if err != nil {
+		t.Errorf("Setting interest list failed: %v", err)
+	}
+
+	err = setup.db.commitInterestList("test")
+	if err != nil {
+		t.Errorf("Failed to commit list: %v", err)
+	}
+
+	afterState, err := setup.db.getInterestListState("test")
+	if err != nil {
+		t.Errorf("Failed to get list state: %v", err)
+	}
+
+	if beforeState.LastUpdated != afterState.LastUpdated {
+		t.Errorf("Expected untouched state")
+	}
+	if beforeState.LastUpdatedDocID != afterState.LastUpdatedDocID {
+		t.Errorf("Expected untouched state")
+	}
+}
+
+func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	list := []DocumentID{"bello", "koko"}
+	docTime := time.Now()
+	docID := DocumentID("koko")
+	doc := Document{
+		Space:   "test",
+		ID:      docID,
+		Updated: docTime,
+		Text:    "tjo och hej",
+		Alive:   true,
+	}
+
+	err := setup.db.setInterestList("test", list)
+	if err != nil {
+		t.Errorf("Setting interest list failed: %v", err)
+	}
+
+	err = setup.db.addDocumentUpdate(doc)
+	if err != nil {
+		t.Errorf("Failed to add document: %v", err)
+	}
+
+	err = setup.db.commitInterestList("test")
+	if err != nil {
+		t.Errorf("Failed to commit list: %v", err)
+	}
+
+	afterState, err := setup.db.getInterestListState("test")
+	if err != nil {
+		t.Errorf("Failed to get list state: %v", err)
+	}
+
+	if docTime.UnixNano() != afterState.LastUpdated {
+		t.Errorf("Expected last updated to be %v, was %v", docTime.UnixNano(), afterState.LastUpdated)
+	}
+	if docID != afterState.LastUpdatedDocID {
+		t.Errorf("Expected last updated ID to be %v, was %v", docID, afterState.LastUpdatedDocID)
+	}
+}
+
 func TestGetLastUpdateTime_ExistingSpace(t *testing.T) {
 	then := time.Unix(1, 0)
 	setup := getTestSetup(t)
@@ -73,35 +188,6 @@ func TestGetLastUpdateTime_NonExistingSpace(t *testing.T) {
 	_, err := setup.db.getLastUpdateTime("popowkqd")
 	if err == nil {
 		t.Errorf("Fetching last update time for unknown space should fail!")
-	}
-}
-
-func TestSetLastUpdateTime_NonExistingSpace(t *testing.T) {
-	setup := getTestSetup(t)
-	defer setup.cleanup()
-
-	err := setup.db.setLastUpdateTime("popowkqd", time.Now())
-	if err == nil {
-		t.Errorf("Setting last update time for unknown space should fail!")
-	}
-}
-
-func TestSetLastUpdateTime_ExistingSpace(t *testing.T) {
-	setup := getTestSetup(t)
-	defer setup.cleanup()
-
-	theTime := time.Now()
-	err := setup.db.setLastUpdateTime("test", theTime)
-	if err != nil {
-		t.Errorf("Failed to set last update time: %v", err)
-	}
-
-	readTime, err := setup.db.getLastUpdateTime("test")
-	if err != nil {
-		t.Errorf("Failed to read back last update time: %v", err)
-	}
-	if !readTime.Equal(theTime) {
-		t.Errorf("Read back time value differs (%v != %v)", theTime, readTime)
 	}
 }
 

@@ -5,7 +5,6 @@ package letarette
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"path/filepath"
 	"strings"
 	"time"
@@ -18,17 +17,25 @@ import (
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 )
 
+// Interest represents one row in the interest list
 type Interest struct {
 	DocID  DocumentID `db:"docID"`
 	Served bool
 }
 
+// InterestListState keeps track of where the index process is
 type InterestListState struct {
-	CreatedAt   time.Time `db:"listCreatedAt"`
-	UpdateStart time.Time `db:"listUpdateStart"`
-	UpdateEnd   time.Time `db:"listUpdateEnd"`
-	ChunkStart  uint64    `db:"chunkStart"`
-	ChunkSize   uint16    `db:"chunkSize"`
+	CreatedAt        int64      `db:"listCreatedAtNanos"`
+	LastUpdated      int64      `db:"lastUpdatedAtNanos"`
+	LastUpdatedDocID DocumentID `db:"lastUpdatedDocID"`
+}
+
+func (state InterestListState) lastUpdatedTime() time.Time {
+	return time.Unix(0, state.LastUpdated)
+}
+
+func (state InterestListState) createdAtTime() time.Time {
+	return time.Unix(0, state.CreatedAt)
 }
 
 // Database is a live connection to a SQLite database file,
@@ -37,14 +44,14 @@ type Database interface {
 	Close()
 	GetRawDB() *sql.DB
 
+	addDocumentUpdate(doc Document) error
+	commitInterestList(space string) error
 	getLastUpdateTime(string) (time.Time, error)
-	setLastUpdateTime(string, time.Time) error
 
 	setInterestList(string, []DocumentID) error
 	getInterestList(string) ([]Interest, error)
 
 	getInterestListState(string) (InterestListState, error)
-	setChunkStart(space string, start uint64) error
 }
 
 type database struct {
@@ -68,19 +75,101 @@ func (db *database) Close() {
 }
 
 func (db *database) getLastUpdateTime(space string) (t time.Time, err error) {
-	err = db.db.Get(&t, "select lastUpdate from spaces where space = ?", space)
+	var timestampNanos int64
+	err = db.db.Get(&timestampNanos, "select lastUpdatedAtNanos from spaces where space = ?", space)
+	t = time.Unix(0, timestampNanos)
 	return
 }
 
-func (db *database) setLastUpdateTime(space string, t time.Time) error {
-	res, err := db.db.Exec("update spaces set lastUpdate = ? where space = ?", t, space)
+func (db *database) addDocumentUpdate(doc Document) error {
+	spaceID, err := db.getSpaceID(doc.Space)
+	if err != nil {
+		return err
+	}
+
+	tx, err := db.db.Beginx()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+
+	res, err := tx.Exec(`replace into docs (spaceID, docID, updatedNanos, txt) values (?, ?, ?, ?)`,
+		spaceID, doc.ID, doc.Updated.UnixNano(), doc.Text)
+
+	if err != nil {
+		return fmt.Errorf("Failed to update doc: %w", err)
+	}
+
+	updatedRows, _ := res.RowsAffected()
+	if updatedRows != 1 {
+		return fmt.Errorf("Failed to update index, no rows affected")
+	}
+
+	_, err = tx.Exec(`update interest set served=1 where spaceID=? and docID=?`, spaceID, doc.ID)
+
+	if err != nil {
+		return fmt.Errorf("Failed to update interest list: %w", err)
+	}
+
+	err = tx.Commit()
+	if err == nil {
+		tx = nil
+	}
+
+	return err
+}
+
+func (db *database) commitInterestList(space string) error {
+	tx, err := db.db.Beginx()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var indexPosition struct {
+		Updated int64      `db:"updatedNanos"`
+		DocID   DocumentID `db:"docID"`
+	}
+
+	err = tx.Get(&indexPosition, `
+		with listState as (
+			select listCreatedAtNanos from spaces where space = ?
+		)
+		select docs.updatedNanos, docs.docID from interest left join docs using(docID)
+		cross join listState
+		where interest.served and docs.updatedNanos < listState.listCreatedAtNanos limit 1;`, space)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return err
+	}
+
+	res, err := tx.Exec("update spaces set lastUpdatedAtNanos = ?, lastUpdatedDocID = ? where space = ?",
+		indexPosition.Updated, indexPosition.DocID, space)
 	if err != nil {
 		return err
 	}
 
 	count, _ := res.RowsAffected()
 	if count != 1 {
-		err = fmt.Errorf("Failed to set update time for space %q", space)
+		err = fmt.Errorf("Failed to update index position for space %q", space)
+		return err
+	}
+
+	err = tx.Commit()
+	if err == nil {
+		tx = nil
 	}
 
 	return err
@@ -88,18 +177,24 @@ func (db *database) setLastUpdateTime(space string, t time.Time) error {
 
 func (db *database) getInterestListState(space string) (state InterestListState, err error) {
 	err = db.db.Get(&state,
-		`select listCreatedAt, listUpdatedStart, listUpdateEnd, chunkStart from spaces where space = ?`, space)
+		`select listCreatedAtNanos, lastUpdatedAtNanos, lastUpdatedDocID from spaces where space = ?`, space)
 	return
 }
 
-func (db *database) setChunkStart(space string, start uint64) error {
-	_, err := db.db.Exec("update spaces set chunkStart = ? where space = ?", start, space)
-	return err
+func (db *database) getSpaceID(space string) (int, error) {
+	var spaceID int
+	err := db.db.Get(&spaceID, `select spaceID from spaces where space = ?`, space)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			err = fmt.Errorf("No such space, %v", space)
+		}
+		return -1, err
+	}
+	return spaceID, nil
 }
 
 func (db *database) getInterestList(space string) (result []Interest, err error) {
-	var spaceID int
-	err = db.db.Get(&spaceID, `select spaceID from spaces where space = ?`, space)
+	spaceID, err := db.getSpaceID(space)
 	if err != nil {
 		return
 	}
@@ -151,17 +246,16 @@ func (db *database) setInterestList(space string, list []DocumentID) error {
 			return err
 		}
 	}
+
+	now := time.Now().UnixNano()
+
 	_, err = tx.NamedExec(`
-		update spaces set
-			listCreatedAt = datetime('now'),
-			listUpdateStart = 0,
-			listUpdateEnd = 0,
-			chunkSize = :chunkSize
+		update spaces set listCreatedAtNanos = :now
 		where spaceID = :spaceID`,
 
 		map[string]interface{}{
-			"spaceID":   spaceID,
-			"chunkSize": len(list),
+			"spaceID": spaceID,
+			"now":     now,
 		})
 	if err != nil {
 		return err
@@ -172,13 +266,6 @@ func (db *database) setInterestList(space string, list []DocumentID) error {
 
 func (db *database) GetRawDB() *sql.DB {
 	return db.db.DB
-}
-
-func createOrDie(db *sqlx.DB, sql string) {
-	_, err := db.Exec(sql)
-	if err != nil {
-		log.Panicf("Failed to create table: %v", err)
-	}
 }
 
 func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
@@ -207,7 +294,7 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 
 	for _, space := range spaces {
 
-		createSpace := `insert into spaces (space, lastUpdate, chunkStart, chunkSize) values(?, 0, 0, 0) on conflict do nothing`
+		createSpace := `insert into spaces (space, lastUpdatedAtNanos) values(?, 0) on conflict do nothing`
 		_, err := db.Exec(createSpace, space)
 		if err != nil {
 			return fmt.Errorf("Failed to create space table: %w", err)
