@@ -31,6 +31,8 @@ type InterestListState struct {
 	ChunkSize   uint16    `db:"chunkSize"`
 }
 
+// Database is a live connection to a SQLite database file,
+// providing access methods for all db interactions.
 type Database interface {
 	Close()
 	GetRawDB() *sql.DB
@@ -49,6 +51,8 @@ type database struct {
 	db *sqlx.DB
 }
 
+// OpenDatabase connects to a new or existing database and
+// migrates the database up to the latest version.
 func OpenDatabase(cfg Config) (Database, error) {
 	db, err := openDatabase(cfg)
 	if err != nil {
@@ -203,7 +207,7 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 
 	for _, space := range spaces {
 
-		createSpace := `insert into spaces (space, lastUpdate, chunkStart, chunkSize) values(?, 0, 0, 0)`
+		createSpace := `insert into spaces (space, lastUpdate, chunkStart, chunkSize) values(?, 0, 0, 0) on conflict do nothing`
 		_, err := db.Exec(createSpace, space)
 		if err != nil {
 			return fmt.Errorf("Failed to create space table: %w", err)
