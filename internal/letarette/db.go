@@ -1,13 +1,21 @@
 package letarette
 
+//go:generate go-bindata -pkg $GOPACKAGE -o migrations.go migrations/
+
 import (
 	"database/sql"
 	"fmt"
 	"log"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // Load SQLite driver
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3" // Load SQLite migration driver
+	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 )
 
 type Interest struct {
@@ -169,68 +177,58 @@ func createOrDie(db *sqlx.DB, sql string) {
 	}
 }
 
-func initDB(db *sqlx.DB, spaces []string) {
-	createMeta := `create table if not exists meta (version, updated)`
-	createOrDie(db, createMeta)
+func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
+	migrations, err := AssetDir("migrations")
+	if err != nil {
+		return err
+	}
+	res := bindata.Resource(migrations, func(name string) ([]byte, error) {
+		return Asset("migrations/" + name)
+	})
 
-	createSpaces := `create table if not exists spaces(
-		spaceID integer primary key,
-		space text not null unique,
+	driver, err := bindata.WithInstance(res)
+	if err != nil {
+		return err
+	}
 
-		-- timestamp of where we are in the index update process
-		lastUpdate datetime not null,
-		-- interest list creation timestamp
-		listCreatedAt datetime,
-		-- range of updated entries on interest list
-		listUpdateStart datetime,
-		listUpdateEnd datetime,
-		chunkSize integer not null,
-		-- offset into documents starting with the same timestamp
-		chunkStart integer not null
+	m, err := migrate.NewWithSourceInstance("go-bindata", driver, "sqlite3://"+sqliteURL)
+	if err != nil {
+		return err
+	}
 
-		check(
-			listUpdateStart <= listCreatedAt and
-			listUpdateEnd <= listCreatedAt and
-			lastUpdate <= listCreatedAt
-		)
-	)`
-	createOrDie(db, createSpaces)
-
-	createInterest := `create table if not exists interest(
-		spaceID integer not null,
-		docID text not null,
-		served integer not null,
-		unique(spaceID, docID)
-		foreign key (spaceID) references spaces(spaceID)
-	)`
-	createOrDie(db, createInterest)
+	err = m.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		return err
+	}
 
 	for _, space := range spaces {
-		indexTable := fmt.Sprintf(`space_%v`, space)
-		createIndex := fmt.Sprintf(
-			`create virtual table if not exists %q using fts5(
-				txt, updated unindexed, docID unindexed,
-				tokenize="porter unicode61 tokenchars '#'"
-			);`, indexTable)
-		createOrDie(db, createIndex)
 
 		createSpace := `insert into spaces (space, lastUpdate, chunkStart, chunkSize) values(?, 0, 0, 0)`
 		_, err := db.Exec(createSpace, space)
 		if err != nil {
-			log.Panicf("Failed to create space table: %v", err)
+			return fmt.Errorf("Failed to create space table: %w", err)
 		}
 	}
+
+	return nil
 }
 
 func openDatabase(cfg Config) (db *sqlx.DB, err error) {
-	db, err = sqlx.Connect("sqlite3", cfg.Db.Path)
+	abspath, err := filepath.Abs(cfg.Db.Path)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get absolute path to DB: %w", err)
+	}
+	escapedPath := strings.Replace(abspath, " ", "%20", -1)
+	sqliteURL := fmt.Sprintf("file:%s?_journal=WAL", escapedPath)
+
+	db, err = sqlx.Connect("sqlite3", sqliteURL)
 	if err != nil {
 		return
 	}
 	spaces := cfg.Index.Spaces
 	if len(spaces) < 1 {
-		log.Panicf("No spaces defined: %v", spaces)
+		return nil, fmt.Errorf("No spaces defined: %v", spaces)
 	}
-	initDB(db, spaces)
+	err = initDB(db, sqliteURL, spaces)
 	return
 }
