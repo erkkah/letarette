@@ -1,1 +1,0 @@
-go test --tags "fts5" github.com/erkkah/letarette/internal/letarette
