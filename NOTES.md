@@ -101,20 +101,9 @@ Nodes periodically request updates from the document manager using the following
 	that is less than the listCreationTime and use that document ID and timestamp as the new index position.
 5. Repeat
 
+> Note that using only timestamps and offsets for interest lists which start and end with the same timestamp can cause the indexer to miss documents if documents are on the list are updated during indexing. Using index position by document ID + timestamp will instead cause overfetching when that happens.
+
 ### Searching
 
 Document collections can be sharded by different nodes as long as
 strict ordering can be guaranteed.
-
-```mermaid
-graph TB
-	subgraph apa
-	A((Hoho))-->B{koko}
-	end
-
-	A.->D
-
-	subgraph gurka
-	C>Korv]-->D(Fisk)
-	end
-```

@@ -1,7 +1,6 @@
 package letarette
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -26,7 +25,7 @@ func (idx *indexer) Close() {
 }
 
 func (idx *indexer) commitFetched(space string) error {
-	return fmt.Errorf("koko")
+	return idx.db.commitInterestList(space)
 }
 
 func (idx *indexer) requestNextChunk(space string) error {
@@ -47,7 +46,6 @@ func (idx *indexer) requestNextChunk(space string) error {
 
 func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 	ec, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
-	defer ec.Close()
 
 	closer := make(chan bool, 1)
 	self := &indexer{
@@ -58,9 +56,12 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 	}
 
 	ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *DocumentUpdate) {
-		// for each updated document:
-		//	mark the corresponding interest list entry as served
-		//	update the index table with the document
+		for _, doc := range update.Documents {
+			err := db.addDocumentUpdate(doc)
+			if err != nil {
+				log.Printf("Failed to add document update: %v", err)
+			}
+		}
 	})
 
 	ec.Subscribe(cfg.Nats.Topic+".index.update", func(update *IndexUpdate) {
@@ -71,14 +72,11 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 	})
 
 	go func() {
-		// for ever:
-		//  while interest list is not served
-		//	 request documents and wait
-		//   if no updates within given window, re-request
-		//
-		//	update last update time and chunk index
-		//	get a new interest list
+		defer ec.Close()
+
 		log.Println("Indexer starting")
+
+		chunkStarts := map[string]time.Time{}
 		for {
 			for _, space := range cfg.Index.Spaces {
 				interests, err := db.getInterestList(space)
@@ -93,8 +91,31 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 						}
 					}
 					if allServed {
-						self.commitFetched(space)
-						self.requestNextChunk(space)
+						err = self.commitFetched(space)
+						if err != nil {
+							log.Printf("Failed to commit docs: %v", err)
+							continue
+						}
+
+						err = self.requestNextChunk(space)
+						if err != nil {
+							log.Printf("Failed to request next chunk: %v", err)
+							continue
+						}
+
+						chunkStarts[space] = time.Now()
+					} else {
+						chunkStart, exists := chunkStarts[space]
+						if !exists {
+							log.Print("Invalid indexer state, no chunk start!")
+							continue
+						}
+
+						waitTime := time.Now().Sub(chunkStart)
+						if waitTime > time.Second*time.Duration(cfg.Index.MaxDocumentWaitSeconds) {
+							self.requestNextChunk(space)
+							chunkStart = time.Now()
+						}
 					}
 				}
 			}

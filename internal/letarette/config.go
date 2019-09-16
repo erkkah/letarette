@@ -15,8 +15,9 @@ type Config struct {
 		Path string
 	}
 	Index struct {
-		Spaces    []string
-		ChunkSize uint16
+		Spaces                 []string
+		ChunkSize              uint16
+		MaxDocumentWaitSeconds uint16
 	}
 }
 
@@ -32,5 +33,6 @@ func LoadConfig(configFile string) (cfg Config, err error) {
 	err = tree.Unmarshal(&cfg)
 	// ??? Validate space names!
 	// ??? Validate chunk size!
+	// ??? Validate wait time!
 	return
 }

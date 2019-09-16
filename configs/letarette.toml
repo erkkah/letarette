@@ -11,3 +11,5 @@ path = "./letarette.db"
 
 [index]
 spaces = ["pieces", "users"]
+chunksize = 150
+maxdocumentwaitseconds = 5
