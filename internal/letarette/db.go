@@ -15,19 +15,21 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3" // Load SQLite migration driver
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
+
+	"github.com/erkkah/letarette/pkg/protocol"
 )
 
 // Interest represents one row in the interest list
 type Interest struct {
-	DocID  DocumentID `db:"docID"`
+	DocID  protocol.DocumentID `db:"docID"`
 	Served bool
 }
 
 // InterestListState keeps track of where the index process is
 type InterestListState struct {
-	CreatedAt        int64      `db:"listCreatedAtNanos"`
-	LastUpdated      int64      `db:"lastUpdatedAtNanos"`
-	LastUpdatedDocID DocumentID `db:"lastUpdatedDocID"`
+	CreatedAt        int64               `db:"listCreatedAtNanos"`
+	LastUpdated      int64               `db:"lastUpdatedAtNanos"`
+	LastUpdatedDocID protocol.DocumentID `db:"lastUpdatedDocID"`
 }
 
 func (state InterestListState) lastUpdatedTime() time.Time {
@@ -44,11 +46,11 @@ type Database interface {
 	Close()
 	GetRawDB() *sql.DB
 
-	addDocumentUpdate(doc Document) error
+	addDocumentUpdate(doc protocol.Document) error
 	commitInterestList(space string) error
 	getLastUpdateTime(string) (time.Time, error)
 
-	setInterestList(string, []DocumentID) error
+	setInterestList(string, []protocol.DocumentID) error
 	getInterestList(string) ([]Interest, error)
 
 	getInterestListState(string) (InterestListState, error)
@@ -81,7 +83,7 @@ func (db *database) getLastUpdateTime(space string) (t time.Time, err error) {
 	return
 }
 
-func (db *database) addDocumentUpdate(doc Document) error {
+func (db *database) addDocumentUpdate(doc protocol.Document) error {
 	spaceID, err := db.getSpaceID(doc.Space)
 	if err != nil {
 		return err
@@ -137,8 +139,8 @@ func (db *database) commitInterestList(space string) error {
 	}()
 
 	var indexPosition struct {
-		Updated int64      `db:"updatedNanos"`
-		DocID   DocumentID `db:"docID"`
+		Updated int64               `db:"updatedNanos"`
+		DocID   protocol.DocumentID `db:"docID"`
 	}
 
 	err = tx.Get(&indexPosition, `
@@ -215,7 +217,7 @@ func (db *database) getInterestList(space string) (result []Interest, err error)
 	return
 }
 
-func (db *database) setInterestList(space string, list []DocumentID) error {
+func (db *database) setInterestList(space string, list []protocol.DocumentID) error {
 	tx, err := db.db.Beginx()
 	defer func() {
 		if err != nil {

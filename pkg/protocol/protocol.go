@@ -1,4 +1,4 @@
-package letarette
+package protocol
 
 import (
 	"time"

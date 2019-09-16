@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/nats-io/go-nats"
+
+	"github.com/erkkah/letarette/pkg/protocol"
 )
 
 type Indexer interface {
@@ -34,7 +36,7 @@ func (idx *indexer) requestNextChunk(space string) error {
 	if err != nil {
 		return err
 	}
-	updateRequest := IndexUpdateRequest{
+	updateRequest := protocol.IndexUpdateRequest{
 		Space:         space,
 		StartTime:     state.lastUpdatedTime(),
 		StartDocument: state.LastUpdatedDocID,
@@ -55,7 +57,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 		db:     db,
 	}
 
-	ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *DocumentUpdate) {
+	ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *protocol.DocumentUpdate) {
 		for _, doc := range update.Documents {
 			err := db.addDocumentUpdate(doc)
 			if err != nil {
@@ -64,7 +66,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 		}
 	})
 
-	ec.Subscribe(cfg.Nats.Topic+".index.update", func(update *IndexUpdate) {
+	ec.Subscribe(cfg.Nats.Topic+".index.update", func(update *protocol.IndexUpdate) {
 		err := db.setInterestList(update.Space, update.Updates)
 		if err != nil {
 			log.Printf("Failed to set interest list: %v", err)
@@ -72,8 +74,6 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 	})
 
 	go func() {
-		defer ec.Close()
-
 		log.Println("Indexer starting")
 
 		chunkStarts := map[string]time.Time{}
