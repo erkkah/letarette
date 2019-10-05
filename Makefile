@@ -6,6 +6,9 @@ worker: generate
 util: generate
 	go build -v --tags "fts5" ./cmd/util
 
+tinysrv: client
+	go build -v ./cmd/tinysrv
+
 client:
 	go build -v ./pkg/client
 

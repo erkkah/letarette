@@ -1,6 +1,7 @@
 package letarette
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -46,6 +47,22 @@ func (idx *indexer) requestNextChunk(space string) error {
 	return err
 }
 
+func (idx *indexer) requestDocuments(space string, wanted []protocol.DocumentID) error {
+	topic := idx.cfg.Nats.Topic + ".document.request"
+	request := protocol.DocumentRequest{
+		Space:  space,
+		Wanted: wanted,
+	}
+	for _, docID := range wanted {
+		err := idx.db.setInterestState(space, docID, requested)
+		if err != nil {
+			return fmt.Errorf("Failed to update interest state: %w", err)
+		}
+	}
+	err := idx.conn.Publish(topic, request)
+	return err
+}
+
 func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 	ec, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 
@@ -83,14 +100,39 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 				if err != nil {
 					log.Printf("Failed to fetch current interest list: %v", err)
 				} else {
-					allServed := true
+
+					numPending := 0
+					numRequested := 0
+					numServed := 0
+					pendingIDs := []protocol.DocumentID{}
+					const maxOutstanding = 5
+
 					for _, interest := range interests {
-						if !interest.Served {
-							allServed = false
-							break
+						switch interest.State {
+						case served:
+							numServed++
+						case pending:
+							numPending++
+							pendingIDs = append(pendingIDs, interest.DocID)
+						case requested:
+							numRequested++
 						}
 					}
-					if allServed {
+
+					docsToRequest := min(numPending, maxOutstanding-numRequested)
+					if docsToRequest > 0 {
+						err = self.requestDocuments(space, pendingIDs[:docsToRequest])
+						if err != nil {
+							log.Printf("Failed to request documents: %v", err)
+						}
+					}
+
+					allServed := numServed > 0 && numPending == 0 && numRequested == 0
+					start, found := chunkStarts[space]
+					timeout := 100 * time.Millisecond
+
+					if !found || allServed || start.Add(timeout).After(time.Now()) {
+
 						err = self.commitFetched(space)
 						if err != nil {
 							log.Printf("Failed to commit docs: %v", err)
@@ -104,18 +146,6 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 						}
 
 						chunkStarts[space] = time.Now()
-					} else {
-						chunkStart, exists := chunkStarts[space]
-						if !exists {
-							log.Print("Invalid indexer state, no chunk start!")
-							continue
-						}
-
-						waitTime := time.Now().Sub(chunkStart)
-						if waitTime > time.Second*time.Duration(cfg.Index.MaxDocumentWaitSeconds) {
-							self.requestNextChunk(space)
-							chunkStart = time.Now()
-						}
 					}
 				}
 			}
@@ -125,7 +155,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 				log.Println("Indexer exiting")
 				closer <- true
 				return
-			case <-time.After(10 * time.Second):
+			case <-time.After(250 * time.Millisecond):
 			}
 		}
 

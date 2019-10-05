@@ -5,6 +5,7 @@ package letarette
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,10 +20,19 @@ import (
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
+// InterestState represents the state of an interest
+type InterestState int
+
+const (
+	pending InterestState = iota
+	requested
+	served
+)
+
 // Interest represents one row in the interest list
 type Interest struct {
-	DocID  protocol.DocumentID `db:"docID"`
-	Served bool
+	DocID protocol.DocumentID `db:"docID"`
+	State InterestState
 }
 
 // InterestListState keeps track of where the index process is
@@ -52,6 +62,7 @@ type Database interface {
 
 	setInterestList(string, []protocol.DocumentID) error
 	getInterestList(string) ([]Interest, error)
+	setInterestState(string, protocol.DocumentID, InterestState) error
 
 	getInterestListState(string) (InterestListState, error)
 }
@@ -100,6 +111,7 @@ func (db *database) addDocumentUpdate(doc protocol.Document) error {
 		}
 	}()
 
+	log.Printf("Inserting doc from %v\n", doc.Updated.String())
 	res, err := tx.Exec(`replace into docs (spaceID, docID, updatedNanos, txt) values (?, ?, ?, ?)`,
 		spaceID, doc.ID, doc.Updated.UnixNano(), doc.Text)
 
@@ -112,7 +124,7 @@ func (db *database) addDocumentUpdate(doc protocol.Document) error {
 		return fmt.Errorf("Failed to update index, no rows affected")
 	}
 
-	_, err = tx.Exec(`update interest set served=1 where spaceID=? and docID=?`, spaceID, doc.ID)
+	_, err = tx.Exec(`update interest set state=? where spaceID=? and docID=?`, served, spaceID, doc.ID)
 
 	if err != nil {
 		return fmt.Errorf("Failed to update interest list: %w", err)
@@ -149,7 +161,9 @@ func (db *database) commitInterestList(space string) error {
 		)
 		select docs.updatedNanos, docs.docID from interest left join docs using(docID)
 		cross join listState
-		where interest.served and docs.updatedNanos < listState.listCreatedAtNanos limit 1;`, space)
+		where interest.state = ? and docs.updatedNanos < listState.listCreatedAtNanos
+		order by docs.updatedNanos desc, docs.docID
+		limit 1;`, space, served)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil
@@ -201,7 +215,7 @@ func (db *database) getInterestList(space string) (result []Interest, err error)
 		return
 	}
 	rows, err := db.db.Queryx(`
-		select docID, served from interest
+		select docID, state from interest
 		where spaceID = ?`, spaceID)
 	if err != nil {
 		return
@@ -231,19 +245,23 @@ func (db *database) setInterestList(space string, list []protocol.DocumentID) er
 		return err
 	}
 	var interestCount int
-	err = tx.Get(&interestCount, `select count(*) from interest where spaceID = ?`, spaceID)
+	err = tx.Get(&interestCount, `select count(*) from interest where spaceID = ? and state <> ?`, spaceID, served)
 	if err != nil {
 		return err
 	}
 	if interestCount != 0 {
-		return fmt.Errorf("Cannot overwrite current interest list")
+		return fmt.Errorf("Cannot overwrite active interest list")
 	}
-	st, err := tx.Preparex(`insert into interest (spaceID, docID, served) values(?, ?, 0)`)
+	_, err = tx.Exec(`delete from interest where spaceID = ?`, spaceID)
+	if err != nil {
+		return err
+	}
+	st, err := tx.Preparex(`insert into interest (spaceID, docID, state) values(?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	for _, docID := range list {
-		_, err := st.Exec(spaceID, docID)
+		_, err := st.Exec(spaceID, docID, pending)
 		if err != nil {
 			return err
 		}
@@ -263,6 +281,16 @@ func (db *database) setInterestList(space string, list []protocol.DocumentID) er
 		return err
 	}
 	err = tx.Commit()
+	return err
+}
+
+func (db *database) setInterestState(space string, docID protocol.DocumentID, state InterestState) error {
+	spaceID, err := db.getSpaceID(space)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.db.Exec("update interest set state = ? where spaceID=? and docID=?", state, spaceID, docID)
 	return err
 }
 

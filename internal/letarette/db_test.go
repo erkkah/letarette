@@ -7,6 +7,8 @@ import (
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/erkkah/letarette/pkg/protocol"
 )
 
 type testSetup struct {
@@ -56,7 +58,7 @@ func TestAddDocument_EmptyDocument(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	doc := Document{}
+	doc := protocol.Document{}
 	err := setup.db.addDocumentUpdate(doc)
 	if err == nil {
 		t.Errorf("Adding empty document should fail")
@@ -67,7 +69,7 @@ func TestAddDocument_NewDocument(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	doc := Document{
+	doc := protocol.Document{
 		Space:   "test",
 		ID:      "myID",
 		Updated: time.Now(),
@@ -99,7 +101,7 @@ func TestCommitInterestList_NonEmptyNoUpdates(t *testing.T) {
 		t.Errorf("Failed to get list state: %v", err)
 	}
 
-	list := []DocumentID{"bello", "koko"}
+	list := []protocol.DocumentID{"bello", "koko"}
 
 	err = setup.db.setInterestList("test", list)
 	if err != nil {
@@ -128,10 +130,10 @@ func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	list := []DocumentID{"bello", "koko"}
+	list := []protocol.DocumentID{"bello", "koko"}
 	docTime := time.Now()
-	docID := DocumentID("koko")
-	doc := Document{
+	docID := protocol.DocumentID("koko")
+	doc := protocol.Document{
 		Space:   "test",
 		ID:      docID,
 		Updated: docTime,
@@ -218,7 +220,7 @@ func TestSetInterestList_NonexistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	err := setup.db.setInterestList("kawonka", []DocumentID{"koko"})
+	err := setup.db.setInterestList("kawonka", []protocol.DocumentID{"koko"})
 	if err == nil {
 		t.Errorf("Setting interest list for nonexisting space should fail!")
 	}
@@ -228,7 +230,7 @@ func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	list := []DocumentID{"bello", "koko"}
+	list := []protocol.DocumentID{"bello", "koko"}
 
 	err := setup.db.setInterestList("test", list)
 	if err != nil {
@@ -244,7 +246,7 @@ func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
 	})
 
 	for i, interest := range fetchedSlice {
-		if interest.Served {
+		if interest.State == served {
 			t.Errorf("New interest should be unserved")
 		}
 		if interest.DocID != list[i] {
@@ -257,7 +259,7 @@ func TestSetInterestList_CurrentListNonEmpty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	list := [2]DocumentID{"bello", "koko"}
+	list := [2]protocol.DocumentID{"bello", "koko"}
 
 	err := setup.db.setInterestList("test", list[:])
 	if err != nil {
