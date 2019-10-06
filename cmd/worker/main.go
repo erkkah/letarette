@@ -39,7 +39,10 @@ func main() {
 	}
 	defer db.Close()
 
-	indexer := letarette.StartIndexer(conn, db, cfg)
+	indexer, err := letarette.StartIndexer(conn, db, cfg)
+	if err != nil {
+		log.Panicf("Failed to start indexer: %v", err)
+	}
 	searcher := letarette.StartSearcher(conn, db, cfg)
 
 	signals := make(chan os.Signal, 1)

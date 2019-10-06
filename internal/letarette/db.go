@@ -114,9 +114,13 @@ func (db *database) addDocumentUpdate(doc protocol.Document) error {
 		}
 	}()
 
-	log.Printf("Inserting doc from %v\n", doc.Updated.String())
-	res, err := tx.Exec(`replace into docs (spaceID, docID, updatedNanos, txt) values (?, ?, ?, ?)`,
-		spaceID, doc.ID, doc.Updated.UnixNano(), doc.Text)
+	txt := ""
+	if doc.Alive {
+		txt = doc.Text
+	}
+	log.Printf("Updating doc %v@%v, alive=%v\n", doc.ID, doc.Updated.String(), doc.Alive)
+	res, err := tx.Exec(`replace into docs (spaceID, docID, updatedNanos, txt, alive) values (?, ?, ?, ?, ?)`,
+		spaceID, doc.ID, doc.Updated.UnixNano(), txt, doc.Alive)
 
 	if err != nil {
 		return fmt.Errorf("Failed to update doc: %w", err)
@@ -362,7 +366,7 @@ func openDatabase(cfg Config) (db *sqlx.DB, err error) {
 		return nil, fmt.Errorf("Failed to get absolute path to DB: %w", err)
 	}
 	escapedPath := strings.Replace(abspath, " ", "%20", -1)
-	sqliteURL := fmt.Sprintf("file:%s?_journal=WAL", escapedPath)
+	sqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true", escapedPath)
 
 	db, err = sqlx.Connect("sqlite3", sqliteURL)
 	if err != nil {

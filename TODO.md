@@ -1,14 +1,17 @@
 ## TODO
 
-* Handle when doc server does not return certain documents
 * Add config for all timeouts
 * Add config for maxOutstanding, et.c.
+* Add to tinysrv
+    * auto non-response for docs
 * Handle index deletions
+* Handle when doc server does not return certain documents
+ * Mark as "stale" and continue
 * Add context handling to all call flows
 * Filter existing documents in document requests
-* check sqlite compress extension
-* Move to higher precision timestamps in db
-* Move to sqlx for simplified db code
-* Add database version check
 * Add config validation
 * Move space init (cfg->db) from db init
+* Optionally run in contentless mode
+* Add simple in-mem query cache
+* Make DocumentManager split too large doc responses
+* Add metrics

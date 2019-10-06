@@ -85,17 +85,22 @@ func sortIndex() {
 	})
 }
 
-func updateRandomDocument() {
+func updateRandomDocument(delete bool) {
 	updateIx := rand.Intn(len(ix))
 	ixEntry := ix[updateIx]
 	updateTime := time.Now()
 
-	log.Printf("Updating doc %v @ %v\n", ixEntry, updateTime)
+	msg := "Updating"
+	if delete {
+		msg = "Deleting"
+	}
+	log.Printf("%s doc %v @ %v\n", msg, ixEntry.id, updateTime)
 
 	ix[updateIx].date = updateTime
 
 	dbEntry := db[ixEntry.id]
 	dbEntry.Date = updateTime
+	dbEntry.alive = !delete
 	db[ixEntry.id] = dbEntry
 
 	sortIndex()
@@ -160,15 +165,22 @@ func fetchByReference(startDocument protocol.DocumentID, startTime time.Time, li
 var updateFreq = 0 * time.Second
 var lastUpdate = time.Now()
 
+var deleteFreq = 0 * time.Second
+var lastDelete = time.Now()
+
 func handleIndexRequest(req protocol.IndexUpdateRequest) (protocol.IndexUpdate, error) {
-	log.Println("Received index request")
 	if req.Space != space {
 		return protocol.IndexUpdate{}, fmt.Errorf("Space %v not in db", req.Space)
 	}
 
 	if updateFreq != 0 && time.Now().After(lastUpdate.Add(updateFreq)) {
 		lastUpdate = time.Now()
-		updateRandomDocument()
+		updateRandomDocument(false)
+	}
+
+	if deleteFreq != 0 && time.Now().After(lastDelete.Add(deleteFreq)) {
+		lastDelete = time.Now()
+		updateRandomDocument(true)
 	}
 
 	updates := []protocol.DocumentID{}
@@ -184,14 +196,16 @@ func handleIndexRequest(req protocol.IndexUpdateRequest) (protocol.IndexUpdate, 
 		refEntry, found := db[entryID]
 		if !found {
 			// invalid index state, log
+			log.Printf("Unexpected index state, doc %v not found\n", req.StartDocument)
 			updates = fetchByTime(req.StartTime, req.Limit)
 		} else {
 			if refEntry.Date.After(req.StartTime) {
 				// entry updated, only use date
 				updates = fetchByTime(req.StartTime, req.Limit)
 			} else if refEntry.Date.Before(req.StartTime) {
-				log.Printf("Unexpected index state: %v, %v\n", refEntry.Date.String(), req.StartTime.String())
-				// invalid index state, log and ignore
+				log.Printf("Unexpected index state doc %v@%v has index time %v\n",
+					req.StartDocument, refEntry.Date.String(), req.StartTime.String())
+				updates = fetchByTime(req.StartTime, req.Limit)
 			} else {
 				// use ref entry
 				updates = fetchByReference(req.StartDocument, req.StartTime, req.Limit)
@@ -205,13 +219,16 @@ func handleIndexRequest(req protocol.IndexUpdateRequest) (protocol.IndexUpdate, 
 }
 
 func entryToDocument(id protocol.DocumentID, e entry) protocol.Document {
-	return protocol.Document{
+	doc := protocol.Document{
 		Space:   space,
 		ID:      id,
 		Updated: e.Date,
-		Text:    e.Title + "\n" + e.Text,
-		Alive:   true,
+		Alive:   e.alive,
 	}
+	if e.alive {
+		doc.Text = e.Title + "\n" + e.Text
+	}
+	return doc
 }
 
 func deadDocument(id protocol.DocumentID) protocol.Document {
@@ -223,7 +240,6 @@ func deadDocument(id protocol.DocumentID) protocol.Document {
 }
 
 func handleDocumentRequest(req protocol.DocumentRequest) (protocol.DocumentUpdate, error) {
-	log.Println("Received document request")
 	if req.Space != space {
 		return protocol.DocumentUpdate{}, fmt.Errorf("Space %v not in db", req.Space)
 	}
@@ -248,10 +264,12 @@ func main() {
 	usage := `Tiny JSON document server
 
 Usage:
-	tinysrv SPACE DBFILE [-u SECS]
+	tinysrv SPACE DBFILE [-n URL] [-u SECS] [-d SECS]
 
 Options:
+	-n URL		NATS url to connect to, defaults to nats://localhost:4222
 	-u SECS		Auto-update random documents every SECS second
+	-d SECS		Auto-delete random documents every SECS second
 	`
 	args, _ := docopt.Parse(usage, nil, true, "Tiny JSON document server", false)
 
@@ -261,7 +279,13 @@ Options:
 	if u := args["-u"]; u != nil {
 		secs, _ := strconv.Atoi(u.(string))
 		updateFreq = time.Second * time.Duration(secs)
-		log.Printf("Auto-updating every %v second\n", secs)
+		log.Printf("Auto-updating every %v second(s)\n", secs)
+	}
+
+	if d := args["-d"]; d != nil {
+		secs, _ := strconv.Atoi(d.(string))
+		deleteFreq = time.Second * time.Duration(secs)
+		log.Printf("Auto-deleting every %v second(s)\n", secs)
 	}
 
 	log.Println("Loading...")
@@ -275,13 +299,11 @@ Options:
 
 	log.Printf("%v items loaded", len(db))
 
-	/*
-		for _, e := range ix[0:100] {
-			log.Printf("%v: %v\n", e.id, e.date.String())
-		}
-	*/
-
 	url := "nats://localhost:4222"
+	if n := args["-n"]; n != nil {
+		url = n.(string)
+	}
+
 	ehandler := func(err error) {
 		log.Printf("%v\n", err)
 	}

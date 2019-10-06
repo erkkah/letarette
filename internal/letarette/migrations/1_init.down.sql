@@ -2,4 +2,6 @@ drop table spaces;
 
 drop table interest;
 
-drop table index;
+drop table docs;
+
+drop table fts;

@@ -2,6 +2,8 @@
 // sources:
 // migrations/1_init.down.sql
 // migrations/1_init.up.sql
+// migrations/2_alive.down.sql
+// migrations/2_alive.up.sql
 // DO NOT EDIT!
 
 package letarette
@@ -69,7 +71,7 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
-var _migrations1_initDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x4a\x29\xca\x2f\x50\x28\x49\x4c\xca\x49\x55\x28\x2e\x48\x4c\x4e\x2d\xb6\xe6\xe2\x42\x12\xcb\xcc\x2b\x49\x2d\x4a\x2d\x2e\x41\x17\x4d\x49\xad\xb0\xe6\x02\x04\x00\x00\xff\xff\x30\xf9\xb9\x2a\x3c\x00\x00\x00")
+var _migrations1_initDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x4a\x29\xca\x2f\x50\x28\x49\x4c\xca\x49\x55\x28\x2e\x48\x4c\x4e\x2d\xb6\xe6\xe2\x42\x12\xcb\xcc\x2b\x49\x2d\x4a\x2d\x2e\x41\x15\x4d\xc9\x4f\x46\x53\x97\x56\x52\x6c\xcd\x05\x08\x00\x00\xff\xff\x40\xc9\x79\xc7\x4c\x00\x00\x00")
 
 func migrations1_initDownSqlBytes() ([]byte, error) {
 	return bindataRead(
@@ -84,7 +86,7 @@ func migrations1_initDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "migrations/1_init.down.sql", size: 60, mode: os.FileMode(436), modTime: time.Unix(1568555670, 0)}
+	info := bindataFileInfo{name: "migrations/1_init.down.sql", size: 76, mode: os.FileMode(436), modTime: time.Unix(1570371832, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -105,6 +107,46 @@ func migrations1_initUpSql() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "migrations/1_init.up.sql", size: 1455, mode: os.FileMode(436), modTime: time.Unix(1569874825, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _migrations2_aliveDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x04\xc0\x51\x0a\x02\x20\x0c\x06\xe0\xf7\x4e\xf1\x23\xc8\x0a\xa2\x0b\x74\x98\x58\xfa\x0b\xc2\x74\xa0\xab\x5e\x3c\x7c\x9f\x5a\x70\x21\xf4\x6d\x44\xf5\xb2\xb1\x38\x75\x10\xc5\xed\x33\x26\xd4\xfa\x97\x08\x47\xaa\x34\x06\xeb\x2b\xe1\x1c\xec\x58\x2d\xfa\xe0\x55\xf2\x7e\xe4\x26\x77\x99\xfe\x93\xdb\xf3\xf2\x0f\x00\x00\xff\xff\xcf\xb9\xfa\x8c\x4f\x00\x00\x00")
+
+func migrations2_aliveDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations2_aliveDownSql,
+		"migrations/2_alive.down.sql",
+	)
+}
+
+func migrations2_aliveDownSql() (*asset, error) {
+	bytes, err := migrations2_aliveDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/2_alive.down.sql", size: 79, mode: os.FileMode(436), modTime: time.Unix(1570372608, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _migrations2_aliveUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x04\xc0\xd1\x09\xc3\x40\x0c\x03\xd0\xff\x4e\xa1\x3d\x3a\x8d\xee\xac\x42\x41\xb1\xe1\x62\x67\xfe\x3c\xba\x75\xd0\x5c\x16\xa2\xf6\x0d\x46\x60\x97\xe7\x4a\xd0\xff\x47\x58\x55\x16\x13\x59\x8d\x1c\x1b\xa1\x1f\xc7\x8d\x3e\xa3\xef\xe7\x0d\x00\x00\xff\xff\x4e\xaf\xf6\xd8\x41\x00\x00\x00")
+
+func migrations2_aliveUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations2_aliveUpSql,
+		"migrations/2_alive.up.sql",
+	)
+}
+
+func migrations2_aliveUpSql() (*asset, error) {
+	bytes, err := migrations2_aliveUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/2_alive.up.sql", size: 65, mode: os.FileMode(436), modTime: time.Unix(1570371967, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -163,6 +205,8 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"migrations/1_init.down.sql": migrations1_initDownSql,
 	"migrations/1_init.up.sql": migrations1_initUpSql,
+	"migrations/2_alive.down.sql": migrations2_aliveDownSql,
+	"migrations/2_alive.up.sql": migrations2_aliveUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -208,6 +252,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"migrations": &bintree{nil, map[string]*bintree{
 		"1_init.down.sql": &bintree{migrations1_initDownSql, map[string]*bintree{}},
 		"1_init.up.sql": &bintree{migrations1_initUpSql, map[string]*bintree{}},
+		"2_alive.down.sql": &bintree{migrations2_aliveDownSql, map[string]*bintree{}},
+		"2_alive.up.sql": &bintree{migrations2_aliveUpSql, map[string]*bintree{}},
 	}},
 }}
 
