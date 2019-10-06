@@ -104,7 +104,7 @@ func (db *database) addDocumentUpdate(ctx context.Context, doc protocol.Document
 		return err
 	}
 
-	tx, err := db.db.Beginx()
+	tx, err := db.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (db *database) addDocumentUpdate(ctx context.Context, doc protocol.Document
 }
 
 func (db *database) commitInterestList(ctx context.Context, space string) error {
-	tx, err := db.db.Beginx()
+	tx, err := db.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -261,7 +261,7 @@ func (db *database) resetRequested(ctx context.Context, space string) error {
 }
 
 func (db *database) setInterestList(ctx context.Context, space string, list []protocol.DocumentID) error {
-	tx, err := db.db.Beginx()
+	tx, err := db.db.BeginTxx(ctx, nil)
 	defer func() {
 		if err != nil {
 			tx.Rollback()
