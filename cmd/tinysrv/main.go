@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"sort"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/docopt/docopt-go"
@@ -111,7 +112,6 @@ func fetchInitial(limit uint16) []protocol.DocumentID {
 	for _, v := range ix[:limit] {
 		result = append(result, protocol.DocumentID(strconv.Itoa(v.id)))
 	}
-	log.Printf("Initial: %v\n", result)
 	return result
 }
 
@@ -248,7 +248,11 @@ func handleDocumentRequest(req protocol.DocumentRequest) (protocol.DocumentUpdat
 	for _, v := range req.Wanted {
 		entryID, _ := strconv.Atoi(string(v))
 		doc, found := db[entryID]
-		log.Printf("Found doc from %v\n", doc.Date.String())
+
+		if config.Verbose {
+			log.Printf("Found doc from %v\n", doc.Date.String())
+		}
+
 		if found {
 			docs = append(docs, entryToDocument(v, doc))
 		} else {
@@ -260,36 +264,52 @@ func handleDocumentRequest(req protocol.DocumentRequest) (protocol.DocumentUpdat
 	}, nil
 }
 
+var config struct {
+	Space      string        `docopt:"<space>"`
+	DBFile     string        `docopt:"<dbfile>"`
+	NatsURL    string        `docopt:"-n"`
+	UpdateFreq time.Duration `docopt:"-u"`
+	DeleteFreq time.Duration `docopt:"-d"`
+	Verbose    bool          `docopt:"-v"`
+}
+
 func main() {
-	usage := `Tiny JSON document server
+	usage := `Tiny JSON document server.
 
 Usage:
-	tinysrv SPACE DBFILE [-n URL] [-u SECS] [-d SECS]
+    tinysrv [-n <url>] [-u <secs>] [-d <secs>] [-v] <space> <dbfile>
 
 Options:
-	-n URL		NATS url to connect to, defaults to nats://localhost:4222
-	-u SECS		Auto-update random documents every SECS second
-	-d SECS		Auto-delete random documents every SECS second
-	`
-	args, _ := docopt.Parse(usage, nil, true, "Tiny JSON document server", false)
+    -n <url>    NATS url to connect to [default: nats://localhost:4222]
+    -u <secs>   Auto-update random documents every SECS second
+    -d <secs>   Auto-delete random documents every SECS second
+    -v          Verbose
+`
 
-	space = args["SPACE"].(string)
-	dbFile := args["DBFILE"].(string)
-
-	if u := args["-u"]; u != nil {
-		secs, _ := strconv.Atoi(u.(string))
-		updateFreq = time.Second * time.Duration(secs)
-		log.Printf("Auto-updating every %v second(s)\n", secs)
+	args, err := docopt.ParseDoc(usage)
+	if err != nil {
+		log.Panicf("Failed to parse args: %v", err)
+	}
+	err = args.Bind(&config)
+	if err != nil {
+		log.Panicf("Failed to bind args: %v", err)
 	}
 
-	if d := args["-d"]; d != nil {
-		secs, _ := strconv.Atoi(d.(string))
-		deleteFreq = time.Second * time.Duration(secs)
-		log.Printf("Auto-deleting every %v second(s)\n", secs)
+	space = config.Space
+	dbFile := config.DBFile
+
+	if config.UpdateFreq != 0 {
+		updateFreq = config.UpdateFreq * time.Second
+		log.Printf("Auto-updating every %v\n", updateFreq)
+	}
+
+	if config.DeleteFreq != 0 {
+		deleteFreq = config.DeleteFreq * time.Second
+		log.Printf("Auto-deleting every %v\n", deleteFreq)
 	}
 
 	log.Println("Loading...")
-	err := loadDatabase(dbFile)
+	err = loadDatabase(dbFile)
 	if err != nil {
 		log.Panicf("Failed to load db: %v", err)
 	}
@@ -299,15 +319,10 @@ Options:
 
 	log.Printf("%v items loaded", len(db))
 
-	url := "nats://localhost:4222"
-	if n := args["-n"]; n != nil {
-		url = n.(string)
-	}
-
 	ehandler := func(err error) {
 		log.Printf("%v\n", err)
 	}
-	mgr, err := client.StartDocumentManager(url, client.WithErrorHandler(ehandler))
+	mgr, err := client.StartDocumentManager(config.NatsURL, client.WithErrorHandler(ehandler))
 	if err != nil {
 		log.Panicf("Failed to start document manager: %v", err)
 	}
@@ -317,7 +332,7 @@ Options:
 	mgr.StartDocumentRequestHandler(handleDocumentRequest)
 
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals)
+	signal.Notify(signals, syscall.SIGINT)
 
 	select {
 	case s := <-signals:

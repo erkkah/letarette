@@ -50,9 +50,8 @@ func main() {
 	searcher := letarette.StartSearcher(conn, db, cfg)
 
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals)
+	signal.Notify(signals, syscall.SIGINT)
 
-	signal.Reset(syscall.SIGHUP)
 	sighup := make(chan os.Signal, 1)
 	signal.Notify(sighup, syscall.SIGHUP)
 
