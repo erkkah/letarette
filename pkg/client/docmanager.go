@@ -69,13 +69,13 @@ func (m *manager) Close() {
 }
 
 func (m *manager) StartIndexRequestHandler(handler IndexRequestHandler) {
-	m.conn.Subscribe(m.topic+".index.request", func(req *protocol.IndexUpdateRequest) {
+	m.conn.Subscribe(m.topic+".index.request", func(sub, reply string, req *protocol.IndexUpdateRequest) {
 		update, err := handler(*req)
 		if err != nil {
 			m.onError(err)
 			return
 		}
-		err = m.conn.Publish(m.topic+".index.update", update)
+		err = m.conn.Publish(reply, update)
 		if err != nil {
 			m.onError(err)
 		}

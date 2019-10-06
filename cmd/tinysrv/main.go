@@ -95,7 +95,8 @@ func fetchByTime(startTime time.Time, limit uint16) []protocol.DocumentID {
 	})
 
 	result := []protocol.DocumentID{}
-	for _, v := range ix[startIndex : startIndex+int(limit)] {
+	end := min(len(ix), startIndex+int(limit))
+	for _, v := range ix[startIndex:end] {
 		result = append(result, protocol.DocumentID(strconv.Itoa(v.id)))
 	}
 	return result

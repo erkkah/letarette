@@ -25,8 +25,6 @@ The following sub topics are used:
     >Query request. Sent from search client. Fastest worker to respond wins.
 - leta.status:
     >Worker status request. All workers respond with their individual status.
-- leta.index.update
-    >Index update. Sent from document master in response to an index request.
 - leta.index.status:
     >Index status request. Sent from worker to document master to get current state of the source.
 - leta.index.request:

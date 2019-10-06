@@ -60,6 +60,9 @@ type Database interface {
 	commitInterestList(space string) error
 	getLastUpdateTime(string) (time.Time, error)
 
+	clearInterestList(string) error
+	resetRequested(string) error
+
 	setInterestList(string, []protocol.DocumentID) error
 	getInterestList(string) ([]Interest, error)
 	setInterestState(string, protocol.DocumentID, InterestState) error
@@ -229,6 +232,25 @@ func (db *database) getInterestList(space string) (result []Interest, err error)
 		result = append(result, interest)
 	}
 	return
+}
+
+func (db *database) clearInterestList(space string) error {
+	spaceID, err := db.getSpaceID(space)
+	if err != nil {
+		return err
+	}
+	_, err = db.db.Exec(`delete from interest where spaceID = ?`, spaceID)
+	return err
+}
+
+func (db *database) resetRequested(space string) error {
+	spaceID, err := db.getSpaceID(space)
+	if err != nil {
+		return err
+	}
+	_, err = db.db.Exec(`update interest set state = ? where state = ? and spaceID = ?`,
+		pending, requested, spaceID)
+	return err
 }
 
 func (db *database) setInterestList(space string, list []protocol.DocumentID) error {

@@ -1,6 +1,7 @@
 package letarette
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -31,7 +32,7 @@ func (idx *indexer) commitFetched(space string) error {
 	return idx.db.commitInterestList(space)
 }
 
-func (idx *indexer) requestNextChunk(space string) error {
+func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 	topic := idx.cfg.Nats.Topic + ".index.request"
 	state, err := idx.db.getInterestListState(space)
 	if err != nil {
@@ -43,7 +44,18 @@ func (idx *indexer) requestNextChunk(space string) error {
 		StartDocument: state.LastUpdatedDocID,
 		Limit:         idx.cfg.Index.ChunkSize,
 	}
-	err = idx.conn.Publish(topic, updateRequest)
+	timeout, cancel := context.WithTimeout(ctx, time.Millisecond*5000)
+
+	var update protocol.IndexUpdate
+	err = idx.conn.RequestWithContext(timeout, topic, updateRequest, &update)
+	cancel()
+
+	if err != nil {
+		return err
+	}
+
+	err = idx.db.setInterestList(update.Space, update.Updates)
+
 	return err
 }
 
@@ -64,6 +76,13 @@ func (idx *indexer) requestDocuments(space string, wanted []protocol.DocumentID)
 }
 
 func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
+	for _, space := range cfg.Index.Spaces {
+		err := db.clearInterestList(space)
+		if err != nil {
+			log.Panicf("Failed to clear interest list: %v", err)
+		}
+	}
+
 	ec, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 
 	closer := make(chan bool, 1)
@@ -83,17 +102,12 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 		}
 	})
 
-	ec.Subscribe(cfg.Nats.Topic+".index.update", func(update *protocol.IndexUpdate) {
-		err := db.setInterestList(update.Space, update.Updates)
-		if err != nil {
-			log.Printf("Failed to set interest list: %v", err)
-		}
-	})
-
 	go func() {
 		log.Println("Indexer starting")
 
 		chunkStarts := map[string]time.Time{}
+		mainContext, cancel := context.WithCancel(context.Background())
+		var lastDocumentRequest time.Time
 		for {
 			for _, space := range cfg.Index.Spaces {
 				interests, err := db.getInterestList(space)
@@ -105,7 +119,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 					numRequested := 0
 					numServed := 0
 					pendingIDs := []protocol.DocumentID{}
-					const maxOutstanding = 5
+					const maxOutstanding = 10
 
 					for _, interest := range interests {
 						switch interest.State {
@@ -124,14 +138,15 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 						err = self.requestDocuments(space, pendingIDs[:docsToRequest])
 						if err != nil {
 							log.Printf("Failed to request documents: %v", err)
+						} else {
+							lastDocumentRequest = time.Now()
+							numRequested += docsToRequest
 						}
 					}
 
-					allServed := numServed > 0 && numPending == 0 && numRequested == 0
-					start, found := chunkStarts[space]
-					timeout := 100 * time.Millisecond
+					allServed := numPending == 0 && numRequested == 0
 
-					if !found || allServed || start.Add(timeout).After(time.Now()) {
+					if allServed {
 
 						err = self.commitFetched(space)
 						if err != nil {
@@ -139,13 +154,22 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 							continue
 						}
 
-						err = self.requestNextChunk(space)
+						err = self.requestNextChunk(mainContext, space)
 						if err != nil {
 							log.Printf("Failed to request next chunk: %v", err)
 							continue
 						}
 
 						chunkStarts[space] = time.Now()
+					} else {
+						timeout := 2000 * time.Millisecond
+						if time.Now().After(lastDocumentRequest.Add(timeout)) {
+							log.Printf("Timeout waiting for documents, re-requesting")
+							err = db.resetRequested(space)
+							if err != nil {
+								log.Printf("Failed to reset interest list state: %v", err)
+							}
+						}
 					}
 				}
 			}
@@ -153,6 +177,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 			select {
 			case <-closer:
 				log.Println("Indexer exiting")
+				cancel()
 				closer <- true
 				return
 			case <-time.After(250 * time.Millisecond):

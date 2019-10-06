@@ -10,6 +10,6 @@ topic = "leta"
 path = "./letarette.db"
 
 [index]
-spaces = ["pieces", "users"]
-chunksize = 150
+spaces = ["wp"]
+chunksize = 107
 maxdocumentwaitseconds = 5
