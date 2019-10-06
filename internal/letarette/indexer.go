@@ -11,75 +11,19 @@ import (
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
+// Indexer continuously runs the indexing process, until Close is called.
 type Indexer interface {
 	Close()
 }
 
-type indexer struct {
-	closer chan bool
-	cfg    Config
-	conn   *nats.EncodedConn
-	db     Database
-}
-
-func (idx *indexer) Close() {
-	assert(idx.closer != nil, "Indexer close channel is not nil")
-	idx.closer <- true
-	<-idx.closer
-}
-
-func (idx *indexer) commitFetched(space string) error {
-	return idx.db.commitInterestList(space)
-}
-
-func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
-	topic := idx.cfg.Nats.Topic + ".index.request"
-	state, err := idx.db.getInterestListState(space)
-	if err != nil {
-		return err
-	}
-	updateRequest := protocol.IndexUpdateRequest{
-		Space:         space,
-		StartTime:     state.lastUpdatedTime(),
-		StartDocument: state.LastUpdatedDocID,
-		Limit:         idx.cfg.Index.ChunkSize,
-	}
-	timeout, cancel := context.WithTimeout(ctx, time.Millisecond*5000)
-
-	var update protocol.IndexUpdate
-	err = idx.conn.RequestWithContext(timeout, topic, updateRequest, &update)
-	cancel()
-
-	if err != nil {
-		return err
-	}
-
-	err = idx.db.setInterestList(update.Space, update.Updates)
-
-	return err
-}
-
-func (idx *indexer) requestDocuments(space string, wanted []protocol.DocumentID) error {
-	topic := idx.cfg.Nats.Topic + ".document.request"
-	request := protocol.DocumentRequest{
-		Space:  space,
-		Wanted: wanted,
-	}
-	for _, docID := range wanted {
-		err := idx.db.setInterestState(space, docID, requested)
-		if err != nil {
-			return fmt.Errorf("Failed to update interest state: %w", err)
-		}
-	}
-	err := idx.conn.Publish(topic, request)
-	return err
-}
-
-func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
+// StartIndexer creates and starts an indexer instance. This is really a singleton
+// in that only one instance with the same database or config can be run at the
+// same time.
+func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 	for _, space := range cfg.Index.Spaces {
 		err := db.clearInterestList(space)
 		if err != nil {
-			log.Panicf("Failed to clear interest list: %v", err)
+			return nil, fmt.Errorf("Failed to clear interest list: %w", err)
 		}
 	}
 
@@ -135,6 +79,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 
 					docsToRequest := min(numPending, maxOutstanding-numRequested)
 					if docsToRequest > 0 {
+						log.Printf("Requesting %v docs\n", docsToRequest)
 						err = self.requestDocuments(space, pendingIDs[:docsToRequest])
 						if err != nil {
 							log.Printf("Failed to request documents: %v", err)
@@ -180,11 +125,74 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) Indexer {
 				cancel()
 				closer <- true
 				return
-			case <-time.After(250 * time.Millisecond):
+			case <-time.After(100 * time.Millisecond):
 			}
 		}
 
 	}()
 
-	return self
+	return self, nil
+}
+
+type indexer struct {
+	closer chan bool
+	cfg    Config
+	conn   *nats.EncodedConn
+	db     Database
+}
+
+func (idx *indexer) Close() {
+	assert(idx.closer != nil, "Indexer close channel is not nil")
+	idx.closer <- true
+	<-idx.closer
+}
+
+func (idx *indexer) commitFetched(space string) error {
+	return idx.db.commitInterestList(space)
+}
+
+func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
+	topic := idx.cfg.Nats.Topic + ".index.request"
+	state, err := idx.db.getInterestListState(space)
+	if err != nil {
+		return err
+	}
+	updateRequest := protocol.IndexUpdateRequest{
+		Space:         space,
+		StartTime:     state.lastUpdatedTime(),
+		StartDocument: state.LastUpdatedDocID,
+		Limit:         idx.cfg.Index.ChunkSize,
+	}
+	timeout, cancel := context.WithTimeout(ctx, time.Millisecond*5000)
+
+	var update protocol.IndexUpdate
+	err = idx.conn.RequestWithContext(timeout, topic, updateRequest, &update)
+	cancel()
+
+	if err != nil {
+		return err
+	}
+
+	if len(update.Updates) > 0 {
+		log.Printf("Received interest list of %v docs\n", len(update.Updates))
+	}
+	err = idx.db.setInterestList(update.Space, update.Updates)
+
+	return err
+}
+
+func (idx *indexer) requestDocuments(space string, wanted []protocol.DocumentID) error {
+	topic := idx.cfg.Nats.Topic + ".document.request"
+	request := protocol.DocumentRequest{
+		Space:  space,
+		Wanted: wanted,
+	}
+	for _, docID := range wanted {
+		err := idx.db.setInterestState(space, docID, requested)
+		if err != nil {
+			return fmt.Errorf("Failed to update interest state: %w", err)
+		}
+	}
+	err := idx.conn.Publish(topic, request)
+	return err
 }
