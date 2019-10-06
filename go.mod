@@ -1,6 +1,7 @@
 module github.com/erkkah/letarette
 
 require (
+	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/golang-migrate/migrate/v4 v4.6.2
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/mattn/go-sqlite3 v1.10.0

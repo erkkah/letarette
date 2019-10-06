@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/docopt/docopt-go"
 
 	"github.com/erkkah/letarette/pkg/client"
 	"github.com/erkkah/letarette/pkg/protocol"
@@ -20,6 +23,7 @@ type entry struct {
 	Title string    `json:"title"`
 	Text  string    `json:"text"`
 	Date  time.Time `json:"date"`
+	alive bool
 }
 
 type ixentry struct {
@@ -49,6 +53,7 @@ func loadDatabase(objFile string) error {
 			if err != nil {
 				return err
 			}
+			e.alive = true
 			if e.Date.IsZero() {
 				e.Date = time.Now()
 			}
@@ -78,6 +83,22 @@ func sortIndex() {
 		}
 		return first.date.Before(second.date)
 	})
+}
+
+func updateRandomDocument() {
+	updateIx := rand.Intn(len(ix))
+	ixEntry := ix[updateIx]
+	updateTime := time.Now()
+
+	log.Printf("Updating doc %v @ %v\n", ixEntry, updateTime)
+
+	ix[updateIx].date = updateTime
+
+	dbEntry := db[ixEntry.id]
+	dbEntry.Date = updateTime
+	db[ixEntry.id] = dbEntry
+
+	sortIndex()
 }
 
 func fetchInitial(limit uint16) []protocol.DocumentID {
@@ -136,11 +157,20 @@ func fetchByReference(startDocument protocol.DocumentID, startTime time.Time, li
 	return result
 }
 
+var updateFreq = 0 * time.Second
+var lastUpdate = time.Now()
+
 func handleIndexRequest(req protocol.IndexUpdateRequest) (protocol.IndexUpdate, error) {
 	log.Println("Received index request")
 	if req.Space != space {
 		return protocol.IndexUpdate{}, fmt.Errorf("Space %v not in db", req.Space)
 	}
+
+	if updateFreq != 0 && time.Now().After(lastUpdate.Add(updateFreq)) {
+		lastUpdate = time.Now()
+		updateRandomDocument()
+	}
+
 	updates := []protocol.DocumentID{}
 
 	if req.StartDocument == "" {
@@ -215,18 +245,41 @@ func handleDocumentRequest(req protocol.DocumentRequest) (protocol.DocumentUpdat
 }
 
 func main() {
-	space = os.Args[1]
-	dbFile := os.Args[2]
+	usage := `Tiny JSON document server
+
+Usage:
+	tinysrv SPACE DBFILE [-u SECS]
+
+Options:
+	-u SECS		Auto-update random documents every SECS second
+	`
+	args, _ := docopt.Parse(usage, nil, true, "Tiny JSON document server", false)
+
+	space = args["SPACE"].(string)
+	dbFile := args["DBFILE"].(string)
+
+	if u := args["-u"]; u != nil {
+		secs, _ := strconv.Atoi(u.(string))
+		updateFreq = time.Second * time.Duration(secs)
+		log.Printf("Auto-updating every %v second\n", secs)
+	}
+
+	log.Println("Loading...")
 	err := loadDatabase(dbFile)
 	if err != nil {
 		log.Panicf("Failed to load db: %v", err)
 	}
+
+	log.Println("Sorting...")
 	sortIndex()
+
 	log.Printf("%v items loaded", len(db))
 
-	for _, e := range ix[0:100] {
-		log.Printf("%v: %v\n", e.id, e.date.String())
-	}
+	/*
+		for _, e := range ix[0:100] {
+			log.Printf("%v: %v\n", e.id, e.date.String())
+		}
+	*/
 
 	url := "nats://localhost:4222"
 	ehandler := func(err error) {
