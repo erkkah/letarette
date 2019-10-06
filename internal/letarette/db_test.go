@@ -1,6 +1,7 @@
 package letarette
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path"
@@ -58,8 +59,9 @@ func TestAddDocument_EmptyDocument(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	ctx := context.Background()
 	doc := protocol.Document{}
-	err := setup.db.addDocumentUpdate(doc)
+	err := setup.db.addDocumentUpdate(ctx, doc)
 	if err == nil {
 		t.Errorf("Adding empty document should fail")
 	}
@@ -76,7 +78,8 @@ func TestAddDocument_NewDocument(t *testing.T) {
 		Text:    "tjo och hej",
 		Alive:   true,
 	}
-	err := setup.db.addDocumentUpdate(doc)
+	ctx := context.Background()
+	err := setup.db.addDocumentUpdate(ctx, doc)
 	if err != nil {
 		t.Errorf("Failed to add new document: %v", err)
 	}
@@ -86,7 +89,8 @@ func TestCommitInterestList_Empty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	err := setup.db.commitInterestList("test")
+	ctx := context.Background()
+	err := setup.db.commitInterestList(ctx, "test")
 	if err != nil {
 		t.Errorf("Failed to commit empty list: %v", err)
 	}
@@ -96,24 +100,25 @@ func TestCommitInterestList_NonEmptyNoUpdates(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	beforeState, err := setup.db.getInterestListState("test")
+	ctx := context.Background()
+	beforeState, err := setup.db.getInterestListState(ctx, "test")
 	if err != nil {
 		t.Errorf("Failed to get list state: %v", err)
 	}
 
 	list := []protocol.DocumentID{"bello", "koko"}
 
-	err = setup.db.setInterestList("test", list)
+	err = setup.db.setInterestList(ctx, "test", list)
 	if err != nil {
 		t.Errorf("Setting interest list failed: %v", err)
 	}
 
-	err = setup.db.commitInterestList("test")
+	err = setup.db.commitInterestList(ctx, "test")
 	if err != nil {
 		t.Errorf("Failed to commit list: %v", err)
 	}
 
-	afterState, err := setup.db.getInterestListState("test")
+	afterState, err := setup.db.getInterestListState(ctx, "test")
 	if err != nil {
 		t.Errorf("Failed to get list state: %v", err)
 	}
@@ -141,22 +146,23 @@ func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
 		Alive:   true,
 	}
 
-	err := setup.db.setInterestList("test", list)
+	ctx := context.Background()
+	err := setup.db.setInterestList(ctx, "test", list)
 	if err != nil {
 		t.Errorf("Setting interest list failed: %v", err)
 	}
 
-	err = setup.db.addDocumentUpdate(doc)
+	err = setup.db.addDocumentUpdate(ctx, doc)
 	if err != nil {
 		t.Errorf("Failed to add document: %v", err)
 	}
 
-	err = setup.db.commitInterestList("test")
+	err = setup.db.commitInterestList(ctx, "test")
 	if err != nil {
 		t.Errorf("Failed to commit list: %v", err)
 	}
 
-	afterState, err := setup.db.getInterestListState("test")
+	afterState, err := setup.db.getInterestListState(ctx, "test")
 	if err != nil {
 		t.Errorf("Failed to get list state: %v", err)
 	}
@@ -174,7 +180,8 @@ func TestGetLastUpdateTime_ExistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	last, err := setup.db.getLastUpdateTime("test")
+	ctx := context.Background()
+	last, err := setup.db.getLastUpdateTime(ctx, "test")
 	if err != nil {
 		t.Errorf("Failed to get last update time: %v", err)
 	}
@@ -187,7 +194,8 @@ func TestGetLastUpdateTime_NonExistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	_, err := setup.db.getLastUpdateTime("popowkqd")
+	ctx := context.Background()
+	_, err := setup.db.getLastUpdateTime(ctx, "popowkqd")
 	if err == nil {
 		t.Errorf("Fetching last update time for unknown space should fail!")
 	}
@@ -197,7 +205,8 @@ func TestGetInterestList_Empty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	list, err := setup.db.getInterestList("test")
+	ctx := context.Background()
+	list, err := setup.db.getInterestList(ctx, "test")
 	if err != nil {
 		t.Errorf("Failed to get interest list: %v", err)
 	}
@@ -210,7 +219,8 @@ func TestGetInterestList_NonexistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	_, err := setup.db.getInterestList("kawonka")
+	ctx := context.Background()
+	_, err := setup.db.getInterestList(ctx, "kawonka")
 	if err == nil {
 		t.Errorf("Fetching interest list for nonexisting space should fail!")
 	}
@@ -220,7 +230,8 @@ func TestSetInterestList_NonexistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	err := setup.db.setInterestList("kawonka", []protocol.DocumentID{"koko"})
+	ctx := context.Background()
+	err := setup.db.setInterestList(ctx, "kawonka", []protocol.DocumentID{"koko"})
 	if err == nil {
 		t.Errorf("Setting interest list for nonexisting space should fail!")
 	}
@@ -232,12 +243,13 @@ func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
 
 	list := []protocol.DocumentID{"bello", "koko"}
 
-	err := setup.db.setInterestList("test", list)
+	ctx := context.Background()
+	err := setup.db.setInterestList(ctx, "test", list)
 	if err != nil {
 		t.Errorf("Setting interest list failed: %v", err)
 	}
 
-	fetchedSlice, err := setup.db.getInterestList("test")
+	fetchedSlice, err := setup.db.getInterestList(ctx, "test")
 	if err != nil {
 		t.Errorf("Getting interest list failed: %v", err)
 	}
@@ -261,12 +273,13 @@ func TestSetInterestList_CurrentListNonEmpty(t *testing.T) {
 
 	list := [2]protocol.DocumentID{"bello", "koko"}
 
-	err := setup.db.setInterestList("test", list[:])
+	ctx := context.Background()
+	err := setup.db.setInterestList(ctx, "test", list[:])
 	if err != nil {
 		t.Errorf("Setting interest list failed: %v", err)
 	}
 
-	err = setup.db.setInterestList("test", list[:])
+	err = setup.db.setInterestList(ctx, "test", list[:])
 	if err == nil {
 		t.Errorf("Setting interest list with current list should fail!")
 	}

@@ -21,6 +21,7 @@ type Config struct {
 		MaxInterestWait time.Duration `default:"5s"`
 		MaxDocumentWait time.Duration `default:"1s"`
 		CycleWait       time.Duration `default:"100ms"`
+		MaxOutstanding  uint16        `default:"10"`
 	}
 }
 

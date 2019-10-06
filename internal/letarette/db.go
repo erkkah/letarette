@@ -3,6 +3,7 @@ package letarette
 //go:generate go-bindata -pkg $GOPACKAGE -o migrations.go migrations/
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -56,18 +57,18 @@ type Database interface {
 	Close()
 	GetRawDB() *sql.DB
 
-	addDocumentUpdate(doc protocol.Document) error
-	commitInterestList(space string) error
-	getLastUpdateTime(string) (time.Time, error)
+	addDocumentUpdate(ctx context.Context, doc protocol.Document) error
+	commitInterestList(ctx context.Context, space string) error
+	getLastUpdateTime(context.Context, string) (time.Time, error)
 
-	clearInterestList(string) error
-	resetRequested(string) error
+	clearInterestList(context.Context, string) error
+	resetRequested(context.Context, string) error
 
-	setInterestList(string, []protocol.DocumentID) error
-	getInterestList(string) ([]Interest, error)
-	setInterestState(string, protocol.DocumentID, InterestState) error
+	setInterestList(context.Context, string, []protocol.DocumentID) error
+	getInterestList(context.Context, string) ([]Interest, error)
+	setInterestState(context.Context, string, protocol.DocumentID, InterestState) error
 
-	getInterestListState(string) (InterestListState, error)
+	getInterestListState(context.Context, string) (InterestListState, error)
 }
 
 type database struct {
@@ -90,15 +91,15 @@ func (db *database) Close() {
 	db.db.Close()
 }
 
-func (db *database) getLastUpdateTime(space string) (t time.Time, err error) {
+func (db *database) getLastUpdateTime(ctx context.Context, space string) (t time.Time, err error) {
 	var timestampNanos int64
-	err = db.db.Get(&timestampNanos, "select lastUpdatedAtNanos from spaces where space = ?", space)
+	err = db.db.GetContext(ctx, &timestampNanos, "select lastUpdatedAtNanos from spaces where space = ?", space)
 	t = time.Unix(0, timestampNanos)
 	return
 }
 
-func (db *database) addDocumentUpdate(doc protocol.Document) error {
-	spaceID, err := db.getSpaceID(doc.Space)
+func (db *database) addDocumentUpdate(ctx context.Context, doc protocol.Document) error {
+	spaceID, err := db.getSpaceID(ctx, doc.Space)
 	if err != nil {
 		return err
 	}
@@ -119,7 +120,7 @@ func (db *database) addDocumentUpdate(doc protocol.Document) error {
 		txt = doc.Text
 	}
 	log.Printf("Updating doc %v@%v, alive=%v\n", doc.ID, doc.Updated.String(), doc.Alive)
-	res, err := tx.Exec(`replace into docs (spaceID, docID, updatedNanos, txt, alive) values (?, ?, ?, ?, ?)`,
+	res, err := tx.ExecContext(ctx, `replace into docs (spaceID, docID, updatedNanos, txt, alive) values (?, ?, ?, ?, ?)`,
 		spaceID, doc.ID, doc.Updated.UnixNano(), txt, doc.Alive)
 
 	if err != nil {
@@ -131,7 +132,7 @@ func (db *database) addDocumentUpdate(doc protocol.Document) error {
 		return fmt.Errorf("Failed to update index, no rows affected")
 	}
 
-	_, err = tx.Exec(`update interest set state=? where spaceID=? and docID=?`, served, spaceID, doc.ID)
+	_, err = tx.ExecContext(ctx, `update interest set state=? where spaceID=? and docID=?`, served, spaceID, doc.ID)
 
 	if err != nil {
 		return fmt.Errorf("Failed to update interest list: %w", err)
@@ -145,7 +146,7 @@ func (db *database) addDocumentUpdate(doc protocol.Document) error {
 	return err
 }
 
-func (db *database) commitInterestList(space string) error {
+func (db *database) commitInterestList(ctx context.Context, space string) error {
 	tx, err := db.db.Beginx()
 	if err != nil {
 		return err
@@ -162,7 +163,7 @@ func (db *database) commitInterestList(space string) error {
 		DocID   protocol.DocumentID `db:"docID"`
 	}
 
-	err = tx.Get(&indexPosition, `
+	err = tx.GetContext(ctx, &indexPosition, `
 		with listState as (
 			select listCreatedAtNanos from spaces where space = ?
 		)
@@ -178,7 +179,7 @@ func (db *database) commitInterestList(space string) error {
 		return err
 	}
 
-	res, err := tx.Exec("update spaces set lastUpdatedAtNanos = ?, lastUpdatedDocID = ? where space = ?",
+	res, err := tx.ExecContext(ctx, "update spaces set lastUpdatedAtNanos = ?, lastUpdatedDocID = ? where space = ?",
 		indexPosition.Updated, indexPosition.DocID, space)
 	if err != nil {
 		return err
@@ -198,15 +199,15 @@ func (db *database) commitInterestList(space string) error {
 	return err
 }
 
-func (db *database) getInterestListState(space string) (state InterestListState, err error) {
-	err = db.db.Get(&state,
+func (db *database) getInterestListState(ctx context.Context, space string) (state InterestListState, err error) {
+	err = db.db.GetContext(ctx, &state,
 		`select listCreatedAtNanos, lastUpdatedAtNanos, lastUpdatedDocID from spaces where space = ?`, space)
 	return
 }
 
-func (db *database) getSpaceID(space string) (int, error) {
+func (db *database) getSpaceID(ctx context.Context, space string) (int, error) {
 	var spaceID int
-	err := db.db.Get(&spaceID, `select spaceID from spaces where space = ?`, space)
+	err := db.db.GetContext(ctx, &spaceID, `select spaceID from spaces where space = ?`, space)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			err = fmt.Errorf("No such space, %v", space)
@@ -216,14 +217,16 @@ func (db *database) getSpaceID(space string) (int, error) {
 	return spaceID, nil
 }
 
-func (db *database) getInterestList(space string) (result []Interest, err error) {
-	spaceID, err := db.getSpaceID(space)
+func (db *database) getInterestList(ctx context.Context, space string) (result []Interest, err error) {
+	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {
 		return
 	}
-	rows, err := db.db.Queryx(`
+	rows, err := db.db.QueryxContext(ctx,
+		`
 		select docID, state from interest
-		where spaceID = ?`, spaceID)
+		where spaceID = ?
+		`, spaceID)
 	if err != nil {
 		return
 	}
@@ -238,26 +241,26 @@ func (db *database) getInterestList(space string) (result []Interest, err error)
 	return
 }
 
-func (db *database) clearInterestList(space string) error {
-	spaceID, err := db.getSpaceID(space)
+func (db *database) clearInterestList(ctx context.Context, space string) error {
+	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {
 		return err
 	}
-	_, err = db.db.Exec(`delete from interest where spaceID = ?`, spaceID)
+	_, err = db.db.ExecContext(ctx, `delete from interest where spaceID = ?`, spaceID)
 	return err
 }
 
-func (db *database) resetRequested(space string) error {
-	spaceID, err := db.getSpaceID(space)
+func (db *database) resetRequested(ctx context.Context, space string) error {
+	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {
 		return err
 	}
-	_, err = db.db.Exec(`update interest set state = ? where state = ? and spaceID = ?`,
+	_, err = db.db.ExecContext(ctx, `update interest set state = ? where state = ? and spaceID = ?`,
 		pending, requested, spaceID)
 	return err
 }
 
-func (db *database) setInterestList(space string, list []protocol.DocumentID) error {
+func (db *database) setInterestList(ctx context.Context, space string, list []protocol.DocumentID) error {
 	tx, err := db.db.Beginx()
 	defer func() {
 		if err != nil {
@@ -266,28 +269,28 @@ func (db *database) setInterestList(space string, list []protocol.DocumentID) er
 	}()
 
 	var spaceID int
-	err = tx.Get(&spaceID, `select spaceID from spaces where space = ?`, space)
+	err = tx.GetContext(ctx, &spaceID, `select spaceID from spaces where space = ?`, space)
 	if err != nil {
 		return err
 	}
 	var interestCount int
-	err = tx.Get(&interestCount, `select count(*) from interest where spaceID = ? and state <> ?`, spaceID, served)
+	err = tx.GetContext(ctx, &interestCount, `select count(*) from interest where spaceID = ? and state <> ?`, spaceID, served)
 	if err != nil {
 		return err
 	}
 	if interestCount != 0 {
 		return fmt.Errorf("Cannot overwrite active interest list")
 	}
-	_, err = tx.Exec(`delete from interest where spaceID = ?`, spaceID)
+	_, err = tx.ExecContext(ctx, `delete from interest where spaceID = ?`, spaceID)
 	if err != nil {
 		return err
 	}
-	st, err := tx.Preparex(`insert into interest (spaceID, docID, state) values(?, ?, ?)`)
+	st, err := tx.PreparexContext(ctx, `insert into interest (spaceID, docID, state) values(?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	for _, docID := range list {
-		_, err := st.Exec(spaceID, docID, pending)
+		_, err := st.ExecContext(ctx, spaceID, docID, pending)
 		if err != nil {
 			return err
 		}
@@ -295,9 +298,11 @@ func (db *database) setInterestList(space string, list []protocol.DocumentID) er
 
 	now := time.Now().UnixNano()
 
-	_, err = tx.NamedExec(`
+	_, err = tx.NamedExecContext(ctx,
+		`
 		update spaces set listCreatedAtNanos = :now
-		where spaceID = :spaceID`,
+		where spaceID = :spaceID
+		`,
 
 		map[string]interface{}{
 			"spaceID": spaceID,
@@ -310,13 +315,13 @@ func (db *database) setInterestList(space string, list []protocol.DocumentID) er
 	return err
 }
 
-func (db *database) setInterestState(space string, docID protocol.DocumentID, state InterestState) error {
-	spaceID, err := db.getSpaceID(space)
+func (db *database) setInterestState(ctx context.Context, space string, docID protocol.DocumentID, state InterestState) error {
+	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {
 		return err
 	}
 
-	_, err = db.db.Exec("update interest set state = ? where spaceID=? and docID=?", state, spaceID, docID)
+	_, err = db.db.ExecContext(ctx, "update interest set state = ? where spaceID=? and docID=?", state, spaceID, docID)
 	return err
 }
 

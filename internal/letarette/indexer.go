@@ -20,8 +20,9 @@ type Indexer interface {
 // in that only one instance with the same database or config can be run at the
 // same time.
 func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
+
 	for _, space := range cfg.Index.Spaces {
-		err := db.clearInterestList(space)
+		err := db.clearInterestList(context.Background(), space)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to clear interest list: %w", err)
 		}
@@ -39,7 +40,8 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 
 	ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *protocol.DocumentUpdate) {
 		for _, doc := range update.Documents {
-			err := db.addDocumentUpdate(doc)
+			// ??? Timeout?
+			err := db.addDocumentUpdate(context.Background(), doc)
 			if err != nil {
 				log.Printf("Failed to add document update: %v", err)
 			}
@@ -53,7 +55,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		var lastDocumentRequest time.Time
 		for {
 			for _, space := range cfg.Index.Spaces {
-				interests, err := db.getInterestList(space)
+				interests, err := db.getInterestList(mainContext, space)
 				if err != nil {
 					log.Printf("Failed to fetch current interest list: %v", err)
 				} else {
@@ -62,7 +64,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 					numRequested := 0
 					numServed := 0
 					pendingIDs := []protocol.DocumentID{}
-					const maxOutstanding = 10
+					maxOutstanding := int(cfg.Index.MaxOutstanding)
 
 					for _, interest := range interests {
 						switch interest.State {
@@ -79,7 +81,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 					docsToRequest := min(numPending, maxOutstanding-numRequested)
 					if docsToRequest > 0 {
 						log.Printf("Requesting %v docs\n", docsToRequest)
-						err = self.requestDocuments(space, pendingIDs[:docsToRequest])
+						err = self.requestDocuments(mainContext, space, pendingIDs[:docsToRequest])
 						if err != nil {
 							log.Printf("Failed to request documents: %v", err)
 						} else {
@@ -92,7 +94,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 
 					if allServed {
 
-						err = self.commitFetched(space)
+						err = self.commitFetched(mainContext, space)
 						if err != nil {
 							log.Printf("Failed to commit docs: %v", err)
 							continue
@@ -108,7 +110,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 						timeout := cfg.Index.MaxDocumentWait
 						if time.Now().After(lastDocumentRequest.Add(timeout)) {
 							log.Printf("Timeout waiting for documents, re-requesting")
-							err = db.resetRequested(space)
+							err = db.resetRequested(mainContext, space)
 							if err != nil {
 								log.Printf("Failed to reset interest list state: %v", err)
 							}
@@ -145,13 +147,13 @@ func (idx *indexer) Close() {
 	<-idx.closer
 }
 
-func (idx *indexer) commitFetched(space string) error {
-	return idx.db.commitInterestList(space)
+func (idx *indexer) commitFetched(ctx context.Context, space string) error {
+	return idx.db.commitInterestList(ctx, space)
 }
 
 func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 	topic := idx.cfg.Nats.Topic + ".index.request"
-	state, err := idx.db.getInterestListState(space)
+	state, err := idx.db.getInterestListState(ctx, space)
 	if err != nil {
 		return err
 	}
@@ -174,19 +176,19 @@ func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 	if len(update.Updates) > 0 {
 		log.Printf("Received interest list of %v docs\n", len(update.Updates))
 	}
-	err = idx.db.setInterestList(update.Space, update.Updates)
+	err = idx.db.setInterestList(ctx, update.Space, update.Updates)
 
 	return err
 }
 
-func (idx *indexer) requestDocuments(space string, wanted []protocol.DocumentID) error {
+func (idx *indexer) requestDocuments(ctx context.Context, space string, wanted []protocol.DocumentID) error {
 	topic := idx.cfg.Nats.Topic + ".document.request"
 	request := protocol.DocumentRequest{
 		Space:  space,
 		Wanted: wanted,
 	}
 	for _, docID := range wanted {
-		err := idx.db.setInterestState(space, docID, requested)
+		err := idx.db.setInterestState(ctx, space, docID, requested)
 		if err != nil {
 			return fmt.Errorf("Failed to update interest state: %w", err)
 		}
