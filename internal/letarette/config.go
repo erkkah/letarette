@@ -1,36 +1,37 @@
 package letarette
 
 import (
-	"github.com/nats-io/go-nats"
-	"github.com/pelletier/go-toml"
+	"time"
+
+	"github.com/kelseyhightower/envconfig"
 )
 
+// Config holds the main configuration
 type Config struct {
-	Version int `toml:"version"`
-	Nats    struct {
-		URL   string
-		Topic string
+	Nats struct {
+		URL   string `default:"nats://localhost:4222"`
+		Topic string `default:"leta"`
 	}
 	Db struct {
-		Path string
+		Path string `default:"letarette.db"`
 	}
 	Index struct {
-		Spaces                 []string
-		ChunkSize              uint16
-		MaxDocumentWaitSeconds uint16
+		Spaces          []string      `required:"true"`
+		ChunkSize       uint16        `default:"100"`
+		MaxInterestWait time.Duration `default:"5s"`
+		MaxDocumentWait time.Duration `default:"1s"`
+		CycleWait       time.Duration `default:"100ms"`
 	}
 }
 
 func LoadConfig(configFile string) (cfg Config, err error) {
-	cfg.Nats.URL = nats.DefaultURL
-	cfg.Nats.Topic = "leta"
-	cfg.Db.Path = "letarette.db"
+	prefix := "LETARETTE"
+	err = envconfig.Process(prefix, &cfg)
 
-	tree, err := toml.LoadFile(configFile)
 	if err != nil {
-		return
+		envconfig.Usage(prefix, &cfg)
 	}
-	err = tree.Unmarshal(&cfg)
+
 	// ??? Validate space names!
 	// ??? Validate chunk size!
 	// ??? Validate wait time!

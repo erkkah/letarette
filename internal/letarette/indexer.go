@@ -49,7 +49,6 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 	go func() {
 		log.Println("Indexer starting")
 
-		chunkStarts := map[string]time.Time{}
 		mainContext, cancel := context.WithCancel(context.Background())
 		var lastDocumentRequest time.Time
 		for {
@@ -105,9 +104,8 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 							continue
 						}
 
-						chunkStarts[space] = time.Now()
 					} else {
-						timeout := 2000 * time.Millisecond
+						timeout := cfg.Index.MaxDocumentWait
 						if time.Now().After(lastDocumentRequest.Add(timeout)) {
 							log.Printf("Timeout waiting for documents, re-requesting")
 							err = db.resetRequested(space)
@@ -125,7 +123,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 				cancel()
 				closer <- true
 				return
-			case <-time.After(100 * time.Millisecond):
+			case <-time.After(cfg.Index.CycleWait):
 			}
 		}
 
@@ -163,7 +161,7 @@ func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 		StartDocument: state.LastUpdatedDocID,
 		Limit:         idx.cfg.Index.ChunkSize,
 	}
-	timeout, cancel := context.WithTimeout(ctx, time.Millisecond*5000)
+	timeout, cancel := context.WithTimeout(ctx, idx.cfg.Index.MaxInterestWait)
 
 	var update protocol.IndexUpdate
 	err = idx.conn.RequestWithContext(timeout, topic, updateRequest, &update)
