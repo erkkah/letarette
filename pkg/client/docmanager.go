@@ -1,6 +1,8 @@
 package client
 
 import (
+	"fmt"
+
 	"github.com/erkkah/letarette/pkg/protocol"
 	"github.com/nats-io/go-nats"
 )
@@ -89,9 +91,55 @@ func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) {
 			m.onError(err)
 			return
 		}
-		err = m.conn.Publish(m.topic+".document.update", update)
-		if err != nil {
-			m.onError(err)
+		updates := []protocol.DocumentUpdate{update}
+
+		for len(updates) > 0 {
+			current := updates[len(updates)-1]
+			updates = updates[:len(updates)-1]
+
+			err = m.conn.Publish(m.topic+".document.update", current)
+			if err != nil {
+				if err == nats.ErrMaxPayload {
+					length := len(current.Documents)
+					if length > 1 {
+						mid := length / 2
+						updates = append(updates,
+							protocol.DocumentUpdate{
+								Documents: current.Documents[:mid],
+							},
+							protocol.DocumentUpdate{
+								Documents: current.Documents[mid:],
+							},
+						)
+						m.onError(fmt.Errorf("Document list too large, splitting"))
+					} else {
+						doc := current.Documents[0]
+						doc.Text = truncateString(doc.Text, int(m.conn.Conn.MaxPayload()/2))
+						updates = append(updates,
+							protocol.DocumentUpdate{
+								Documents: []protocol.Document{
+									doc,
+								},
+							},
+						)
+						m.onError(fmt.Errorf("Document %v too large, truncating", doc.ID))
+					}
+				} else {
+					m.onError(err)
+				}
+			}
 		}
 	})
+}
+
+func truncateString(long string, max int) string {
+	chars := 0
+	result := long
+	for i := range long {
+		if chars >= max {
+			result = long[:i] + "\u2026" // ellipsis
+		}
+		chars++
+	}
+	return result
 }
