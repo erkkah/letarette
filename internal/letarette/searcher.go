@@ -1,9 +1,9 @@
 package letarette
 
 import (
-	"log"
-
 	"github.com/nats-io/go-nats"
+
+	"github.com/erkkah/letarette/pkg/logger"
 )
 
 type Searcher interface {
@@ -25,7 +25,7 @@ func parseAndExecute(q string) string {
 }
 
 func StartSearcher(nc *nats.Conn, db Database, cfg Config) Searcher {
-	closer := make(chan bool, 1)
+	closer := make(chan bool, 0)
 
 	nc.Subscribe(cfg.Nats.Topic+".q", func(m *nats.Msg) {
 		// Handle query
@@ -36,9 +36,9 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) Searcher {
 
 	go func() {
 		// for ever:
-		log.Println("Searcher starting")
+		logger.Info.Printf("Searcher starting")
 		<-closer
-		log.Println("Searcher exiting")
+		logger.Info.Printf("Searcher exiting")
 		closer <- true
 	}()
 

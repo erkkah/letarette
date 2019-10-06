@@ -3,11 +3,11 @@ package letarette
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/nats-io/go-nats"
 
+	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
@@ -30,7 +30,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 
 	ec, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 
-	closer := make(chan bool, 1)
+	closer := make(chan bool, 0)
 	self := &indexer{
 		closer: closer,
 		cfg:    cfg,
@@ -43,13 +43,13 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 			// ??? Timeout?
 			err := db.addDocumentUpdate(context.Background(), doc)
 			if err != nil {
-				log.Printf("Failed to add document update: %v", err)
+				logger.Error.Printf("Failed to add document update: %v", err)
 			}
 		}
 	})
 
 	go func() {
-		log.Println("Indexer starting")
+		logger.Info.Printf("Indexer starting")
 
 		mainContext, cancel := context.WithCancel(context.Background())
 		var lastDocumentRequest time.Time
@@ -57,7 +57,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 			for _, space := range cfg.Index.Spaces {
 				interests, err := db.getInterestList(mainContext, space)
 				if err != nil {
-					log.Printf("Failed to fetch current interest list: %v", err)
+					logger.Error.Printf("Failed to fetch current interest list: %v", err)
 				} else {
 
 					numPending := 0
@@ -80,10 +80,10 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 
 					docsToRequest := min(numPending, maxOutstanding-numRequested)
 					if docsToRequest > 0 {
-						log.Printf("Requesting %v docs\n", docsToRequest)
+						logger.Info.Printf("Requesting %v docs\n", docsToRequest)
 						err = self.requestDocuments(mainContext, space, pendingIDs[:docsToRequest])
 						if err != nil {
-							log.Printf("Failed to request documents: %v", err)
+							logger.Error.Printf("Failed to request documents: %v", err)
 						} else {
 							lastDocumentRequest = time.Now()
 							numRequested += docsToRequest
@@ -96,23 +96,23 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 
 						err = self.commitFetched(mainContext, space)
 						if err != nil {
-							log.Printf("Failed to commit docs: %v", err)
+							logger.Error.Printf("Failed to commit docs: %v", err)
 							continue
 						}
 
 						err = self.requestNextChunk(mainContext, space)
 						if err != nil {
-							log.Printf("Failed to request next chunk: %v", err)
+							logger.Error.Printf("Failed to request next chunk: %v", err)
 							continue
 						}
 
 					} else {
 						timeout := cfg.Index.MaxDocumentWait
-						if time.Now().After(lastDocumentRequest.Add(timeout)) {
-							log.Printf("Timeout waiting for documents, re-requesting")
+						if timeout != 0 && time.Now().After(lastDocumentRequest.Add(timeout)) {
+							logger.Warning.Printf("Timeout waiting for documents, re-requesting")
 							err = db.resetRequested(mainContext, space)
 							if err != nil {
-								log.Printf("Failed to reset interest list state: %v", err)
+								logger.Error.Printf("Failed to reset interest list state: %v", err)
 							}
 						}
 					}
@@ -121,7 +121,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 
 			select {
 			case <-closer:
-				log.Println("Indexer exiting")
+				logger.Info.Printf("Indexer exiting")
 				cancel()
 				closer <- true
 				return
@@ -174,7 +174,7 @@ func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 	}
 
 	if len(update.Updates) > 0 {
-		log.Printf("Received interest list of %v docs\n", len(update.Updates))
+		logger.Info.Printf("Received interest list of %v docs\n", len(update.Updates))
 	}
 	err = idx.db.setInterestList(ctx, update.Space, update.Updates)
 

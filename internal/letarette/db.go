@@ -6,7 +6,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"path/filepath"
 	"strings"
 	"time"
@@ -119,7 +118,6 @@ func (db *database) addDocumentUpdate(ctx context.Context, doc protocol.Document
 	if doc.Alive {
 		txt = doc.Text
 	}
-	log.Printf("Updating doc %v@%v, alive=%v\n", doc.ID, doc.Updated.String(), doc.Alive)
 	res, err := tx.ExecContext(ctx, `replace into docs (spaceID, docID, updatedNanos, txt, alive) values (?, ?, ?, ?, ?)`,
 		spaceID, doc.ID, doc.Updated.UnixNano(), txt, doc.Alive)
 
@@ -371,7 +369,7 @@ func openDatabase(cfg Config) (db *sqlx.DB, err error) {
 		return nil, fmt.Errorf("Failed to get absolute path to DB: %w", err)
 	}
 	escapedPath := strings.Replace(abspath, " ", "%20", -1)
-	sqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true", escapedPath)
+	sqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_busy_timeout=500&cache=private", escapedPath)
 
 	db, err = sqlx.Connect("sqlite3", sqliteURL)
 	if err != nil {
