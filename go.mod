@@ -9,6 +9,7 @@ require (
 	github.com/nats-io/gnatsd v1.4.1 // indirect
 	github.com/nats-io/go-nats v1.4.0
 	github.com/nats-io/nuid v1.0.0 // indirect
+	github.com/zserge/metric v0.1.0
 )
 
 go 1.13

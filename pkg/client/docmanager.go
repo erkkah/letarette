@@ -22,28 +22,7 @@ type DocumentManager interface {
 	StartDocumentRequestHandler(handler DocumentRequestHandler)
 }
 
-type manager struct {
-	conn    *nats.EncodedConn
-	topic   string
-	onError func(error)
-}
-
-// Option is the option setter interface. See related WithXXX functions.
-type Option func(*manager)
-
-// WithTopic sets the Nats topic instead of the default
-func WithTopic(topic string) Option {
-	return func(m *manager) {
-		m.topic = topic
-	}
-}
-
-// WithErrorHandler sets an error handler instead of the default silent one
-func WithErrorHandler(handler func(error)) Option {
-	return func(m *manager) {
-		m.onError = handler
-	}
-}
+type manager state
 
 // StartDocumentManager creates a DocumentManager and connects to Nats daemon
 func StartDocumentManager(url string, options ...Option) (DocumentManager, error) {
@@ -59,9 +38,7 @@ func StartDocumentManager(url string, options ...Option) (DocumentManager, error
 		onError: func(error) {},
 	}
 
-	for _, option := range options {
-		option(mgr)
-	}
+	(*state)(mgr).apply(options)
 
 	return mgr, nil
 }

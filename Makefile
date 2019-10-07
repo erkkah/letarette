@@ -1,4 +1,4 @@
-all: worker util client
+all: tinysrv worker lrcli client
 
 worker: generate
 	go build -v --tags "fts5" ./cmd/worker
@@ -8,6 +8,9 @@ util: generate
 
 tinysrv: client
 	go build -v ./cmd/tinysrv
+
+lrcli: client
+	go build -v ./cmd/lrcli
 
 client:
 	go build -v ./pkg/client

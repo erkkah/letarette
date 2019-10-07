@@ -81,6 +81,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 					docsToRequest := min(numPending, maxOutstanding-numRequested)
 					if docsToRequest > 0 {
 						logger.Info.Printf("Requesting %v docs\n", docsToRequest)
+						metrics.docRequests.Add(float64(docsToRequest))
 						err = self.requestDocuments(mainContext, space, pendingIDs[:docsToRequest])
 						if err != nil {
 							logger.Error.Printf("Failed to request documents: %v", err)

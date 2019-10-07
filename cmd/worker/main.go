@@ -6,7 +6,6 @@ package main
 */
 
 import (
-	"flag"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,14 +17,13 @@ import (
 )
 
 func main() {
-	conf := flag.String("conf", "letarette.toml", "Configuration TOML file")
-	flag.Parse()
-
-	cfg, err := letarette.LoadConfig(*conf)
+	cfg, err := letarette.LoadConfig()
 	if err != nil {
 		logger.Error.Printf("Failed to load config: %v", err)
 		os.Exit(1)
 	}
+
+	letarette.ExposeMetrics(cfg.MetricsPort)
 
 	logger.Info.Printf("Connecting to nats server at %q\n", cfg.Nats.URL)
 	conn, err := nats.Connect(cfg.Nats.URL)
@@ -47,8 +45,11 @@ func main() {
 		logger.Error.Printf("Failed to start indexer: %v", err)
 		os.Exit(4)
 	}
-	searcher := letarette.StartSearcher(conn, db, cfg)
-
+	searcher, err := letarette.StartSearcher(conn, db, cfg)
+	if err != nil {
+		logger.Error.Printf("Failed to start searcher: %v", err)
+		os.Exit(5)
+	}
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT)
 

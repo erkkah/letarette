@@ -51,3 +51,24 @@ type DocumentRequest struct {
 	Space  string
 	Wanted []DocumentID
 }
+
+// SearchRequest is sent from a search handler to search the index.
+type SearchRequest struct {
+	Spaces []string
+	Query  string
+	Limit  uint16
+}
+
+// SearchResult represents one search hit
+type SearchResult struct {
+	ID         DocumentID
+	Snippet    string
+	MatchStart int
+	MatchEnd   int
+	Rank       float32
+}
+
+// SearchResponse is sent in response to SearchRequest
+type SearchResponse struct {
+	Documents []SearchResult
+}

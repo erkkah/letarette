@@ -108,10 +108,7 @@ func main() {
 	load := flag.String("load", "", "Load entries from file, line by line")
 	match := flag.Bool("match", false, "Read from stdin and match each line")
 
-	conf := flag.String("conf", "letarette.toml", "Configuration TOML file")
-	flag.Parse()
-
-	cfg, err := letarette.LoadConfig(*conf)
+	cfg, err := letarette.LoadConfig()
 	if err != nil {
 		log.Panic("Failed to load config:", err)
 	}

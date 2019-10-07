@@ -17,6 +17,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3" // Load SQLite migration driver
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 
+	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
@@ -68,6 +69,8 @@ type Database interface {
 	setInterestState(context.Context, string, protocol.DocumentID, InterestState) error
 
 	getInterestListState(context.Context, string) (InterestListState, error)
+
+	search(ctx context.Context, phrase string, spaces []string, limit uint16) ([]protocol.SearchResult, error)
 }
 
 type database struct {
@@ -321,6 +324,28 @@ func (db *database) setInterestState(ctx context.Context, space string, docID pr
 
 	_, err = db.db.ExecContext(ctx, "update interest set state = ? where spaceID=? and docID=?", state, spaceID, docID)
 	return err
+}
+
+func (db *database) search(ctx context.Context, phrase string, spaces []string, limit uint16) ([]protocol.SearchResult, error) {
+	const nbsp = "\u00a0"
+	const ellipsis = "\u2026"
+	query := fmt.Sprintf(`
+	select docs.docID as id, snippet(fts, 0, ?, ?, ?, 8) as snippet, rank
+	from fts join docs on fts.rowid = docs.id
+	where fts match "%s" order by rank asc limit ?
+	`, phrase)
+	logger.Debug.Printf("Search query: [%s]", query)
+	var result []protocol.SearchResult
+	err := db.db.SelectContext(ctx, &result, query,
+		nbsp, nbsp, ellipsis, limit)
+
+	for i, v := range result {
+		v.MatchStart = strings.Index(v.Snippet, nbsp)
+		v.MatchEnd = strings.LastIndex(v.Snippet, nbsp)
+		result[i] = v
+	}
+
+	return result, err
 }
 
 func (db *database) GetRawDB() *sql.DB {

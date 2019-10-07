@@ -1,6 +1,7 @@
 package letarette
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -23,9 +24,12 @@ type Config struct {
 		CycleWait       time.Duration `default:"100ms"`
 		MaxOutstanding  uint16        `default:"10"`
 	}
+	MetricsPort uint16 `split_words:"true" default:"8000"`
 }
 
-func LoadConfig(configFile string) (cfg Config, err error) {
+// LoadConfig loads configuration variables from the environment
+// and returns a fully populated Config instance.
+func LoadConfig() (cfg Config, err error) {
 	prefix := "LETARETTE"
 	err = envconfig.Process(prefix, &cfg)
 
@@ -33,8 +37,13 @@ func LoadConfig(configFile string) (cfg Config, err error) {
 		envconfig.Usage(prefix, &cfg)
 	}
 
-	// ??? Validate space names!
-	// ??? Validate chunk size!
-	// ??? Validate wait time!
+	unique := map[string]string{}
+	for _, v := range cfg.Index.Spaces {
+		unique[v] = v
+	}
+	if len(unique) != len(cfg.Index.Spaces) {
+		return Config{}, fmt.Errorf("Space names must be unique")
+	}
+
 	return
 }
