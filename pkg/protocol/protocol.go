@@ -61,11 +61,9 @@ type SearchRequest struct {
 
 // SearchResult represents one search hit
 type SearchResult struct {
-	ID         DocumentID
-	Snippet    string
-	MatchStart int
-	MatchEnd   int
-	Rank       float32
+	ID      DocumentID
+	Snippet string
+	Rank    float32
 }
 
 // SearchStatusCode is what is says

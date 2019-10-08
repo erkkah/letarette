@@ -327,23 +327,20 @@ func (db *database) setInterestState(ctx context.Context, space string, docID pr
 }
 
 func (db *database) search(ctx context.Context, phrase string, spaces []string, limit uint16) ([]protocol.SearchResult, error) {
-	const nbsp = "\u00a0"
+	const left = "\u3016"
+	const right = "\u3017"
 	const ellipsis = "\u2026"
+
 	query := fmt.Sprintf(`
-	select docs.docID as id, snippet(fts, 0, ?, ?, ?, 8) as snippet, rank
+	select docs.docID as id, replace(snippet(fts, 0, ?, ?, ?, 8), X'0A', " ") as snippet, rank
 	from fts join docs on fts.rowid = docs.id
-	where fts match "%s" order by rank asc limit ?
+	where fts match '"%s"' order by rank asc limit ?
 	`, phrase)
 	logger.Debug.Printf("Search query: [%s]", query)
+
 	var result []protocol.SearchResult
 	err := db.db.SelectContext(ctx, &result, query,
-		nbsp, nbsp, ellipsis, limit)
-
-	for i, v := range result {
-		v.MatchStart = strings.Index(v.Snippet, nbsp)
-		v.MatchEnd = strings.LastIndex(v.Snippet, nbsp)
-		result[i] = v
-	}
+		left, right, ellipsis, limit)
 
 	return result, err
 }
