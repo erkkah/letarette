@@ -3,6 +3,7 @@ package letarette
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/nats-io/go-nats"
 
@@ -34,8 +35,18 @@ func escapeQuotes(q string) string {
 
 func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchRequest) (protocol.SearchResponse, error) {
 	q := escapeQuotes(query.Query)
+	start := time.Now()
 	result, err := s.db.search(ctx, q, query.Spaces, query.Limit)
-	return protocol.SearchResponse{Documents: result}, err
+	duration := float32(time.Since(start)) / float32(time.Second)
+	response := protocol.SearchResponse{
+		Documents: result,
+		Status:    protocol.SearchStatusIndex,
+		Duration:  duration,
+	}
+	if err != nil {
+		response.Status = protocol.SearchStatusServerError
+	}
+	return response, err
 }
 
 // StartSearcher creates and starts a searcher instance.

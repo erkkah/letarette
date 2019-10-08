@@ -68,7 +68,30 @@ type SearchResult struct {
 	Rank       float32
 }
 
+// SearchStatusCode is what is says
+type SearchStatusCode uint8
+
+// Codes returned in search responses
+const (
+	SearchStatusIndex SearchStatusCode = iota + 42
+	SearchStatusCache
+	SearchStatusQueryError
+	SearchStatusServerError
+)
+
+func (ssc SearchStatusCode) String() string {
+	strings := map[SearchStatusCode]string{
+		SearchStatusIndex:       "found in index",
+		SearchStatusCache:       "found in cache",
+		SearchStatusQueryError:  "query format error",
+		SearchStatusServerError: "server error",
+	}
+	return strings[ssc]
+}
+
 // SearchResponse is sent in response to SearchRequest
 type SearchResponse struct {
 	Documents []SearchResult
+	Duration  float32
+	Status    SearchStatusCode
 }

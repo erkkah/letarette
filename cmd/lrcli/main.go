@@ -45,9 +45,10 @@ Options:
 
 	res, err := c.Search(strings.Join(config.Phrases, " "), []string{config.Space}, 10)
 	if err != nil {
-		log.Panicf("Failed to perform search")
+		log.Panicf("Failed to perform search: %v", err)
 	}
 
+	fmt.Printf("Query executed in %v seconds with status %q\n\n", res.Duration, res.Status.String())
 	for _, doc := range res.Documents {
 		fmt.Println(doc.Snippet)
 	}
