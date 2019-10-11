@@ -10,8 +10,9 @@ import (
 // Config holds the main configuration
 type Config struct {
 	Nats struct {
-		URL   string `default:"nats://localhost:4222"`
-		Topic string `default:"leta"`
+		URL         string `default:"nats://localhost:4222"`
+		Topic       string `default:"leta"`
+		SearchGroup string `default:"1"`
 	}
 	Db struct {
 		Path string `default:"letarette.db"`

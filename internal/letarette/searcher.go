@@ -65,15 +65,17 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 		db,
 	}
 
-	ec.Subscribe(cfg.Nats.Topic+".q", func(sub, reply string, query *protocol.SearchRequest) {
-		// Handle query
-		response, err := self.parseAndExecute(context.Background(), *query)
-		if err != nil {
-			logger.Error.Printf("Failed to execute query: %v", err)
-		}
-		// Reply
-		ec.Publish(reply, response)
-	})
+	ec.QueueSubscribe(
+		cfg.Nats.Topic+".q", cfg.Nats.SearchGroup,
+		func(sub, reply string, query *protocol.SearchRequest) {
+			// Handle query
+			response, err := self.parseAndExecute(context.Background(), *query)
+			if err != nil {
+				logger.Error.Printf("Failed to execute query: %v", err)
+			}
+			// Reply
+			ec.Publish(reply, response)
+		})
 
 	go func() {
 		// for ever:
