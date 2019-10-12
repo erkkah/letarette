@@ -25,6 +25,9 @@ type Config struct {
 		CycleWait       time.Duration `default:"100ms"`
 		MaxOutstanding  uint16        `default:"10"`
 	}
+	Search struct {
+		Timeout time.Duration `default:"200ms"`
+	}
 	MetricsPort uint16 `split_words:"true" default:"8000"`
 }
 

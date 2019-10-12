@@ -71,16 +71,18 @@ type SearchStatusCode uint8
 
 // Codes returned in search responses
 const (
-	SearchStatusIndex SearchStatusCode = iota + 42
-	SearchStatusCache
+	SearchStatusIndexHit SearchStatusCode = iota + 42
+	SearchStatusCacheHit
+	SearchStatusTimeout
 	SearchStatusQueryError
 	SearchStatusServerError
 )
 
 func (ssc SearchStatusCode) String() string {
 	strings := map[SearchStatusCode]string{
-		SearchStatusIndex:       "found in index",
-		SearchStatusCache:       "found in cache",
+		SearchStatusIndexHit:    "found in index",
+		SearchStatusCacheHit:    "found in cache",
+		SearchStatusTimeout:     "timeout",
 		SearchStatusQueryError:  "query format error",
 		SearchStatusServerError: "server error",
 	}

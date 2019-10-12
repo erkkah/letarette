@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mattn/go-sqlite3"
 	"github.com/nats-io/go-nats"
 
 	"github.com/erkkah/letarette/pkg/logger"
@@ -40,11 +41,17 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 	duration := float32(time.Since(start)) / float32(time.Second)
 	response := protocol.SearchResponse{
 		Documents: result,
-		Status:    protocol.SearchStatusIndex,
+		Status:    protocol.SearchStatusIndexHit,
 		Duration:  duration,
 	}
 	if err != nil {
-		response.Status = protocol.SearchStatusServerError
+		if sqliteError, ok := err.(sqlite3.Error); ok && sqliteError.Code == sqlite3.ErrInterrupt {
+			response.Status = protocol.SearchStatusTimeout
+		} else if err == context.DeadlineExceeded {
+			response.Status = protocol.SearchStatusTimeout
+		} else {
+			response.Status = protocol.SearchStatusServerError
+		}
 	}
 	return response, err
 }
@@ -69,7 +76,9 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 		cfg.Nats.Topic+".q", cfg.Nats.SearchGroup,
 		func(sub, reply string, query *protocol.SearchRequest) {
 			// Handle query
-			response, err := self.parseAndExecute(context.Background(), *query)
+			ctx, cancel := context.WithTimeout(context.Background(), cfg.Search.Timeout)
+			response, err := self.parseAndExecute(ctx, *query)
+			cancel()
 			if err != nil {
 				logger.Error.Printf("Failed to execute query: %v", err)
 			}
