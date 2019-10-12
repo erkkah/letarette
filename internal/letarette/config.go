@@ -26,7 +26,8 @@ type Config struct {
 		MaxOutstanding  uint16        `default:"10"`
 	}
 	Search struct {
-		Timeout time.Duration `default:"200ms"`
+		Timeout      time.Duration `default:"200ms"`
+		CacheTimeout time.Duration `split_words:"true" default:"1m"`
 	}
 	MetricsPort uint16 `split_words:"true" default:"8000"`
 }

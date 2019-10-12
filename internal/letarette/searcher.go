@@ -22,6 +22,7 @@ type searcher struct {
 	cfg    Config
 	conn   *nats.EncodedConn
 	db     Database
+	cache  *Cache
 }
 
 func (s *searcher) Close() {
@@ -35,25 +36,40 @@ func escapeQuotes(q string) string {
 }
 
 func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchRequest) (protocol.SearchResponse, error) {
+	var err error
+	var status protocol.SearchStatusCode
+
 	q := escapeQuotes(query.Query)
 	start := time.Now()
-	result, err := s.db.search(ctx, q, query.Spaces, query.Limit, query.Offset)
-	duration := float32(time.Since(start)) / float32(time.Second)
-	response := protocol.SearchResponse{
-		Documents: result,
-		Status:    protocol.SearchStatusIndexHit,
-		Duration:  duration,
+	result, cached := s.cache.Get(q, query.Spaces, query.Limit, query.Offset)
+
+	if cached {
+		status = protocol.SearchStatusCacheHit
+	} else {
+		result, err = s.db.search(ctx, q, query.Spaces, query.Limit, query.Offset)
+		if err == nil {
+			status = protocol.SearchStatusIndexHit
+			s.cache.Put(q, query.Spaces, query.Limit, query.Offset, result)
+		}
 	}
+	duration := float32(time.Since(start)) / float32(time.Second)
+
 	if err != nil {
 		if sqliteError, ok := err.(sqlite3.Error); ok && sqliteError.Code == sqlite3.ErrInterrupt {
-			response.Status = protocol.SearchStatusTimeout
+			status = protocol.SearchStatusTimeout
 		} else if err == context.DeadlineExceeded {
-			response.Status = protocol.SearchStatusTimeout
+			status = protocol.SearchStatusTimeout
 		} else {
-			response.Status = protocol.SearchStatusServerError
+			status = protocol.SearchStatusServerError
 		}
 	} else if len(result) == 0 {
-		response.Status = protocol.SearchStatusNoHit
+		status = protocol.SearchStatusNoHit
+	}
+
+	response := protocol.SearchResponse{
+		Documents: result,
+		Status:    status,
+		Duration:  duration,
 	}
 	return response, err
 }
@@ -67,11 +83,13 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 		return &searcher{}, err
 	}
 
+	cache := NewCache(cfg.Search.CacheTimeout)
 	self := &searcher{
 		closer,
 		cfg,
 		ec,
 		db,
+		cache,
 	}
 
 	ec.QueueSubscribe(
