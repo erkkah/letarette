@@ -74,28 +74,30 @@ type Database interface {
 }
 
 type database struct {
-	db *sqlx.DB
+	rdb *sqlx.DB
+	wdb *sqlx.DB
 }
 
 // OpenDatabase connects to a new or existing database and
 // migrates the database up to the latest version.
 func OpenDatabase(cfg Config) (Database, error) {
-	db, err := openDatabase(cfg)
+	rdb, wdb, err := openDatabase(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	newDB := &database{db}
+	newDB := &database{rdb, wdb}
 	return newDB, nil
 }
 
 func (db *database) Close() {
-	db.db.Close()
+	db.rdb.Close()
+	db.wdb.Close()
 }
 
 func (db *database) getLastUpdateTime(ctx context.Context, space string) (t time.Time, err error) {
 	var timestampNanos int64
-	err = db.db.GetContext(ctx, &timestampNanos, "select lastUpdatedAtNanos from spaces where space = ?", space)
+	err = db.rdb.GetContext(ctx, &timestampNanos, "select lastUpdatedAtNanos from spaces where space = ?", space)
 	t = time.Unix(0, timestampNanos)
 	return
 }
@@ -106,7 +108,7 @@ func (db *database) addDocumentUpdate(ctx context.Context, doc protocol.Document
 		return err
 	}
 
-	tx, err := db.db.BeginTxx(ctx, nil)
+	tx, err := db.wdb.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -148,7 +150,7 @@ func (db *database) addDocumentUpdate(ctx context.Context, doc protocol.Document
 }
 
 func (db *database) commitInterestList(ctx context.Context, space string) error {
-	tx, err := db.db.BeginTxx(ctx, nil)
+	tx, err := db.wdb.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -201,14 +203,14 @@ func (db *database) commitInterestList(ctx context.Context, space string) error 
 }
 
 func (db *database) getInterestListState(ctx context.Context, space string) (state InterestListState, err error) {
-	err = db.db.GetContext(ctx, &state,
+	err = db.rdb.GetContext(ctx, &state,
 		`select listCreatedAtNanos, lastUpdatedAtNanos, lastUpdatedDocID from spaces where space = ?`, space)
 	return
 }
 
 func (db *database) getSpaceID(ctx context.Context, space string) (int, error) {
 	var spaceID int
-	err := db.db.GetContext(ctx, &spaceID, `select spaceID from spaces where space = ?`, space)
+	err := db.rdb.GetContext(ctx, &spaceID, `select spaceID from spaces where space = ?`, space)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			err = fmt.Errorf("No such space, %v", space)
@@ -223,7 +225,7 @@ func (db *database) getInterestList(ctx context.Context, space string) (result [
 	if err != nil {
 		return
 	}
-	rows, err := db.db.QueryxContext(ctx,
+	rows, err := db.rdb.QueryxContext(ctx,
 		`
 		select docID, state from interest
 		where spaceID = ?
@@ -231,6 +233,8 @@ func (db *database) getInterestList(ctx context.Context, space string) (result [
 	if err != nil {
 		return
 	}
+	defer rows.Close()
+
 	for rows.Next() {
 		var interest Interest
 		err = rows.StructScan(&interest)
@@ -247,7 +251,7 @@ func (db *database) clearInterestList(ctx context.Context, space string) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.db.ExecContext(ctx, `delete from interest where spaceID = ?`, spaceID)
+	_, err = db.wdb.ExecContext(ctx, `delete from interest where spaceID = ?`, spaceID)
 	return err
 }
 
@@ -256,13 +260,14 @@ func (db *database) resetRequested(ctx context.Context, space string) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.db.ExecContext(ctx, `update interest set state = ? where state = ? and spaceID = ?`,
+	_, err = db.wdb.ExecContext(ctx, `update interest set state = ? where state = ? and spaceID = ?`,
 		pending, requested, spaceID)
 	return err
 }
 
 func (db *database) setInterestList(ctx context.Context, space string, list []protocol.DocumentID) error {
-	tx, err := db.db.BeginTxx(ctx, nil)
+
+	tx, err := db.wdb.BeginTxx(ctx, nil)
 	defer func() {
 		if err != nil {
 			tx.Rollback()
@@ -290,6 +295,8 @@ func (db *database) setInterestList(ctx context.Context, space string, list []pr
 	if err != nil {
 		return err
 	}
+	defer st.Close()
+
 	for _, docID := range list {
 		_, err := st.ExecContext(ctx, spaceID, docID, pending)
 		if err != nil {
@@ -322,7 +329,7 @@ func (db *database) setInterestState(ctx context.Context, space string, docID pr
 		return err
 	}
 
-	_, err = db.db.ExecContext(ctx, "update interest set state = ? where spaceID=? and docID=?", state, spaceID, docID)
+	_, err = db.wdb.ExecContext(ctx, "update interest set state = ? where spaceID=? and docID=?", state, spaceID, docID)
 	return err
 }
 
@@ -339,14 +346,14 @@ func (db *database) search(ctx context.Context, phrase string, spaces []string, 
 	logger.Debug.Printf("Search query: [%s]", query)
 
 	var result []protocol.SearchResult
-	err := db.db.SelectContext(ctx, &result, query,
+	err := db.rdb.SelectContext(ctx, &result, query,
 		left, right, ellipsis, limit)
 
 	return result, err
 }
 
 func (db *database) GetRawDB() *sql.DB {
-	return db.db.DB
+	return db.wdb.DB
 }
 
 func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
@@ -385,22 +392,30 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 	return nil
 }
 
-func openDatabase(cfg Config) (db *sqlx.DB, err error) {
+func openDatabase(cfg Config) (rdb *sqlx.DB, wdb *sqlx.DB, err error) {
 	abspath, err := filepath.Abs(cfg.Db.Path)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get absolute path to DB: %w", err)
+		return nil, nil, fmt.Errorf("Failed to get absolute path to DB: %w", err)
 	}
 	escapedPath := strings.Replace(abspath, " ", "%20", -1)
-	sqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_busy_timeout=500&cache=private", escapedPath)
 
-	db, err = sqlx.Connect("sqlite3", sqliteURL)
+	writeSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_timeout=500&cache=private", escapedPath)
+	wdb, err = sqlx.Connect("sqlite3", writeSqliteURL)
 	if err != nil {
 		return
 	}
+	wdb.SetMaxOpenConns(1)
+
+	readSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&mode=ro&_foreign_keys=true&_timeout=500&cache=private", escapedPath)
+	rdb, err = sqlx.Connect("sqlite3", readSqliteURL)
+	if err != nil {
+		return
+	}
+
 	spaces := cfg.Index.Spaces
 	if len(spaces) < 1 {
-		return nil, fmt.Errorf("No spaces defined: %v", spaces)
+		return nil, nil, fmt.Errorf("No spaces defined: %v", spaces)
 	}
-	err = initDB(db, sqliteURL, spaces)
+	err = initDB(wdb, writeSqliteURL, spaces)
 	return
 }

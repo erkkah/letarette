@@ -38,13 +38,26 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		db:     db,
 	}
 
+	updates := make(chan protocol.Document)
+	done := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case doc := <-updates:
+				err := db.addDocumentUpdate(context.Background(), doc)
+				if err != nil {
+					logger.Error.Printf("Failed to add document update: %v", err)
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+
 	ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *protocol.DocumentUpdate) {
 		for _, doc := range update.Documents {
-			// ??? Timeout?
-			err := db.addDocumentUpdate(context.Background(), doc)
-			if err != nil {
-				logger.Error.Printf("Failed to add document update: %v", err)
-			}
+			updates <- doc
 		}
 	})
 
@@ -124,6 +137,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 			case <-closer:
 				logger.Info.Printf("Indexer exiting")
 				cancel()
+				close(done)
 				closer <- true
 				return
 			case <-time.After(cfg.Index.CycleWait):
@@ -156,7 +170,7 @@ func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 	topic := idx.cfg.Nats.Topic + ".index.request"
 	state, err := idx.db.getInterestListState(ctx, space)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to get interest list state: %w", err)
 	}
 	updateRequest := protocol.IndexUpdateRequest{
 		Space:         space,
@@ -171,7 +185,7 @@ func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 	cancel()
 
 	if err != nil {
-		return err
+		return fmt.Errorf("NATS request failed: %w", err)
 	}
 
 	if len(update.Updates) > 0 {
@@ -179,7 +193,11 @@ func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 	}
 	err = idx.db.setInterestList(ctx, update.Space, update.Updates)
 
-	return err
+	if err != nil {
+		return fmt.Errorf("Failed to set interest list: %w", err)
+	}
+
+	return nil
 }
 
 func (idx *indexer) requestDocuments(ctx context.Context, space string, wanted []protocol.DocumentID) error {
