@@ -70,7 +70,7 @@ type Database interface {
 
 	getInterestListState(context.Context, string) (InterestListState, error)
 
-	search(ctx context.Context, phrase string, spaces []string, limit uint16) ([]protocol.SearchResult, error)
+	search(ctx context.Context, phrase string, spaces []string, limit uint16, offset uint16) ([]protocol.SearchResult, error)
 }
 
 type database struct {
@@ -333,7 +333,7 @@ func (db *database) setInterestState(ctx context.Context, space string, docID pr
 	return err
 }
 
-func (db *database) search(ctx context.Context, phrase string, spaces []string, limit uint16) ([]protocol.SearchResult, error) {
+func (db *database) search(ctx context.Context, phrase string, spaces []string, limit uint16, offset uint16) ([]protocol.SearchResult, error) {
 	const left = "\u3016"
 	const right = "\u3017"
 	const ellipsis = "\u2026"
@@ -341,13 +341,13 @@ func (db *database) search(ctx context.Context, phrase string, spaces []string, 
 	query := fmt.Sprintf(`
 	select docs.docID as id, replace(snippet(fts, 0, ?, ?, ?, 8), X'0A', " ") as snippet, rank
 	from fts join docs on fts.rowid = docs.id
-	where fts match '"%s"' order by rank asc limit ?
+	where fts match '"%s"' order by rank asc limit ? offset ?
 	`, phrase)
 	logger.Debug.Printf("Search query: [%s]", query)
 
 	var result []protocol.SearchResult
 	err := db.rdb.SelectContext(ctx, &result, query,
-		left, right, ellipsis, limit)
+		left, right, ellipsis, limit, offset)
 
 	return result, err
 }
@@ -406,7 +406,7 @@ func openDatabase(cfg Config) (rdb *sqlx.DB, wdb *sqlx.DB, err error) {
 	}
 	wdb.SetMaxOpenConns(1)
 
-	readSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&mode=ro&_foreign_keys=true&_timeout=500&cache=private", escapedPath)
+	readSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&mode=ro&_foreign_keys=true&_timeout=500&cache=shared", escapedPath)
 	rdb, err = sqlx.Connect("sqlite3", readSqliteURL)
 	if err != nil {
 		return

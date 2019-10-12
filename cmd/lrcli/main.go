@@ -15,17 +15,21 @@ var config struct {
 	NatsURL string   `docopt:"-n"`
 	Verbose bool     `docopt:"-v"`
 	Phrases []string `docopt:"<phrase>"`
+	Limit   int      `docopt:"-l"`
+	Offset  int      `docopt:"-o"`
 }
 
 func main() {
 	usage := `Letarette CLI.
 
 Usage:
-    lrcli [-n <url>] [-v] <space> <phrase>...
+    lrcli [-n <url>] [-v] [-l <limit>] [-o <offset>] <space> <phrase>...
 
 Options:
-	-n <url>    NATS url to connect to [default: nats://localhost:4222]
-	-v          Verbose
+    -n <url>     NATS url to connect to [default: nats://localhost:4222]
+    -v           Verbose
+    -l <limit>   Limit [default: 10]
+    -o <offset>  Offset [default: 0]
 `
 
 	args, err := docopt.ParseDoc(usage)
@@ -43,7 +47,7 @@ Options:
 	}
 	defer c.Close()
 
-	res, err := c.Search(strings.Join(config.Phrases, " "), []string{config.Space}, 10)
+	res, err := c.Search(strings.Join(config.Phrases, " "), []string{config.Space}, config.Limit, config.Offset)
 	if err != nil {
 		log.Panicf("Failed to perform search: %v", err)
 	}
