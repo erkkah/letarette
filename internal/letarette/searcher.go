@@ -37,7 +37,7 @@ func escapeQuotes(q string) string {
 func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchRequest) (protocol.SearchResponse, error) {
 	q := escapeQuotes(query.Query)
 	start := time.Now()
-	result, err := s.db.search(ctx, q, query.Spaces, query.Limit)
+	result, err := s.db.search(ctx, q, query.Spaces, query.Limit, query.Offset)
 	duration := float32(time.Since(start)) / float32(time.Second)
 	response := protocol.SearchResponse{
 		Documents: result,
@@ -52,6 +52,8 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 		} else {
 			response.Status = protocol.SearchStatusServerError
 		}
+	} else if len(result) == 0 {
+		response.Status = protocol.SearchStatusNoHit
 	}
 	return response, err
 }

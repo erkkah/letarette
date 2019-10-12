@@ -57,6 +57,7 @@ type SearchRequest struct {
 	Spaces []string
 	Query  string
 	Limit  uint16
+	Offset uint16
 }
 
 // SearchResult represents one search hit
@@ -73,6 +74,7 @@ type SearchStatusCode uint8
 const (
 	SearchStatusIndexHit SearchStatusCode = iota + 42
 	SearchStatusCacheHit
+	SearchStatusNoHit
 	SearchStatusTimeout
 	SearchStatusQueryError
 	SearchStatusServerError
@@ -82,6 +84,7 @@ func (ssc SearchStatusCode) String() string {
 	strings := map[SearchStatusCode]string{
 		SearchStatusIndexHit:    "found in index",
 		SearchStatusCacheHit:    "found in cache",
+		SearchStatusNoHit:       "not found",
 		SearchStatusTimeout:     "timeout",
 		SearchStatusQueryError:  "query format error",
 		SearchStatusServerError: "server error",
