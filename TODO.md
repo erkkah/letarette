@@ -1,6 +1,7 @@
 ## TODO
 
-* Search implementation
+* Upgrade to Nats 2.0
+  * Drain on exit
 * Add more metrics
 * Set timeout on db search context
 * Add to tinysrv
