@@ -40,24 +40,24 @@ The "Document Manager" is the component that provides searchable documents to th
 Searching in Letarette is easiest done by using the search client library:
 
 ```go
-	c, err := client.NewSearchClient(config.NatsURL)
-	if err != nil {
-		...
-	}
-	defer c.Close()
+c, err := client.NewSearchClient(config.NatsURL)
+if err != nil {
+    ...
+}
+defer c.Close()
 
-    spaces := []string{"fruits"}
-    limit := 10
-    offset := 0
+spaces := []string{"fruits"}
+limit := 10
+offset := 0
 
-	res, err := c.Search("apple", spaces, limit, offset)
-	if err != nil {
-		...
-	}
+res, err := c.Search("apple", spaces, limit, offset)
+if err != nil {
+    ...
+}
 
-	for _, doc := range res.Documents {
-		fmt.Println(doc.Snippet)
-	}
+for _, doc := range res.Documents {
+    fmt.Println(doc.Snippet)
+}
 ```
 
 Letarette search results contain the document `ID`, rank and a snippet including the matching phrases. Dressing up the result is up to the search client implementation.
