@@ -32,10 +32,11 @@ type Config struct {
 	MetricsPort uint16 `split_words:"true" default:"8000"`
 }
 
+const prefix = "LETARETTE"
+
 // LoadConfig loads configuration variables from the environment
 // and returns a fully populated Config instance.
 func LoadConfig() (cfg Config, err error) {
-	prefix := "LETARETTE"
 	err = envconfig.Process(prefix, &cfg)
 
 	if err != nil {
@@ -51,4 +52,10 @@ func LoadConfig() (cfg Config, err error) {
 	}
 
 	return
+}
+
+// Usage prints usage help to stdout
+func Usage() {
+	var cfg Config
+	envconfig.Usage(prefix, &cfg)
 }

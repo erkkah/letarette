@@ -2,7 +2,7 @@ package main
 
 /*
 	Letarette main application, the "worker".
-	Communicates via "nats" message bus, maintains an index and responds to queries.
+	Communicates via "NATS" message bus, maintains an index and responds to queries.
 */
 
 import (
@@ -17,6 +17,11 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 {
+		letarette.Usage()
+		os.Exit(99)
+	}
+
 	cfg, err := letarette.LoadConfig()
 	if err != nil {
 		logger.Error.Printf("Failed to load config: %v", err)
