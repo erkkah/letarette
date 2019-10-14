@@ -20,4 +20,5 @@ test:
 
 generate:
 	go generate internal/letarette/db.go
+	go generate internal/snowball/snowball.go
 

@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3" // Load SQLite driver
+	sqlite3 "github.com/mattn/go-sqlite3" // Load SQLite driver
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3" // Load SQLite migration driver
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 
+	"github.com/erkkah/letarette/internal/snowball"
 	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
 )
@@ -399,15 +400,22 @@ func openDatabase(cfg Config) (rdb *sqlx.DB, wdb *sqlx.DB, err error) {
 	}
 	escapedPath := strings.Replace(abspath, " ", "%20", -1)
 
+	sql.Register("sqlite3_snowball",
+		&sqlite3.SQLiteDriver{
+			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+				return snowball.Init(conn, []string{"english"})
+			},
+		})
+
 	writeSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_timeout=500&cache=private", escapedPath)
-	wdb, err = sqlx.Connect("sqlite3", writeSqliteURL)
+	wdb, err = sqlx.Connect("sqlite3_snowball", writeSqliteURL)
 	if err != nil {
 		return
 	}
 	wdb.SetMaxOpenConns(1)
 
 	readSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&mode=ro&_foreign_keys=true&_timeout=500&cache=shared", escapedPath)
-	rdb, err = sqlx.Connect("sqlite3", readSqliteURL)
+	rdb, err = sqlx.Connect("sqlite3_snowball", readSqliteURL)
 	if err != nil {
 		return
 	}
