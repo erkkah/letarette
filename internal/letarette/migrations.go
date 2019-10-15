@@ -4,6 +4,8 @@
 // migrations/1_init.up.sql
 // migrations/2_alive.down.sql
 // migrations/2_alive.up.sql
+// migrations/3_snowball.down.sql
+// migrations/3_snowball.up.sql
 // DO NOT EDIT!
 
 package letarette
@@ -151,6 +153,46 @@ func migrations2_aliveUpSql() (*asset, error) {
 	return a, nil
 }
 
+var _migrations3_snowballDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x3c\x8d\xc1\x4a\xc5\x40\x0c\x45\xf7\xf3\x15\xe1\xb9\x48\x0b\xdd\xb8\xd0\x4d\xe9\xb7\xc8\x74\x26\xd5\xe0\x90\x94\x24\x53\x8b\x5f\x2f\xa5\xf2\x76\xf7\x72\x0e\x9c\x6a\xba\x43\xe4\xb5\x11\x6c\xe1\x73\x4a\xc5\x28\x07\xc1\xc1\x16\x3d\xb7\x7f\xc4\x1b\x88\x06\xd0\xc9\x1e\x7e\x89\xd0\x9d\xe5\xf3\x5a\x6f\x43\x02\x00\x88\x33\x26\x28\x2a\x41\x12\x0b\x56\x2d\x8e\xcf\xff\x61\xfa\xc3\x75\x41\xae\x38\xdd\xb2\x7e\x93\xf0\x2f\x2d\x8f\x5d\x2d\xc8\xa0\x0b\x17\xad\xf4\xfe\x7a\xa3\xf2\x95\xcd\x01\x5f\xf0\x91\xc6\x39\x25\x16\x27\x0b\x60\x09\xbd\x8a\xc3\x16\x3e\xc2\x91\x5b\x27\x1f\xd0\x68\xed\xdc\x2a\x8e\x73\xfa\x0b\x00\x00\xff\xff\xfe\x51\x31\xfe\xcc\x00\x00\x00")
+
+func migrations3_snowballDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations3_snowballDownSql,
+		"migrations/3_snowball.down.sql",
+	)
+}
+
+func migrations3_snowballDownSql() (*asset, error) {
+	bytes, err := migrations3_snowballDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/3_snowball.down.sql", size: 204, mode: os.FileMode(436), modTime: time.Unix(1571170279, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _migrations3_snowballUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x3c\xcc\xc1\x0a\x83\x30\x10\x04\xd0\x7b\xbe\x62\xf1\x12\x05\xaf\x3d\x89\xdf\x52\xa2\x59\xcb\xd2\xb0\x5b\xb2\x13\x95\x7e\x7d\x91\x96\xde\x66\x98\xc7\xe4\x6a\x2f\x42\x5a\x0a\xd3\x06\x9f\x42\x58\x2b\x27\x30\xed\x52\xd1\x52\xf9\x4d\xb2\x91\x1a\x88\x4f\x71\xf8\x05\xa9\xb9\xe8\xe3\x4a\xb7\x3e\x10\x11\xe1\xc4\x48\xab\x29\x58\x31\xc7\x6c\xab\xc7\x7f\xbf\x57\x3b\x24\xcf\x51\x72\x1c\xbf\xd8\x9e\xac\xf2\xe6\xb9\x73\xb5\x63\x49\xa5\x74\x61\x98\x42\x10\x75\xae\x20\x51\xd8\x75\xdd\x6f\xf0\x81\xf6\x54\x1a\x7b\x1f\x2b\x2f\x4d\x4a\x8e\xc3\x14\x3e\x01\x00\x00\xff\xff\x18\x75\x72\x51\xb5\x00\x00\x00")
+
+func migrations3_snowballUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations3_snowballUpSql,
+		"migrations/3_snowball.up.sql",
+	)
+}
+
+func migrations3_snowballUpSql() (*asset, error) {
+	bytes, err := migrations3_snowballUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/3_snowball.up.sql", size: 181, mode: os.FileMode(436), modTime: time.Unix(1571170286, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -207,6 +249,8 @@ var _bindata = map[string]func() (*asset, error){
 	"migrations/1_init.up.sql": migrations1_initUpSql,
 	"migrations/2_alive.down.sql": migrations2_aliveDownSql,
 	"migrations/2_alive.up.sql": migrations2_aliveUpSql,
+	"migrations/3_snowball.down.sql": migrations3_snowballDownSql,
+	"migrations/3_snowball.up.sql": migrations3_snowballUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -254,6 +298,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"1_init.up.sql": &bintree{migrations1_initUpSql, map[string]*bintree{}},
 		"2_alive.down.sql": &bintree{migrations2_aliveDownSql, map[string]*bintree{}},
 		"2_alive.up.sql": &bintree{migrations2_aliveUpSql, map[string]*bintree{}},
+		"3_snowball.down.sql": &bintree{migrations3_snowballDownSql, map[string]*bintree{}},
+		"3_snowball.up.sql": &bintree{migrations3_snowballUpSql, map[string]*bintree{}},
 	}},
 }}
 

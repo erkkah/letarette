@@ -25,6 +25,12 @@ type Config struct {
 		CycleWait       time.Duration `default:"100ms"`
 		MaxOutstanding  uint16        `default:"10"`
 	}
+	Stemmer struct {
+		Languages        []string `split_words:"true" default:"english"`
+		RemoveDiacritics bool     `split_words:"true" default:"true"`
+		TokenCharacters  string
+		Separators       string
+	}
 	Search struct {
 		Timeout      time.Duration `default:"200ms"`
 		CacheTimeout time.Duration `split_words:"true" default:"1m"`

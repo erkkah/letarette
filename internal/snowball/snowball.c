@@ -1,13 +1,15 @@
 #include "snowball.h"
 #include <libstemmer.h>
 #include <string.h>
+#include <stdlib.h>
 
 #define MAX_TOKEN_LEN 64
 #define MIN_TOKEN_LEN 3
 
 struct StemmerModuleData {
-    // Null - terminated list of stemmers
     struct sb_stemmer** stemmers;
+    const char** parentArgs;
+    int nParentArgs;
     fts5_api *fts;
 };
 
@@ -34,19 +36,12 @@ static int ftsSnowballCreate(
         return SQLITE_ERROR;
     }
 
-    const char* parentStemmer = "unicode61";
+    const char const* parentStemmer = "unicode61";
     void* parentUserData = 0;
-    if (nArg > 0) {
-        parentStemmer = azArg[0];
-    }
     int rc = modData->fts->xFindTokenizer(modData->fts, parentStemmer, &parentUserData, &instance->parentModule);
 
     if (rc == SQLITE_OK) {
-        if (nArg > 1) {
-            nArg--;
-            azArg++;
-        }
-        rc = instance->parentModule.xCreate(parentUserData, azArg, nArg, &instance->parentInstance);
+        rc = instance->parentModule.xCreate(parentUserData, modData->parentArgs, modData->nParentArgs, &instance->parentInstance);
     }
 
     if (rc == SQLITE_OK) {
@@ -132,7 +127,7 @@ static void freeStemmerList(struct sb_stemmer** stemmers) {
     sqlite3_free(stemmers);
 }
 
-static struct sb_stemmer** allocateStemmerList(char** languages, int nLanguages) {
+static struct sb_stemmer** allocateStemmerList(const char** languages, int nLanguages) {
     struct sb_stemmer** stemmers = sqlite3_malloc((nLanguages + 1) * sizeof(struct sb_stemmer*));
     if (!stemmers) {
         return 0;
@@ -152,10 +147,21 @@ static struct sb_stemmer** allocateStemmerList(char** languages, int nLanguages)
 static void destroyStemmerModule(void *p) {
     struct StemmerModuleData* modData = (struct StemmerModuleData*) p;
     freeStemmerList(modData->stemmers);
+    for (int i = 0; i < modData->nParentArgs; i++) {
+        sqlite3_free((void*) modData->parentArgs[i]);
+    }
+    sqlite3_free(modData->parentArgs);
     sqlite3_free(modData);
 }
 
-int initSnowballStemmer(sqlite3 *db, char** languages, int nLanguages) {
+int initSnowballStemmer(
+    sqlite3 *db,
+    const char** languages,
+    int nLanguages,
+    int removeDiacritics,
+    const char* tokenCharacters,
+    const char* separators
+){
     fts5_tokenizer tokenizer = {ftsSnowballCreate, ftsSnowballDelete, ftsSnowballTokenize};
 
     struct StemmerModuleData* modData = sqlite3_malloc(sizeof(struct StemmerModuleData));
@@ -170,9 +176,30 @@ int initSnowballStemmer(sqlite3 *db, char** languages, int nLanguages) {
     }
 
     modData->stemmers = stemmers;
+
+    const int maxArgs = 6;
+    const char** args = sqlite3_malloc(sizeof(char*) * maxArgs);
+    int nArgs = 0;
+
+    args[nArgs++] = sqlite3_mprintf("remove_diacritics");
+    args[nArgs++] = sqlite3_mprintf("%d", removeDiacritics);
+    if (tokenCharacters) {
+        args[nArgs++] = sqlite3_mprintf("tokenchars");
+        args[nArgs++] = sqlite3_mprintf("'%s'", tokenCharacters);
+    }
+    if (separators) {
+        args[nArgs++] = sqlite3_mprintf("separators");
+        args[nArgs++] = sqlite3_mprintf("'%s'", separators);
+    }
+
+    modData->parentArgs = args;
+    modData->nParentArgs = nArgs;
+
     modData->fts = fts5_api_from_db(db);
 
-    int result = modData->fts->xCreateTokenizer(modData->fts, "snowball", (void *) modData, &tokenizer, destroyStemmerModule);
+    int result = modData->fts->xCreateTokenizer(
+        modData->fts, "snowball", (void *) modData, &tokenizer, destroyStemmerModule
+    );
 
     return result;
 }
