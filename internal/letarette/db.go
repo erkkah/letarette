@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -72,6 +73,9 @@ type Database interface {
 	getInterestListState(context.Context, string) (InterestListState, error)
 
 	search(ctx context.Context, phrase string, spaces []string, limit uint16, offset uint16) ([]protocol.SearchResult, error)
+
+	getStemmerState() (snowball.Settings, time.Time, error)
+	setStemmerState(snowball.Settings) error
 }
 
 type database struct {
@@ -353,6 +357,61 @@ func (db *database) search(ctx context.Context, phrase string, spaces []string, 
 	return result, err
 }
 
+func (db *database) getStemmerState() (snowball.Settings, time.Time, error) {
+	query := `
+	select
+	languages,
+	removeDiacritics as removediacritics,
+	tokenCharacters as tokencharacters,
+	separators,
+	updated
+	from stemmerstate
+	`
+	var state struct {
+		Languages string
+		Updated   time.Time
+		snowball.Settings
+	}
+	err := db.rdb.Get(&state, query)
+	if len(state.Languages) == 0 {
+		state.Stemmers = []string{}
+	} else {
+		state.Stemmers = strings.Split(state.Languages, ",")
+	}
+	return state.Settings, state.Updated, err
+}
+
+func (db *database) setStemmerState(state snowball.Settings) error {
+	_, _, err := db.getStemmerState()
+
+	if err == sql.ErrNoRows {
+		insert := `
+		insert into stemmerstate (languages, removeDiacritics, tokenCharacters, separators)
+		values ("", "false", "", "");
+		`
+		result, err := db.wdb.Exec(insert)
+		if err != nil {
+			return err
+		}
+		if rows, err := result.RowsAffected(); err != nil || rows != 1 {
+			return fmt.Errorf("Failed to insert default state")
+		}
+	}
+	query := `
+	update stemmerstate
+	set languages = ?, removeDiacritics = ?, tokenCharacters = ?, separators = ?
+	`
+
+	languages := strings.Join(state.Stemmers, ",")
+	_, err = db.wdb.Exec(query,
+		languages,
+		state.RemoveDiacritics,
+		state.TokenCharacters,
+		state.Separators,
+	)
+	return err
+}
+
 func (db *database) GetRawDB() *sql.DB {
 	return db.wdb.DB
 }
@@ -381,6 +440,7 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 		return err
 	}
 
+	logger.Info.Printf("Applying migrations")
 	err = m.Up()
 	if err != nil && err != migrate.ErrNoChange {
 		return err
@@ -405,17 +465,22 @@ func openDatabase(cfg Config) (rdb *sqlx.DB, wdb *sqlx.DB, err error) {
 	}
 	escapedPath := strings.Replace(abspath, " ", "%20", -1)
 
-	sql.Register("sqlite3_snowball",
-		&sqlite3.SQLiteDriver{
-			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				return snowball.Init(conn, snowball.Settings{
-					Stemmers:         cfg.Stemmer.Languages,
-					RemoveDiacritics: cfg.Stemmer.RemoveDiacritics,
-					TokenCharacters:  cfg.Stemmer.TokenCharacters,
-					Separators:       cfg.Stemmer.Separators,
-				})
-			},
-		})
+	const driver = "sqlite3_snowball"
+
+	drivers := sql.Drivers()
+	if sort.Search(len(drivers), func(i int) bool { return drivers[i] == driver }) == len(drivers) {
+		sql.Register(driver,
+			&sqlite3.SQLiteDriver{
+				ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+					return snowball.Init(conn, snowball.Settings{
+						Stemmers:         cfg.Stemmer.Languages,
+						RemoveDiacritics: cfg.Stemmer.RemoveDiacritics,
+						TokenCharacters:  cfg.Stemmer.TokenCharacters,
+						Separators:       cfg.Stemmer.Separators,
+					})
+				},
+			})
+	}
 
 	// Only one writer
 	writeSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_timeout=500&cache=private", escapedPath)

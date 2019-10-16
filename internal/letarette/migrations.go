@@ -6,6 +6,8 @@
 // migrations/2_alive.up.sql
 // migrations/3_snowball.down.sql
 // migrations/3_snowball.up.sql
+// migrations/4_stemmerstate.down.sql
+// migrations/4_stemmerstate.up.sql
 // DO NOT EDIT!
 
 package letarette
@@ -193,6 +195,46 @@ func migrations3_snowballUpSql() (*asset, error) {
 	return a, nil
 }
 
+var _migrations4_stemmerstateDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x4a\x29\xca\x2f\x50\x28\x49\x4c\xca\x49\x55\x28\x2e\x49\xcd\xcd\x4d\x2d\x2a\x2e\x49\x2c\x49\xb5\xe6\x02\x04\x00\x00\xff\xff\x40\x10\xb9\x1c\x19\x00\x00\x00")
+
+func migrations4_stemmerstateDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations4_stemmerstateDownSql,
+		"migrations/4_stemmerstate.down.sql",
+	)
+}
+
+func migrations4_stemmerstateDownSql() (*asset, error) {
+	bytes, err := migrations4_stemmerstateDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/4_stemmerstate.down.sql", size: 25, mode: os.FileMode(436), modTime: time.Unix(1571250957, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _migrations4_stemmerstateUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x6c\x8f\x41\x4e\x03\x31\x0c\x45\xf7\x39\x85\x97\x20\x71\x83\x8a\x15\xdc\xa3\xf2\x64\xfe\x84\x88\xc4\x19\xd9\x3f\xa8\xc7\x47\x54\x50\x31\xd0\xf5\x7b\xf2\xf7\xcb\x0e\x25\x84\xba\x34\x48\xdd\xc4\x06\x05\x97\x1a\x0c\x09\xa2\x77\x78\xf0\x4b\x78\x48\x22\x22\x4d\xad\x4c\x2d\x08\x21\x2e\xbc\xca\x36\x5b\x7b\xba\x42\x47\x1f\x1f\x78\xad\x9a\xbd\xb2\xe6\x90\x65\x8c\x06\xb5\x3f\x1a\xc7\x3b\xec\xe5\x4d\x5d\x33\xe1\x77\x2f\x05\x76\x75\xe5\xb8\x4f\xe7\xbe\x2a\xb1\x0a\x6b\x47\x50\xfb\x2e\x2b\x36\x9d\x8d\x92\xa7\x3b\x8c\xe7\x1b\x49\x8f\xa7\x94\x7e\x12\xbd\x96\x02\x3f\x64\x9d\x75\x8a\x6e\x84\x7f\x1f\x95\x61\xc7\xec\x05\xa5\xda\xaf\xd5\x23\x0d\xf0\xf6\xcd\xf3\xff\xf5\x53\x82\xad\xa7\xf4\x19\x00\x00\xff\xff\x7f\x1a\xf9\xb3\x63\x01\x00\x00")
+
+func migrations4_stemmerstateUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations4_stemmerstateUpSql,
+		"migrations/4_stemmerstate.up.sql",
+	)
+}
+
+func migrations4_stemmerstateUpSql() (*asset, error) {
+	bytes, err := migrations4_stemmerstateUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/4_stemmerstate.up.sql", size: 355, mode: os.FileMode(436), modTime: time.Unix(1571251052, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -251,6 +293,8 @@ var _bindata = map[string]func() (*asset, error){
 	"migrations/2_alive.up.sql": migrations2_aliveUpSql,
 	"migrations/3_snowball.down.sql": migrations3_snowballDownSql,
 	"migrations/3_snowball.up.sql": migrations3_snowballUpSql,
+	"migrations/4_stemmerstate.down.sql": migrations4_stemmerstateDownSql,
+	"migrations/4_stemmerstate.up.sql": migrations4_stemmerstateUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -300,6 +344,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"2_alive.up.sql": &bintree{migrations2_aliveUpSql, map[string]*bintree{}},
 		"3_snowball.down.sql": &bintree{migrations3_snowballDownSql, map[string]*bintree{}},
 		"3_snowball.up.sql": &bintree{migrations3_snowballUpSql, map[string]*bintree{}},
+		"4_stemmerstate.down.sql": &bintree{migrations4_stemmerstateDownSql, map[string]*bintree{}},
+		"4_stemmerstate.up.sql": &bintree{migrations4_stemmerstateUpSql, map[string]*bintree{}},
 	}},
 }}
 

@@ -2,6 +2,7 @@ package letarette
 
 import (
 	"context"
+	"database/sql"
 	"io/ioutil"
 	"os"
 	"path"
@@ -9,7 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/erkkah/letarette/internal/snowball"
 	"github.com/erkkah/letarette/pkg/protocol"
+
+	gta "gotest.tools/assert"
 )
 
 type testSetup struct {
@@ -37,6 +41,7 @@ func getTestSetup(t *testing.T) *testSetup {
 	}
 	setup.config.Db.Path = path.Join(setup.tmpDir, "leta.db")
 	setup.config.Index.Spaces = []string{"test"}
+	setup.config.Stemmer.Languages = []string{"english"}
 
 	setup.db, err = OpenDatabase(setup.config)
 	if err != nil {
@@ -50,9 +55,7 @@ func TestOpen(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	if setup.db == nil {
-		t.Errorf("Database is nil!")
-	}
+	gta.Assert(t, setup.db != nil, "Database is nil!")
 }
 
 func TestAddDocument_EmptyDocument(t *testing.T) {
@@ -62,9 +65,7 @@ func TestAddDocument_EmptyDocument(t *testing.T) {
 	ctx := context.Background()
 	doc := protocol.Document{}
 	err := setup.db.addDocumentUpdate(ctx, doc)
-	if err == nil {
-		t.Errorf("Adding empty document should fail")
-	}
+	gta.ErrorContains(t, err, "No such space", "Adding empty document should fail")
 }
 
 func TestAddDocument_NewDocument(t *testing.T) {
@@ -80,9 +81,8 @@ func TestAddDocument_NewDocument(t *testing.T) {
 	}
 	ctx := context.Background()
 	err := setup.db.addDocumentUpdate(ctx, doc)
-	if err != nil {
-		t.Errorf("Failed to add new document: %v", err)
-	}
+
+	gta.NilError(t, err, "Failed to add new document")
 }
 
 func TestCommitInterestList_Empty(t *testing.T) {
@@ -91,9 +91,7 @@ func TestCommitInterestList_Empty(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.commitInterestList(ctx, "test")
-	if err != nil {
-		t.Errorf("Failed to commit empty list: %v", err)
-	}
+	gta.NilError(t, err, "Failed to commit empty list")
 }
 
 func TestCommitInterestList_NonEmptyNoUpdates(t *testing.T) {
@@ -102,33 +100,21 @@ func TestCommitInterestList_NonEmptyNoUpdates(t *testing.T) {
 
 	ctx := context.Background()
 	beforeState, err := setup.db.getInterestListState(ctx, "test")
-	if err != nil {
-		t.Errorf("Failed to get list state: %v", err)
-	}
+	gta.NilError(t, err, "Failed to get list state")
 
 	list := []protocol.DocumentID{"bello", "koko"}
 
 	err = setup.db.setInterestList(ctx, "test", list)
-	if err != nil {
-		t.Errorf("Setting interest list failed: %v", err)
-	}
+	gta.NilError(t, err, "Setting interest list failed")
 
 	err = setup.db.commitInterestList(ctx, "test")
-	if err != nil {
-		t.Errorf("Failed to commit list: %v", err)
-	}
+	gta.NilError(t, err, "Failed to commit list")
 
 	afterState, err := setup.db.getInterestListState(ctx, "test")
-	if err != nil {
-		t.Errorf("Failed to get list state: %v", err)
-	}
+	gta.NilError(t, err, "Failed to get list state")
 
-	if beforeState.LastUpdated != afterState.LastUpdated {
-		t.Errorf("Expected untouched state")
-	}
-	if beforeState.LastUpdatedDocID != afterState.LastUpdatedDocID {
-		t.Errorf("Expected untouched state")
-	}
+	gta.Assert(t, beforeState.LastUpdated == afterState.LastUpdated, "Expected untouched state")
+	gta.Assert(t, beforeState.LastUpdatedDocID == afterState.LastUpdatedDocID, "Expected untouched state")
 }
 
 func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
@@ -148,24 +134,16 @@ func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, "test", list)
-	if err != nil {
-		t.Errorf("Setting interest list failed: %v", err)
-	}
+	gta.NilError(t, err, "Setting interest list failed: %v", err)
 
 	err = setup.db.addDocumentUpdate(ctx, doc)
-	if err != nil {
-		t.Errorf("Failed to add document: %v", err)
-	}
+	gta.NilError(t, err, "Failed to add document: %v", err)
 
 	err = setup.db.commitInterestList(ctx, "test")
-	if err != nil {
-		t.Errorf("Failed to commit list: %v", err)
-	}
+	gta.NilError(t, err, "Failed to commit list: %v", err)
 
 	afterState, err := setup.db.getInterestListState(ctx, "test")
-	if err != nil {
-		t.Errorf("Failed to get list state: %v", err)
-	}
+	gta.NilError(t, err, "Failed to get list state: %v", err)
 
 	if docTime.UnixNano() != afterState.LastUpdated {
 		t.Errorf("Expected last updated to be %v, was %v", docTime.UnixNano(), afterState.LastUpdated)
@@ -182,9 +160,7 @@ func TestGetLastUpdateTime_ExistingSpace(t *testing.T) {
 
 	ctx := context.Background()
 	last, err := setup.db.getLastUpdateTime(ctx, "test")
-	if err != nil {
-		t.Errorf("Failed to get last update time: %v", err)
-	}
+	gta.NilError(t, err, "Failed to get last update time: %v", err)
 	if !last.Before(then) {
 		t.Errorf("Initial update time should be before %v, got %v", then, last)
 	}
@@ -196,9 +172,7 @@ func TestGetLastUpdateTime_NonExistingSpace(t *testing.T) {
 
 	ctx := context.Background()
 	_, err := setup.db.getLastUpdateTime(ctx, "popowkqd")
-	if err == nil {
-		t.Errorf("Fetching last update time for unknown space should fail!")
-	}
+	gta.ErrorContains(t, err, "sql: no rows", "Fetching last update time for unknown space should fail!")
 }
 
 func TestGetInterestList_Empty(t *testing.T) {
@@ -207,12 +181,8 @@ func TestGetInterestList_Empty(t *testing.T) {
 
 	ctx := context.Background()
 	list, err := setup.db.getInterestList(ctx, "test")
-	if err != nil {
-		t.Errorf("Failed to get interest list: %v", err)
-	}
-	if len(list) != 0 {
-		t.Errorf("Length should be empty")
-	}
+	gta.NilError(t, err, "Failed to get interest list: %v", err)
+	gta.Assert(t, len(list) == 0, "Length should be empty")
 }
 
 func TestGetInterestList_NonexistingSpace(t *testing.T) {
@@ -221,9 +191,7 @@ func TestGetInterestList_NonexistingSpace(t *testing.T) {
 
 	ctx := context.Background()
 	_, err := setup.db.getInterestList(ctx, "kawonka")
-	if err == nil {
-		t.Errorf("Fetching interest list for nonexisting space should fail!")
-	}
+	gta.ErrorContains(t, err, "No such space", "Fetching interest list for nonexisting space should fail!")
 }
 
 func TestSetInterestList_NonexistingSpace(t *testing.T) {
@@ -232,9 +200,7 @@ func TestSetInterestList_NonexistingSpace(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, "kawonka", []protocol.DocumentID{"koko"})
-	if err == nil {
-		t.Errorf("Setting interest list for nonexisting space should fail!")
-	}
+	gta.ErrorContains(t, err, "sql: no rows", "Setting interest list for nonexisting space should fail!")
 }
 
 func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
@@ -245,14 +211,10 @@ func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, "test", list)
-	if err != nil {
-		t.Errorf("Setting interest list failed: %v", err)
-	}
+	gta.NilError(t, err, "Setting interest list failed: %v", err)
 
 	fetchedSlice, err := setup.db.getInterestList(ctx, "test")
-	if err != nil {
-		t.Errorf("Getting interest list failed: %v", err)
-	}
+	gta.NilError(t, err, "Getting interest list failed: %v", err)
 	sort.Slice(fetchedSlice, func(i int, j int) bool {
 		return fetchedSlice[i].DocID < fetchedSlice[j].DocID
 	})
@@ -275,12 +237,58 @@ func TestSetInterestList_CurrentListNonEmpty(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, "test", list[:])
-	if err != nil {
-		t.Errorf("Setting interest list failed: %v", err)
-	}
+	gta.NilError(t, err, "Setting interest list failed: %v", err)
 
 	err = setup.db.setInterestList(ctx, "test", list[:])
-	if err == nil {
-		t.Errorf("Setting interest list with current list should fail!")
+	gta.ErrorContains(t, err, "Cannot overwrite", "Setting interest list with current list should fail!")
+}
+
+func TestGetStemmerState_Empty(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	_, _, err := setup.db.getStemmerState()
+	gta.Assert(t, err == sql.ErrNoRows, "Expected ErrNoRows, got %v", err)
+}
+
+func TestSetStemmerState_Empty(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	state := snowball.Settings{Stemmers: []string{}}
+	err := setup.db.setStemmerState(state)
+	gta.Assert(t, err == nil)
+
+	fetched, _, err := setup.db.getStemmerState()
+	gta.Assert(t, err == nil)
+
+	gta.DeepEqual(t, fetched, state)
+}
+
+func TestSetStemmerState_Existing(t *testing.T) {
+	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	state := snowball.Settings{Stemmers: []string{}}
+	err := setup.db.setStemmerState(state)
+	gta.Assert(t, err == nil)
+
+	state = snowball.Settings{
+		Stemmers: []string{
+			"german", "dutch",
+		},
+		RemoveDiacritics: true,
+		TokenCharacters:  "asd",
+		Separators:       "zxc",
 	}
+	err = setup.db.setStemmerState(state)
+	gta.Assert(t, err == nil)
+
+	fetched, updated, err := setup.db.getStemmerState()
+	gta.Assert(t, err == nil)
+
+	gta.Assert(t, time.Now().After(updated))
+	gta.Assert(t, updated.Add(time.Second).After(time.Now()))
+
+	gta.DeepEqual(t, fetched, state)
 }
