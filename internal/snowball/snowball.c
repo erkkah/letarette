@@ -36,6 +36,8 @@ static int ftsSnowballCreate(
         return SQLITE_ERROR;
     }
 
+    instance->module = modData;
+
     const char const* parentStemmer = "unicode61";
     void* parentUserData = 0;
     int rc = modData->fts->xFindTokenizer(modData->fts, parentStemmer, &parentUserData, &instance->parentModule);
@@ -98,6 +100,7 @@ static int ftsSnowballTokenize(
 ){
     struct StemmerInstance* instance = (struct StemmerInstance*) pTokenizer;
     struct StemmerContext ctx;
+    ctx.callerContext = pCtx;
     ctx.instance = instance;
     ctx.xToken = xToken;
 
