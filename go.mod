@@ -10,6 +10,7 @@ require (
 	github.com/nats-io/go-nats v1.4.0
 	github.com/nats-io/nuid v1.0.0 // indirect
 	github.com/zserge/metric v0.1.0
+	gotest.tools v2.2.0+incompatible
 )
 
 go 1.13

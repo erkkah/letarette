@@ -4,6 +4,10 @@
 // migrations/1_init.up.sql
 // migrations/2_alive.down.sql
 // migrations/2_alive.up.sql
+// migrations/3_snowball.down.sql
+// migrations/3_snowball.up.sql
+// migrations/4_stemmerstate.down.sql
+// migrations/4_stemmerstate.up.sql
 // DO NOT EDIT!
 
 package letarette
@@ -151,6 +155,86 @@ func migrations2_aliveUpSql() (*asset, error) {
 	return a, nil
 }
 
+var _migrations3_snowballDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x3c\x8d\xc1\x4a\xc5\x40\x0c\x45\xf7\xf3\x15\xe1\xb9\x48\x0b\xdd\xb8\xd0\x4d\xe9\xb7\xc8\x74\x26\xd5\xe0\x90\x94\x24\x53\x8b\x5f\x2f\xa5\xf2\x76\xf7\x72\x0e\x9c\x6a\xba\x43\xe4\xb5\x11\x6c\xe1\x73\x4a\xc5\x28\x07\xc1\xc1\x16\x3d\xb7\x7f\xc4\x1b\x88\x06\xd0\xc9\x1e\x7e\x89\xd0\x9d\xe5\xf3\x5a\x6f\x43\x02\x00\x88\x33\x26\x28\x2a\x41\x12\x0b\x56\x2d\x8e\xcf\xff\x61\xfa\xc3\x75\x41\xae\x38\xdd\xb2\x7e\x93\xf0\x2f\x2d\x8f\x5d\x2d\xc8\xa0\x0b\x17\xad\xf4\xfe\x7a\xa3\xf2\x95\xcd\x01\x5f\xf0\x91\xc6\x39\x25\x16\x27\x0b\x60\x09\xbd\x8a\xc3\x16\x3e\xc2\x91\x5b\x27\x1f\xd0\x68\xed\xdc\x2a\x8e\x73\xfa\x0b\x00\x00\xff\xff\xfe\x51\x31\xfe\xcc\x00\x00\x00")
+
+func migrations3_snowballDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations3_snowballDownSql,
+		"migrations/3_snowball.down.sql",
+	)
+}
+
+func migrations3_snowballDownSql() (*asset, error) {
+	bytes, err := migrations3_snowballDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/3_snowball.down.sql", size: 204, mode: os.FileMode(436), modTime: time.Unix(1571170279, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _migrations3_snowballUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x3c\xcc\xc1\x0a\x83\x30\x10\x04\xd0\x7b\xbe\x62\xf1\x12\x05\xaf\x3d\x89\xdf\x52\xa2\x59\xcb\xd2\xb0\x5b\xb2\x13\x95\x7e\x7d\x91\x96\xde\x66\x98\xc7\xe4\x6a\x2f\x42\x5a\x0a\xd3\x06\x9f\x42\x58\x2b\x27\x30\xed\x52\xd1\x52\xf9\x4d\xb2\x91\x1a\x88\x4f\x71\xf8\x05\xa9\xb9\xe8\xe3\x4a\xb7\x3e\x10\x11\xe1\xc4\x48\xab\x29\x58\x31\xc7\x6c\xab\xc7\x7f\xbf\x57\x3b\x24\xcf\x51\x72\x1c\xbf\xd8\x9e\xac\xf2\xe6\xb9\x73\xb5\x63\x49\xa5\x74\x61\x98\x42\x10\x75\xae\x20\x51\xd8\x75\xdd\x6f\xf0\x81\xf6\x54\x1a\x7b\x1f\x2b\x2f\x4d\x4a\x8e\xc3\x14\x3e\x01\x00\x00\xff\xff\x18\x75\x72\x51\xb5\x00\x00\x00")
+
+func migrations3_snowballUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations3_snowballUpSql,
+		"migrations/3_snowball.up.sql",
+	)
+}
+
+func migrations3_snowballUpSql() (*asset, error) {
+	bytes, err := migrations3_snowballUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/3_snowball.up.sql", size: 181, mode: os.FileMode(436), modTime: time.Unix(1571170286, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _migrations4_stemmerstateDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x4a\x29\xca\x2f\x50\x28\x49\x4c\xca\x49\x55\x28\x2e\x49\xcd\xcd\x4d\x2d\x2a\x2e\x49\x2c\x49\xb5\xe6\x02\x04\x00\x00\xff\xff\x40\x10\xb9\x1c\x19\x00\x00\x00")
+
+func migrations4_stemmerstateDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations4_stemmerstateDownSql,
+		"migrations/4_stemmerstate.down.sql",
+	)
+}
+
+func migrations4_stemmerstateDownSql() (*asset, error) {
+	bytes, err := migrations4_stemmerstateDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/4_stemmerstate.down.sql", size: 25, mode: os.FileMode(436), modTime: time.Unix(1571250957, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _migrations4_stemmerstateUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x6c\x8f\x41\x4e\x03\x31\x0c\x45\xf7\x39\x85\x97\x20\x71\x83\x8a\x15\xdc\xa3\xf2\x64\xfe\x84\x88\xc4\x19\xd9\x3f\xa8\xc7\x47\x54\x50\x31\xd0\xf5\x7b\xf2\xf7\xcb\x0e\x25\x84\xba\x34\x48\xdd\xc4\x06\x05\x97\x1a\x0c\x09\xa2\x77\x78\xf0\x4b\x78\x48\x22\x22\x4d\xad\x4c\x2d\x08\x21\x2e\xbc\xca\x36\x5b\x7b\xba\x42\x47\x1f\x1f\x78\xad\x9a\xbd\xb2\xe6\x90\x65\x8c\x06\xb5\x3f\x1a\xc7\x3b\xec\xe5\x4d\x5d\x33\xe1\x77\x2f\x05\x76\x75\xe5\xb8\x4f\xe7\xbe\x2a\xb1\x0a\x6b\x47\x50\xfb\x2e\x2b\x36\x9d\x8d\x92\xa7\x3b\x8c\xe7\x1b\x49\x8f\xa7\x94\x7e\x12\xbd\x96\x02\x3f\x64\x9d\x75\x8a\x6e\x84\x7f\x1f\x95\x61\xc7\xec\x05\xa5\xda\xaf\xd5\x23\x0d\xf0\xf6\xcd\xf3\xff\xf5\x53\x82\xad\xa7\xf4\x19\x00\x00\xff\xff\x7f\x1a\xf9\xb3\x63\x01\x00\x00")
+
+func migrations4_stemmerstateUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations4_stemmerstateUpSql,
+		"migrations/4_stemmerstate.up.sql",
+	)
+}
+
+func migrations4_stemmerstateUpSql() (*asset, error) {
+	bytes, err := migrations4_stemmerstateUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/4_stemmerstate.up.sql", size: 355, mode: os.FileMode(436), modTime: time.Unix(1571251052, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -207,6 +291,10 @@ var _bindata = map[string]func() (*asset, error){
 	"migrations/1_init.up.sql": migrations1_initUpSql,
 	"migrations/2_alive.down.sql": migrations2_aliveDownSql,
 	"migrations/2_alive.up.sql": migrations2_aliveUpSql,
+	"migrations/3_snowball.down.sql": migrations3_snowballDownSql,
+	"migrations/3_snowball.up.sql": migrations3_snowballUpSql,
+	"migrations/4_stemmerstate.down.sql": migrations4_stemmerstateDownSql,
+	"migrations/4_stemmerstate.up.sql": migrations4_stemmerstateUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -254,6 +342,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"1_init.up.sql": &bintree{migrations1_initUpSql, map[string]*bintree{}},
 		"2_alive.down.sql": &bintree{migrations2_aliveDownSql, map[string]*bintree{}},
 		"2_alive.up.sql": &bintree{migrations2_aliveUpSql, map[string]*bintree{}},
+		"3_snowball.down.sql": &bintree{migrations3_snowballDownSql, map[string]*bintree{}},
+		"3_snowball.up.sql": &bintree{migrations3_snowballUpSql, map[string]*bintree{}},
+		"4_stemmerstate.down.sql": &bintree{migrations4_stemmerstateDownSql, map[string]*bintree{}},
+		"4_stemmerstate.up.sql": &bintree{migrations4_stemmerstateUpSql, map[string]*bintree{}},
 	}},
 }}
 

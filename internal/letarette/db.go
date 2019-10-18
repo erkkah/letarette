@@ -6,17 +6,20 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3" // Load SQLite driver
+	sqlite3 "github.com/mattn/go-sqlite3"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/sqlite3" // Load SQLite migration driver
+	sqlite3_migrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 
+	"github.com/erkkah/letarette/internal/snowball"
 	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
 )
@@ -55,7 +58,6 @@ func (state InterestListState) createdAtTime() time.Time {
 // providing access methods for all db interactions.
 type Database interface {
 	Close()
-	GetRawDB() *sql.DB
 
 	addDocumentUpdate(ctx context.Context, doc protocol.Document) error
 	commitInterestList(ctx context.Context, space string) error
@@ -71,6 +73,11 @@ type Database interface {
 	getInterestListState(context.Context, string) (InterestListState, error)
 
 	search(ctx context.Context, phrase string, spaces []string, limit uint16, offset uint16) ([]protocol.SearchResult, error)
+
+	getStemmerState() (snowball.Settings, time.Time, error)
+	setStemmerState(snowball.Settings) error
+
+	getRawDB() *sqlx.DB
 }
 
 type database struct {
@@ -93,6 +100,10 @@ func OpenDatabase(cfg Config) (Database, error) {
 func (db *database) Close() {
 	db.rdb.Close()
 	db.wdb.Close()
+}
+
+func (db *database) getRawDB() *sqlx.DB {
+	return db.wdb
 }
 
 func (db *database) getLastUpdateTime(ctx context.Context, space string) (t time.Time, err error) {
@@ -352,8 +363,59 @@ func (db *database) search(ctx context.Context, phrase string, spaces []string, 
 	return result, err
 }
 
-func (db *database) GetRawDB() *sql.DB {
-	return db.wdb.DB
+func (db *database) getStemmerState() (snowball.Settings, time.Time, error) {
+	query := `
+	select
+	languages,
+	removeDiacritics as removediacritics,
+	tokenCharacters as tokencharacters,
+	separators,
+	updated
+	from stemmerstate
+	`
+	var state struct {
+		Languages string
+		Updated   time.Time
+		snowball.Settings
+	}
+	err := db.rdb.Get(&state, query)
+	if len(state.Languages) == 0 {
+		state.Stemmers = []string{}
+	} else {
+		state.Stemmers = strings.Split(state.Languages, ",")
+	}
+	return state.Settings, state.Updated, err
+}
+
+func (db *database) setStemmerState(state snowball.Settings) error {
+	_, _, err := db.getStemmerState()
+
+	if err == sql.ErrNoRows {
+		insert := `
+		insert into stemmerstate (languages, removeDiacritics, tokenCharacters, separators)
+		values ("", "false", "", "");
+		`
+		result, err := db.wdb.Exec(insert)
+		if err != nil {
+			return err
+		}
+		if rows, err := result.RowsAffected(); err != nil || rows != 1 {
+			return fmt.Errorf("Failed to insert default state")
+		}
+	}
+	query := `
+	update stemmerstate
+	set languages = ?, removeDiacritics = ?, tokenCharacters = ?, separators = ?
+	`
+
+	languages := strings.Join(state.Stemmers, ",")
+	_, err = db.wdb.Exec(query,
+		languages,
+		state.RemoveDiacritics,
+		state.TokenCharacters,
+		state.Separators,
+	)
+	return err
 }
 
 func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
@@ -365,23 +427,51 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 		return Asset("migrations/" + name)
 	})
 
-	driver, err := bindata.WithInstance(res)
+	sourceDriver, err := bindata.WithInstance(res)
 	if err != nil {
 		return err
 	}
 
-	m, err := migrate.NewWithSourceInstance("go-bindata", driver, "sqlite3://"+sqliteURL)
+	dbDriver, err := sqlite3_migrate.WithInstance(db.DB, &sqlite3_migrate.Config{})
 	if err != nil {
 		return err
 	}
 
-	err = m.Up()
-	if err != nil && err != migrate.ErrNoChange {
+	m, err := migrate.NewWithInstance("go-bindata", sourceDriver, "letarette", dbDriver)
+	if err != nil {
 		return err
+	}
+
+	version, _, err := m.Version()
+	if err != nil && err != migrate.ErrNilVersion {
+		return err
+	}
+
+	runMigration := version == 0
+
+	if !runMigration {
+		next, err := sourceDriver.Next(version)
+		if err == nil {
+			runMigration = next > version
+		} else {
+			// The source driver should return ErrNotExist
+			_, isPathError := err.(*os.PathError)
+
+			if !isPathError && err != os.ErrNotExist {
+				return err
+			}
+		}
+	}
+
+	if runMigration {
+		logger.Info.Printf("Applying migrations")
+		err = m.Up()
+		if err != nil && err != migrate.ErrNoChange {
+			return err
+		}
 	}
 
 	for _, space := range spaces {
-
 		createSpace := `insert into spaces (space, lastUpdatedAtNanos) values(?, 0) on conflict do nothing`
 		_, err := db.Exec(createSpace, space)
 		if err != nil {
@@ -399,15 +489,34 @@ func openDatabase(cfg Config) (rdb *sqlx.DB, wdb *sqlx.DB, err error) {
 	}
 	escapedPath := strings.Replace(abspath, " ", "%20", -1)
 
+	const driver = "sqlite3_snowball"
+
+	drivers := sql.Drivers()
+	if sort.Search(len(drivers), func(i int) bool { return drivers[i] == driver }) == len(drivers) {
+		sql.Register(driver,
+			&sqlite3.SQLiteDriver{
+				ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+					return snowball.Init(conn, snowball.Settings{
+						Stemmers:         cfg.Stemmer.Languages,
+						RemoveDiacritics: cfg.Stemmer.RemoveDiacritics,
+						TokenCharacters:  cfg.Stemmer.TokenCharacters,
+						Separators:       cfg.Stemmer.Separators,
+					})
+				},
+			})
+	}
+
+	// Only one writer
 	writeSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_timeout=500&cache=private", escapedPath)
-	wdb, err = sqlx.Connect("sqlite3", writeSqliteURL)
+	wdb, err = sqlx.Connect("sqlite3_snowball", writeSqliteURL)
 	if err != nil {
 		return
 	}
 	wdb.SetMaxOpenConns(1)
 
-	readSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&mode=ro&_foreign_keys=true&_timeout=500&cache=shared", escapedPath)
-	rdb, err = sqlx.Connect("sqlite3", readSqliteURL)
+	// Multiple readers
+	readSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_query_only=true&_foreign_keys=true&_timeout=500&cache=shared", escapedPath)
+	rdb, err = sqlx.Connect("sqlite3_snowball", readSqliteURL)
 	if err != nil {
 		return
 	}

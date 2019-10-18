@@ -25,6 +25,7 @@ func main() {
 	cfg, err := letarette.LoadConfig()
 	if err != nil {
 		logger.Error.Printf("Failed to load config: %v", err)
+		letarette.Usage()
 		os.Exit(1)
 	}
 
@@ -34,26 +35,36 @@ func main() {
 	conn, err := nats.Connect(cfg.Nats.URL)
 	if err != nil {
 		logger.Error.Printf("Failed to connect to nats server")
-		os.Exit(2)
+		os.Exit(1)
 	}
 	defer conn.Close()
 
 	db, err := letarette.OpenDatabase(cfg)
 	if err != nil {
 		logger.Error.Printf("Failed to connect to DB: %v", err)
-		os.Exit(3)
+		os.Exit(1)
 	}
 	defer db.Close()
+
+	err = letarette.CheckStemmerSettings(db, cfg)
+	if err == letarette.ErrStemmerSettingsMismatch {
+		logger.Error.Printf("Index and config stemmer settings mismatch. Re-build index or force changes.")
+		os.Exit(1)
+	}
+	if err != nil {
+		logger.Error.Printf("Failed to check stemmer config")
+		os.Exit(1)
+	}
 
 	indexer, err := letarette.StartIndexer(conn, db, cfg)
 	if err != nil {
 		logger.Error.Printf("Failed to start indexer: %v", err)
-		os.Exit(4)
+		os.Exit(1)
 	}
 	searcher, err := letarette.StartSearcher(conn, db, cfg)
 	if err != nil {
 		logger.Error.Printf("Failed to start searcher: %v", err)
-		os.Exit(5)
+		os.Exit(1)
 	}
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT)
