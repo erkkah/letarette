@@ -25,6 +25,7 @@ func main() {
 	cfg, err := letarette.LoadConfig()
 	if err != nil {
 		logger.Error.Printf("Failed to load config: %v", err)
+		letarette.Usage()
 		os.Exit(1)
 	}
 

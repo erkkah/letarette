@@ -18,7 +18,7 @@ type Config struct {
 		Path string `default:"letarette.db"`
 	}
 	Index struct {
-		Spaces          []string      `required:"true"`
+		Spaces          []string      `required:"true" default:"docs"`
 		ChunkSize       uint16        `default:"100"`
 		MaxInterestWait time.Duration `default:"5s"`
 		MaxDocumentWait time.Duration `default:"1s"`
@@ -26,7 +26,7 @@ type Config struct {
 		MaxOutstanding  uint16        `default:"10"`
 	}
 	Stemmer struct {
-		Languages        []string `split_words:"true" default:"english"`
+		Languages        []string `split_words:"true" required:"true" default:"english"`
 		RemoveDiacritics bool     `split_words:"true" default:"true"`
 		TokenCharacters  string
 		Separators       string
@@ -46,7 +46,7 @@ func LoadConfig() (cfg Config, err error) {
 	err = envconfig.Process(prefix, &cfg)
 
 	if err != nil {
-		envconfig.Usage(prefix, &cfg)
+		return
 	}
 
 	unique := map[string]string{}
