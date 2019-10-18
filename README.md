@@ -3,14 +3,14 @@
 If all you need is a scalable, simple, understandable full text search engine - this it it!
 Letarette is easy to set up and integrate with your data.
 
-If you need customizable stemming, suggestions, structured documents, et.c. then Letarette might not be for you.
+If you need scriptable stemming, suggestions, structured documents, et.c. then Letarette might not be for you.
 There are several well-known alternatives there, like Elasticsearch, Solr and friends.
 
 ## Overview
 
 Letarette is a distributed search engine that uses [NATS][NATS] for messaging and [SQLite FTS5][FTS5] for the search index.
 The Letarette service is a single binary written in Go. Clients can be written in any language that has NATS
-support, currently there is a client library for Go as part of the Letarette main project.
+support. Currently there is a client library for Go as part of the Letarette main project.
 
 ## Getting started
 
@@ -18,18 +18,16 @@ support, currently there is a client library for Go as part of the Letarette mai
 Since NATS is the core messaging component, a NATS server needs to be running for Letarette to function. If you haven't used NATS before, it is super lightweight and requires no setup to get started: [NATS Server Installation][NATS Installation].
 
 ### Worker
-The Letarette work horse is called the "worker", and handles both indexing and search requests.
+The Letarette main service, the "worker", handles indexing and search requests.
 The worker is configured by environment variables, with reasonable defaults. A Letarette search cluster needs at least one worker instance up and running.
 
 The worker maintains the index database, which is a local SQLite database. Workers can be launched on multiple nodes within a search cluster, and they will all maintain their own copy of the index.
 
 > Each Letarette cluster divides documents into different user defined spaces. An indexed movie database could have one space for "actors" and another for "movies".
 
-To launch the worker, you just need to set the spaces it should index:
+To launch the worker using the default space "docs" and reasonable default, just run `./worker`. 
 
-```sh
-LETARETTE_INDEX_SPACES=fruits worker
-```
+> Run `./worker -h` to get help for all environment variables and see default values.
 
 ### Document Manager
 The "Document Manager" is the component that provides searchable documents to the worker. It listens to index requests from the cluster workers and provides the actual document text that will be indexed for searching.
