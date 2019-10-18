@@ -199,6 +199,9 @@ int initSnowballStemmer(
     modData->nParentArgs = nArgs;
 
     modData->fts = fts5_api_from_db(db);
+    if (!modData->fts) {
+        return SQLITE_ERROR;
+    }
 
     int result = modData->fts->xCreateTokenizer(
         modData->fts, "snowball", (void *) modData, &tokenizer, destroyStemmerModule
