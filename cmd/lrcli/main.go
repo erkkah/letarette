@@ -8,6 +8,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/erkkah/letarette/pkg/charma"
+
 	"github.com/erkkah/letarette/internal/letarette"
 	"github.com/erkkah/letarette/internal/snowball"
 
@@ -34,7 +36,8 @@ var cmdline struct {
 }
 
 func main() {
-	usage := `Letarette CLI.
+	title := charma.CircleCode("LETARETTE")
+	usage := title + `
 
 Usage:
 	lrcli search [-v] [-l <limit>] [-o <offset>] <space> <phrase>...
@@ -46,8 +49,8 @@ Usage:
 
 Options:
     -v           Verbose
-    -l <limit>   Limit [default: 10]
-    -o <offset>  Offset [default: 0]
+    -l <limit>   Search result limit [default: 10]
+    -o <offset>  Search result offset [default: 0]
 `
 
 	args, err := docopt.ParseDoc(usage)
