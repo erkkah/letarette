@@ -10,7 +10,7 @@ tinysrv: client
 	go build -v ./cmd/tinysrv
 
 lrcli: client
-	go build -v ./cmd/lrcli
+	CGO_CFLAGS=-DSQLITE_ENABLE_DBSTAT_VTAB=1 go build -v --tags "fts5" ./cmd/lrcli
 
 client:
 	go build -v ./pkg/client
@@ -21,4 +21,3 @@ test:
 generate:
 	go generate internal/letarette/db.go
 	go generate internal/snowball/snowball.go
-

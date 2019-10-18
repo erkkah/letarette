@@ -6,16 +6,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	sqlite3 "github.com/mattn/go-sqlite3" // Load SQLite driver
+	sqlite3 "github.com/mattn/go-sqlite3"
 
 	"github.com/golang-migrate/migrate/v4"
-	sqlite3_migrate "github.com/golang-migrate/migrate/v4/database/sqlite3" // Load SQLite migration driver
+	sqlite3_migrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 
 	"github.com/erkkah/letarette/internal/snowball"
@@ -57,7 +58,6 @@ func (state InterestListState) createdAtTime() time.Time {
 // providing access methods for all db interactions.
 type Database interface {
 	Close()
-	GetRawDB() *sql.DB
 
 	addDocumentUpdate(ctx context.Context, doc protocol.Document) error
 	commitInterestList(ctx context.Context, space string) error
@@ -76,6 +76,8 @@ type Database interface {
 
 	getStemmerState() (snowball.Settings, time.Time, error)
 	setStemmerState(snowball.Settings) error
+
+	getRawDB() *sqlx.DB
 }
 
 type database struct {
@@ -98,6 +100,10 @@ func OpenDatabase(cfg Config) (Database, error) {
 func (db *database) Close() {
 	db.rdb.Close()
 	db.wdb.Close()
+}
+
+func (db *database) getRawDB() *sqlx.DB {
+	return db.wdb
 }
 
 func (db *database) getLastUpdateTime(ctx context.Context, space string) (t time.Time, err error) {
@@ -412,10 +418,6 @@ func (db *database) setStemmerState(state snowball.Settings) error {
 	return err
 }
 
-func (db *database) GetRawDB() *sql.DB {
-	return db.wdb.DB
-}
-
 func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 	migrations, err := AssetDir("migrations")
 	if err != nil {
@@ -440,14 +442,36 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 		return err
 	}
 
-	logger.Info.Printf("Applying migrations")
-	err = m.Up()
-	if err != nil && err != migrate.ErrNoChange {
+	version, _, err := m.Version()
+	if err != nil && err != migrate.ErrNilVersion {
 		return err
 	}
 
-	for _, space := range spaces {
+	runMigration := version == 0
 
+	if !runMigration {
+		next, err := sourceDriver.Next(version)
+		if err == nil {
+			runMigration = next > version
+		} else {
+			// The source driver should return ErrNotExist
+			_, isPathError := err.(*os.PathError)
+
+			if !isPathError && err != os.ErrNotExist {
+				return err
+			}
+		}
+	}
+
+	if runMigration {
+		logger.Info.Printf("Applying migrations")
+		err = m.Up()
+		if err != nil && err != migrate.ErrNoChange {
+			return err
+		}
+	}
+
+	for _, space := range spaces {
 		createSpace := `insert into spaces (space, lastUpdatedAtNanos) values(?, 0) on conflict do nothing`
 		_, err := db.Exec(createSpace, space)
 		if err != nil {
