@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define MAX_TOKEN_LEN 64
+#define MAX_TOKEN_LEN 40
 #define MIN_TOKEN_LEN 3
 
 struct StemmerModuleData {
@@ -109,11 +109,11 @@ static int ftsSnowballTokenize(
     );
 }
 
-static fts5_api *fts5_api_from_db(sqlite3 *db){
+static fts5_api *fts5APIFromDB(sqlite3 *db){
 	fts5_api *pRet = 0;
 	sqlite3_stmt *pStmt = 0;
 
-	if( SQLITE_OK==sqlite3_prepare(db, "SELECT fts5(?1)", -1, &pStmt, 0) ){
+	if (sqlite3_prepare(db, "SELECT fts5(?1)", -1, &pStmt, 0) == SQLITE_OK){
 		sqlite3_bind_pointer(pStmt, 1, (void*)&pRet, "fts5_api_ptr", 0);
 		sqlite3_step(pStmt);
 	}
@@ -198,7 +198,7 @@ int initSnowballStemmer(
     modData->parentArgs = args;
     modData->nParentArgs = nArgs;
 
-    modData->fts = fts5_api_from_db(db);
+    modData->fts = fts5APIFromDB(db);
     if (!modData->fts) {
         return SQLITE_ERROR;
     }
