@@ -1,7 +1,5 @@
 package charma
 
-import "strings"
-
 var circleChars = map[rune]rune{}
 
 func init() {
@@ -18,16 +16,24 @@ func init() {
 	}
 }
 
-func CircleCode(input string) string {
+// CircleChars replaces all A-Z a-z characters in
+// the provided string with the circled variants.
+func CircleChars(input string) string {
 	result := []rune{}
 
+	lastChar := len(input)
+	currentChar := 0
 	for _, r := range input {
+		currentChar++
 		if circle, found := circleChars[r]; found {
 			result = append(result, circle)
+			if currentChar != lastChar {
+				result = append(result, ' ')
+			}
 		} else {
 			result = append(result, r)
 		}
 	}
 
-	return strings.Join(strings.Split(string(result), ""), " ")
+	return string(result)
 }
