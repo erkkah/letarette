@@ -20,23 +20,28 @@ import (
 )
 
 var cmdline struct {
+	Verbose bool `docopt:"-v"`
+
+	Search  bool
 	Space   string   `docopt:"<space>"`
-	Verbose bool     `docopt:"-v"`
 	Phrases []string `docopt:"<phrase>"`
 	Limit   int      `docopt:"-l"`
 	Offset  int      `docopt:"-o"`
 
-	Search       bool
 	Index        bool
 	Stats        bool
 	Check        bool
-	Forcestemmer bool
 	Rebuild      bool
-	Env          bool
+	ForceStemmer bool `docopt:"forcestemmer"`
+
+	ResetMigration bool `docopt:"resetmigration"`
+	Version        int  `docopt:"<version>"`
+
+	Env bool
 }
 
 func main() {
-	title := charma.CircleCode("LETARETTE")
+	title := charma.CircleChars("Letarette")
 	usage := title + `
 
 Usage:
@@ -45,6 +50,7 @@ Usage:
 	lrcli index check
 	lrcli index rebuild
 	lrcli index forcestemmer
+	lrcli resetmigration <version>
 	lrcli env
 
 Options:
@@ -88,7 +94,7 @@ Options:
 			printIndexStats(db)
 		case cmdline.Rebuild:
 			rebuildIndex(db)
-		case cmdline.Forcestemmer:
+		case cmdline.ForceStemmer:
 			settings := snowball.Settings{
 				Stemmers:         cfg.Stemmer.Languages,
 				RemoveDiacritics: cfg.Stemmer.RemoveDiacritics,
@@ -97,6 +103,8 @@ Options:
 			}
 			forceIndexStemmerState(settings, db)
 		}
+	} else if cmdline.ResetMigration {
+		resetMigration(cfg, cmdline.Version)
 	}
 }
 
@@ -227,4 +235,14 @@ func doSearch(cfg letarette.Config) {
 	for _, doc := range res.Documents {
 		fmt.Println(doc.Snippet)
 	}
+}
+
+func resetMigration(cfg letarette.Config, version int) {
+	fmt.Printf("Resetting migration to version %v...\n", version)
+	err := letarette.ResetMigration(cfg, version)
+	if err != nil {
+		logger.Error.Printf("Failed to reset migration: %v", err)
+		return
+	}
+	fmt.Println("OK")
 }

@@ -88,13 +88,32 @@ type database struct {
 // OpenDatabase connects to a new or existing database and
 // migrates the database up to the latest version.
 func OpenDatabase(cfg Config) (Database, error) {
-	rdb, wdb, err := openDatabase(cfg)
+	registerSnowballDriver(cfg)
+	rdb, wdb, err := openDatabase(cfg.Db.Path, cfg.Index.Spaces)
 	if err != nil {
 		return nil, err
 	}
 
 	newDB := &database{rdb, wdb}
 	return newDB, nil
+}
+
+func ResetMigration(cfg Config, version int) error {
+	registerSnowballDriver(cfg)
+	db, err := openMigrationConnection(cfg.Db.Path)
+	if err != nil {
+		return err
+	}
+	var current int
+	err = db.Get(&current, "select version from schema_migrations")
+	if err != nil {
+		return err
+	}
+	if current < version {
+		return fmt.Errorf("Cannot reset migration forward from %v to %v", current, version)
+	}
+	_, err = db.Exec(`update schema_migrations set version=?, dirty="false"`, version)
+	return err
 }
 
 func (db *database) Close() {
@@ -482,20 +501,16 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 	return nil
 }
 
-func openDatabase(cfg Config) (rdb *sqlx.DB, wdb *sqlx.DB, err error) {
-	abspath, err := filepath.Abs(cfg.Db.Path)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to get absolute path to DB: %w", err)
-	}
-	escapedPath := strings.Replace(abspath, " ", "%20", -1)
+const driver = "sqlite3_snowball"
 
-	const driver = "sqlite3_snowball"
-
+func registerSnowballDriver(cfg Config) {
 	drivers := sql.Drivers()
 	if sort.Search(len(drivers), func(i int) bool { return drivers[i] == driver }) == len(drivers) {
+		logger.Debug.Printf("Registering %q driver", driver)
 		sql.Register(driver,
 			&sqlite3.SQLiteDriver{
 				ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+					logger.Debug.Printf("Initializing snowball stemmer")
 					return snowball.Init(conn, snowball.Settings{
 						Stemmers:         cfg.Stemmer.Languages,
 						RemoveDiacritics: cfg.Stemmer.RemoveDiacritics,
@@ -505,23 +520,57 @@ func openDatabase(cfg Config) (rdb *sqlx.DB, wdb *sqlx.DB, err error) {
 				},
 			})
 	}
+}
+
+type connectionMode bool
+
+const (
+	readOnly  connectionMode = true
+	readWrite connectionMode = false
+)
+
+func getDatabaseURL(dbPath string, mode connectionMode) (string, error) {
+	abspath, err := filepath.Abs(dbPath)
+	if err != nil {
+		return "", fmt.Errorf("Failed to get absolute path to DB: %w", err)
+	}
+	escapedPath := strings.Replace(abspath, " ", "%20", -1)
+
+	if mode == readOnly {
+		return fmt.Sprintf("file:%s?_journal=WAL&_query_only=true&_foreign_keys=true&_timeout=500&cache=shared", escapedPath), nil
+	}
+	return fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_timeout=500&cache=private", escapedPath), nil
+}
+
+func openMigrationConnection(dbPath string) (db *sqlx.DB, err error) {
+	url, err := getDatabaseURL(dbPath, readWrite)
+	if err != nil {
+		return nil, err
+	}
+	db, err = sqlx.Connect(driver, url)
+	return
+}
+
+func openDatabase(dbPath string, spaces []string) (rdb *sqlx.DB, wdb *sqlx.DB, err error) {
 
 	// Only one writer
-	writeSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_timeout=500&cache=private", escapedPath)
-	wdb, err = sqlx.Connect("sqlite3_snowball", writeSqliteURL)
+	writeSqliteURL, err := getDatabaseURL(dbPath, readWrite)
+	if err != nil {
+		return nil, nil, err
+	}
+	wdb, err = sqlx.Connect(driver, writeSqliteURL)
 	if err != nil {
 		return
 	}
 	wdb.SetMaxOpenConns(1)
 
 	// Multiple readers
-	readSqliteURL := fmt.Sprintf("file:%s?_journal=WAL&_query_only=true&_foreign_keys=true&_timeout=500&cache=shared", escapedPath)
-	rdb, err = sqlx.Connect("sqlite3_snowball", readSqliteURL)
+	readSqliteURL, err := getDatabaseURL(dbPath, readOnly)
+	rdb, err = sqlx.Connect(driver, readSqliteURL)
 	if err != nil {
 		return
 	}
 
-	spaces := cfg.Index.Spaces
 	if len(spaces) < 1 {
 		return nil, nil, fmt.Errorf("No spaces defined: %v", spaces)
 	}
