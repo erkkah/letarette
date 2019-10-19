@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -87,8 +86,13 @@ Options:
 			logger.Error.Printf("Failed to open db: %v", err)
 			return
 		}
+
 		switch {
 		case cmdline.Check:
+			err = letarette.CheckStemmerSettings(db, cfg)
+			if err == letarette.ErrStemmerSettingsMismatch {
+				logger.Warning.Printf("Index and config stemmer settings mismatch. Re-build index or force changes.")
+			}
 			checkIndex(db)
 		case cmdline.Stats:
 			printIndexStats(db)
@@ -121,54 +125,28 @@ func checkIndex(db letarette.Database) {
 const statsTemplate = `
 Index contains {{.Docs}} documents and {{.Terms}} unique terms.
 
-{{"Settings:" | underline}}
+Settings:
+========
 Languages: {{join .Stemmer.Stemmers ","}}
 Token characters: {{printf "%q" .Stemmer.TokenCharacters}}
 Separators: {{printf "%q" .Stemmer.Separators}}
 Remove diacritics: {{if .Stemmer.RemoveDiacritics}}yes{{else}}no{{end}}
 
-{{"Spaces:" | underline}}
+Spaces:
+======
 {{range .Spaces -}}
-{{printf "\u23f5%s\t" .Name}} - Last updated @ {{nanoDate .State.LastUpdated}} ({{.State.LastUpdatedDocID}})
+{{printf "☆ %s\t" .Name}} - Last updated @ {{nanoDate .State.LastUpdated}} ({{.State.LastUpdatedDocID}})
 {{else}}No spaces
 {{end}}
-{{"Top terms:" | underline}}
+Top terms:
+=========
 {{range .CommonTerms -}}
-{{printf "\u23f5%s\t%12d" .Term .Count}}
+{{printf "☆ %s\t%12d" .Term .Count}}
 {{end}}
 `
 
 func printIndexStats(db letarette.Database) {
 	fmt.Println("Crunching numbers...")
-
-	/*
-		stats := letarette.Stats{
-			Spaces: []struct {
-				Name  string
-				State letarette.InterestListState
-			}{
-				{"spejset", letarette.InterestListState{
-					CreatedAt:        10,
-					LastUpdated:      20,
-					LastUpdatedDocID: "ABABA",
-				}},
-				{"rymden", letarette.InterestListState{
-					CreatedAt:        30,
-					LastUpdated:      40,
-					LastUpdatedDocID: "BEBEB",
-				}},
-			},
-			CommonTerms: []struct {
-				Term  string
-				Count int
-			}{
-				{"korv", 22},
-				{"apa", 21},
-			},
-			Terms: 11,
-			Docs:  4,
-		}
-	*/
 
 	var err error
 	stats, err := letarette.GetIndexStats(db)
@@ -178,14 +156,10 @@ func printIndexStats(db letarette.Database) {
 	}
 
 	tmpl := template.New("stats")
-	wordChar, _ := regexp.Compile(`\w`)
 	tmpl = tmpl.Funcs(template.FuncMap{
 		"join": strings.Join,
 		"nanoDate": func(nanos int64) string {
 			return time.Unix(0, nanos).Format(time.RFC1123)
-		},
-		"underline": func(str string) string {
-			return wordChar.ReplaceAllString(str, "$0\u20e8")
 		},
 	})
 	tmpl, err = tmpl.Parse(statsTemplate)
