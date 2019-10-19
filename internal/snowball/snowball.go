@@ -50,11 +50,15 @@ func Init(conn *sqlite3.SQLiteConn, settings Settings) error {
 
 	var cRemoveDiacritics = 0
 	if settings.RemoveDiacritics {
-		if C.SQLITE_VERSION_NUMBER < 3027001 {
-			cRemoveDiacritics = 1
-		} else {
-			cRemoveDiacritics = 2
-		}
+		/*
+			??? Does not seem to work on OSX?
+			if C.SQLITE_VERSION_NUMBER < 3027001 {
+				cRemoveDiacritics = 1
+			} else {
+				cRemoveDiacritics = 2
+			}
+		*/
+		cRemoveDiacritics = 1
 	}
 	result := C.initSnowballStemmer(
 		db, cStemmers, C.int(len(settings.Stemmers)), C.int(cRemoveDiacritics), cTokenCharacters, cSeparators,
