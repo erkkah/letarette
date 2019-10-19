@@ -11,7 +11,10 @@ import (
 )
 
 // #cgo CFLAGS: -DSQLITE_CORE -Isnowball/include
+// #cgo darwin CFLAGS: -I/usr/local/opt/sqlite/include
 // #cgo LDFLAGS: -lsqlite3 ${SRCDIR}/snowball/libstemmer.o
+// #cgo darwin LDFLAGS: -L/usr/local/opt/sqlite/lib
+// #cgo dbstats CFLAGS: -DSQLITE_ENABLE_DBSTAT_VTAB=1
 // #include "snowball.h"
 // #include <stdlib.h>
 import "C"

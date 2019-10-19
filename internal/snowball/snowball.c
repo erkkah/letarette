@@ -3,6 +3,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+#if SQLITE_VERSION_NUMBER < 3020000
+#error "Need at least SQLite 3.20.0."
+#pragma message "Found SQLite " SQLITE_VERSION
+#endif
+
 #define MAX_TOKEN_LEN 40
 #define MIN_TOKEN_LEN 3
 
@@ -38,7 +43,7 @@ static int ftsSnowballCreate(
 
     instance->module = modData;
 
-    const char const* parentStemmer = "unicode61";
+    const char * const parentStemmer = "unicode61";
     void* parentUserData = 0;
     int rc = modData->fts->xFindTokenizer(modData->fts, parentStemmer, &parentUserData, &instance->parentModule);
 
@@ -77,7 +82,7 @@ static int ftsSnowballCallback(
         char buffer[MAX_TOKEN_LEN];
         memcpy(buffer, pToken, nToken);
         struct sb_stemmer** stemmer = ctx->instance->module->stemmers;
-        const sb_symbol* stemmed = pToken;
+        const sb_symbol* stemmed = (const sb_symbol*) pToken;
         int stemmedLength = nToken;
         while (*stemmer) {
             stemmed = sb_stemmer_stem(*stemmer, (unsigned char*) buffer, nToken);
@@ -87,7 +92,7 @@ static int ftsSnowballCallback(
             }
             stemmer++;
         }
-        return ctx->xToken(ctx->callerContext, tflags, stemmed, stemmedLength, iStart, iEnd);
+        return ctx->xToken(ctx->callerContext, tflags, (const char*) stemmed, stemmedLength, iStart, iEnd);
     }
 }
 
@@ -104,7 +109,7 @@ static int ftsSnowballTokenize(
     ctx.instance = instance;
     ctx.xToken = xToken;
 
-    instance->parentModule.xTokenize(
+    return instance->parentModule.xTokenize(
         instance->parentInstance, &ctx, flags, pText, nText, ftsSnowballCallback
     );
 }
