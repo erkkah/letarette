@@ -15,9 +15,14 @@ lrcli: client
 client:
 	go build -v ./pkg/client
 
+internal/snowball/snowball/libstemmer.o: internal/snowball/snowball/README
+	$(MAKE) -C internal/snowball/snowball
+
+internal/snowball/snowball/README:
+	git submodule snowball update --recursive
+
 test:
 	go test -tags "fts5" github.com/erkkah/letarette/internal/letarette
 
 generate:
 	go generate internal/letarette/db.go
-	go generate internal/snowball/snowball.go

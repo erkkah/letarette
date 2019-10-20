@@ -1,7 +1,5 @@
 package snowball
 
-//go:generate make -C snowball
-
 import (
 	"fmt"
 	"reflect"
