@@ -34,6 +34,16 @@ The "Document Manager" is the component that provides searchable documents to th
 
 > For Documents to be indexable in Letarette, they must have a unique `ID`, a `Text` field for indexing and an `Updated` timestamp field. The `ID` must be unique within the document space and never be reused. Deleted documents are marked as such instead of being removed.
 
+Document managers respond to two different types of requests, _index update requests_ and _document requests_.
+
+Index update requests asks for a list of documents updated at or after a given document or timestamp. That document is the most recent document in the requesting worker's index. If that document has been updated since the worker got it, the document manager must use the timestamp instead.
+
+By using a strict ordering of update timestamps primarily and document ID secondarily, this update scheme makes sure that the distributed indexes can be kept up to date even in situations of communication disruption or downtime.
+
+Some overfetching might occur.
+
+After a worker has received an index update response, it will start to request the documents on the list. Document updates are broadcast to all workers, meaning that workers often will have documents that they need based on their last index update response.
+
 ### Search client
 Searching in Letarette is easiest done by using the search client library:
 
