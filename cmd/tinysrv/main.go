@@ -1,7 +1,8 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"os/signal"
 	"sort"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,10 +23,11 @@ import (
 )
 
 type entry struct {
-	Title string    `json:"title"`
-	Text  string    `json:"text"`
-	Date  time.Time `json:"date"`
-	alive bool
+	Title      string `json:"title"`
+	Text       string `json:"text"`
+	Compressed []byte
+	Date       time.Time `json:"date"`
+	alive      bool
 }
 
 type ixentry struct {
@@ -38,22 +41,63 @@ var db = map[int]entry{}
 var ix = []ixentry{}
 
 func loadDatabase(objFile string) error {
+	var fileReader io.Reader
+
 	file, err := os.Open(objFile)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+	fileReader = file
 
-	reader := bufio.NewReader(file)
-	for {
-		obj, readErr := reader.ReadString('\n')
+	if strings.HasSuffix(objFile, ".gz") {
+		if config.Verbose {
+			log.Printf("Reading from compressed file...")
+		}
+		gzipReader, err := gzip.NewReader(fileReader)
+		if err != nil {
+			return err
+		}
+		defer gzipReader.Close()
+		fileReader = gzipReader
+	}
 
-		if len(obj) != 0 {
-			var e entry
-			err = json.Unmarshal([]byte(obj), &e)
-			if err != nil {
-				return err
+	decoder := json.NewDecoder(fileReader)
+	rawSize := 0
+	compressedSize := 0
+	compressBuffer := new(bytes.Buffer)
+	compressor := gzip.NewWriter(compressBuffer)
+
+	report := func() {
+		compressedInfo := ""
+		if config.Compress {
+			compressedInfo = fmt.Sprintf(", %v MB compressed", compressedSize/1024/1024)
+		}
+
+		log.Printf("%v docs, %v MB text loaded%s\n", id, rawSize/1024/1024, compressedInfo)
+	}
+
+	for config.NumLimit == 0 || id < config.NumLimit {
+
+		var e entry
+		readErr := decoder.Decode(&e)
+		if readErr == nil {
+			if config.Compress {
+				compressBuffer.Reset()
+				compressor.Reset(compressBuffer)
+				textBytes := []byte(e.Text)
+				rawSize += len(textBytes)
+				compressor.Write(textBytes)
+				compressor.Flush()
+				e.Compressed = compressBuffer.Bytes()
+				compressedSize += len(e.Compressed)
+				e.Text = ""
+			} else {
+				rawSize += len([]byte(e.Text))
 			}
+
+			rawSize += len([]byte(e.Title))
+
 			e.alive = true
 			if e.Date.IsZero() {
 				e.Date = time.Now()
@@ -64,15 +108,23 @@ func loadDatabase(objFile string) error {
 				id:   id,
 			})
 			id++
-		}
 
-		if readErr != nil {
+			if config.Verbose && id%1000 == 0 {
+				report()
+			}
+		} else {
 			if readErr != io.EOF {
 				return readErr
 			}
-			return nil
+			break
 		}
 	}
+
+	if config.Verbose {
+		report()
+	}
+
+	return nil
 }
 
 func sortIndex() {
@@ -226,7 +278,20 @@ func entryToDocument(id protocol.DocumentID, e entry) protocol.Document {
 		Alive:   e.alive,
 	}
 	if e.alive {
-		doc.Text = e.Title + "\n" + e.Text
+		var text string
+		if config.Compress {
+			reader := bytes.NewReader(e.Compressed)
+			uncompressor, _ := gzip.NewReader(reader)
+			buffer := make([]byte, 5120)
+			unpacked := []byte{}
+			for bytesRead, err := uncompressor.Read(unpacked); err != io.EOF; {
+				unpacked = append(unpacked, buffer[:bytesRead]...)
+			}
+			text = string(unpacked)
+		} else {
+			text = e.Text
+		}
+		doc.Text = e.Title + "\n" + text
 	}
 	return doc
 }
@@ -271,18 +336,23 @@ var config struct {
 	UpdateFreq time.Duration `docopt:"-u"`
 	DeleteFreq time.Duration `docopt:"-d"`
 	Verbose    bool          `docopt:"-v"`
+	Compress   bool          `docopt:"-c"`
+	Limit      string        `docopt:"-l"`
+	NumLimit   int
 }
 
 func main() {
 	usage := `Tiny JSON document server.
 
 Usage:
-    tinysrv [-n <url>] [-u <secs>] [-d <secs>] [-v] <space> <dbfile>
+    tinysrv [-n <url>] [-l <limit>] [-u <secs>] [-d <secs>] [-c] [-v] <space> <dbfile>
 
 Options:
-    -n <url>    NATS url to connect to [default: nats://localhost:4222]
+	-n <url>    NATS url to connect to [default: nats://localhost:4222]
+    -l <limit>  Max number of documents to load [default: unlimited]
     -u <secs>   Auto-update random documents every SECS second
     -d <secs>   Auto-delete random documents every SECS second
+    -c          Compress text in memory
     -v          Verbose
 `
 
@@ -293,6 +363,10 @@ Options:
 	err = args.Bind(&config)
 	if err != nil {
 		log.Panicf("Failed to bind args: %v", err)
+	}
+
+	if config.Limit != "unlimited" {
+		config.NumLimit, _ = strconv.Atoi(config.Limit)
 	}
 
 	space = config.Space
