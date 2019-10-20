@@ -1,25 +1,26 @@
 all: tinysrv worker lrcli client
 
-worker: generate
+worker: generate snowball
 	go build -v -tags "fts5" ./cmd/worker
-
-util: generate
-	go build -v -tags "fts5" ./cmd/util
 
 tinysrv: client
 	go build -v ./cmd/tinysrv
 
-lrcli: client
+lrcli: client snowball
 	go build -v -tags "fts5,dbstats" ./cmd/lrcli
 
 client:
 	go build -v ./pkg/client
 
-internal/snowball/snowball/libstemmer.o: internal/snowball/snowball/README
-	$(MAKE) -C internal/snowball/snowball
+SNOWBALL := internal/snowball/snowball
 
-internal/snowball/snowball/README:
-	git submodule snowball update --recursive
+snowball: $(SNOWBALL)/libstemmer.o
+
+$(SNOWBALL)/libstemmer.o: $(SNOWBALL)/README
+	$(MAKE) -C $(SNOWBALL)
+
+$(SNOWBALL)/README:
+	git submodule init && git submodule update --recursive
 
 test:
 	go test -tags "fts5" github.com/erkkah/letarette/internal/letarette
