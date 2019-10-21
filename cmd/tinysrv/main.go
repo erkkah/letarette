@@ -270,7 +270,7 @@ func handleIndexRequest(req protocol.IndexUpdateRequest) (protocol.IndexUpdate, 
 	}, nil
 }
 
-func entryToDocument(id protocol.DocumentID, e entry) protocol.Document {
+func entryToDocument(id protocol.DocumentID, e entry) (protocol.Document, error) {
 	doc := protocol.Document{
 		Space:   space,
 		ID:      id,
@@ -281,10 +281,25 @@ func entryToDocument(id protocol.DocumentID, e entry) protocol.Document {
 		var text string
 		if config.Compress {
 			reader := bytes.NewReader(e.Compressed)
-			uncompressor, _ := gzip.NewReader(reader)
+			uncompressor, err := gzip.NewReader(reader)
+			if err != nil {
+				return doc, err
+			}
 			buffer := make([]byte, 5120)
 			unpacked := []byte{}
-			for bytesRead, err := uncompressor.Read(unpacked); err != io.EOF; {
+			for {
+				bytesRead, err := uncompressor.Read(unpacked)
+				if err != nil {
+					if err == io.EOF {
+						break
+					} else {
+						return doc, err
+					}
+				}
+				// Hmm.. readers should always return EOF at the end..
+				if bytesRead == 0 {
+					break
+				}
 				unpacked = append(unpacked, buffer[:bytesRead]...)
 			}
 			text = string(unpacked)
@@ -293,7 +308,7 @@ func entryToDocument(id protocol.DocumentID, e entry) protocol.Document {
 		}
 		doc.Text = e.Title + "\n" + text
 	}
-	return doc
+	return doc, nil
 }
 
 func deadDocument(id protocol.DocumentID) protocol.Document {
@@ -319,7 +334,11 @@ func handleDocumentRequest(req protocol.DocumentRequest) (protocol.DocumentUpdat
 		}
 
 		if found {
-			docs = append(docs, entryToDocument(v, doc))
+			entry, err := entryToDocument(v, doc)
+			if err != nil {
+				return protocol.DocumentUpdate{}, err
+			}
+			docs = append(docs, entry)
 		} else {
 			docs = append(docs, deadDocument(v))
 		}
