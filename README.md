@@ -4,7 +4,7 @@ If all you need is a scalable, simple, understandable full text search engine - 
 Letarette is easy to set up and integrate with your data.
 
 If you need scriptable stemming, suggestions, structured documents, et.c. then Letarette might not be for you.
-There are several well-known alternatives there, like Elasticsearch, Solr and friends.
+There are several well-known alternatives, like Elasticsearch, Solr and friends.
 
 ## Overview
 
