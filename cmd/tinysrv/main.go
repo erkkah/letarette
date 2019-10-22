@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -65,8 +64,8 @@ func loadDatabase(objFile string) error {
 	decoder := json.NewDecoder(fileReader)
 	rawSize := 0
 	compressedSize := 0
-	compressBuffer := new(bytes.Buffer)
-	compressor := gzip.NewWriter(compressBuffer)
+
+	packer := NewPacker()
 
 	report := func() {
 		compressedInfo := ""
@@ -82,21 +81,17 @@ func loadDatabase(objFile string) error {
 		var e entry
 		readErr := decoder.Decode(&e)
 		if readErr == nil {
+			rawSize += len([]byte(e.Text))
+			rawSize += len([]byte(e.Title))
+
 			if config.Compress {
-				compressBuffer.Reset()
-				compressor.Reset(compressBuffer)
-				textBytes := []byte(e.Text)
-				rawSize += len(textBytes)
-				compressor.Write(textBytes)
-				compressor.Flush()
-				e.Compressed = compressBuffer.Bytes()
+				e.Compressed, err = packer.Pack(e.Text)
+				if err != nil {
+					return err
+				}
 				compressedSize += len(e.Compressed)
 				e.Text = ""
-			} else {
-				rawSize += len([]byte(e.Text))
 			}
-
-			rawSize += len([]byte(e.Title))
 
 			e.alive = true
 			if e.Date.IsZero() {
@@ -280,29 +275,12 @@ func entryToDocument(id protocol.DocumentID, e entry) (protocol.Document, error)
 	if e.alive {
 		var text string
 		if config.Compress {
-			reader := bytes.NewReader(e.Compressed)
-			uncompressor, err := gzip.NewReader(reader)
+			packer := NewPacker()
+			var err error
+			text, err = packer.Unpack(e.Compressed)
 			if err != nil {
 				return doc, err
 			}
-			buffer := make([]byte, 5120)
-			unpacked := []byte{}
-			for {
-				bytesRead, err := uncompressor.Read(unpacked)
-				if err != nil {
-					if err == io.EOF {
-						break
-					} else {
-						return doc, err
-					}
-				}
-				// Hmm.. readers should always return EOF at the end..
-				if bytesRead == 0 {
-					break
-				}
-				unpacked = append(unpacked, buffer[:bytesRead]...)
-			}
-			text = string(unpacked)
 		} else {
 			text = e.Text
 		}
