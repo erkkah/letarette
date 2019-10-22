@@ -33,7 +33,6 @@ type IndexUpdate struct {
 
 // Document is the representation of a searchable item
 type Document struct {
-	Space   string
 	ID      DocumentID
 	Updated time.Time
 	Text    string
@@ -42,6 +41,7 @@ type Document struct {
 
 // DocumentUpdate is sent in response to DocumentRequest
 type DocumentUpdate struct {
+	Space     string
 	Documents []Document
 }
 

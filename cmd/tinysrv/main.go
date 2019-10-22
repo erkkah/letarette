@@ -267,7 +267,6 @@ func handleIndexRequest(req protocol.IndexUpdateRequest) (protocol.IndexUpdate, 
 
 func entryToDocument(id protocol.DocumentID, e entry) (protocol.Document, error) {
 	doc := protocol.Document{
-		Space:   space,
 		ID:      id,
 		Updated: e.Date,
 		Alive:   e.alive,
@@ -291,7 +290,6 @@ func entryToDocument(id protocol.DocumentID, e entry) (protocol.Document, error)
 
 func deadDocument(id protocol.DocumentID) protocol.Document {
 	return protocol.Document{
-		Space: space,
 		ID:    id,
 		Alive: false,
 	}
@@ -322,6 +320,7 @@ func handleDocumentRequest(req protocol.DocumentRequest) (protocol.DocumentUpdat
 		}
 	}
 	return protocol.DocumentUpdate{
+		Space:     space,
 		Documents: docs,
 	}, nil
 }

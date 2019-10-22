@@ -38,28 +38,23 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		db:     db,
 	}
 
-	updates := make(chan protocol.Document)
-	done := make(chan struct{})
+	updates := make(chan protocol.DocumentUpdate)
 
 	go func() {
-		for {
-			select {
-			case doc := <-updates:
-				err := db.addDocumentUpdate(context.Background(), doc)
-				if err != nil {
-					logger.Error.Printf("Failed to add document update: %v", err)
-				}
-			case <-done:
-				return
+		for update := range updates {
+			err := db.addDocumentUpdates(context.Background(), update.Space, update.Documents)
+			if err != nil {
+				logger.Error.Printf("Failed to add document update: %v", err)
 			}
 		}
 	}()
 
-	ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *protocol.DocumentUpdate) {
-		for _, doc := range update.Documents {
-			updates <- doc
-		}
+	subscription, err := ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *protocol.DocumentUpdate) {
+		updates <- *update
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	go func() {
 		logger.Info.Printf("Indexer starting")
@@ -137,7 +132,8 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 			case <-closer:
 				logger.Info.Printf("Indexer exiting")
 				cancel()
-				close(done)
+				subscription.Unsubscribe()
+				close(updates)
 				closer <- true
 				return
 			case <-time.After(cfg.Index.CycleWait):

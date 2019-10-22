@@ -82,9 +82,11 @@ func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) {
 						mid := length / 2
 						updates = append(updates,
 							protocol.DocumentUpdate{
+								Space:     current.Space,
 								Documents: current.Documents[:mid],
 							},
 							protocol.DocumentUpdate{
+								Space:     current.Space,
 								Documents: current.Documents[mid:],
 							},
 						)
@@ -94,6 +96,7 @@ func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) {
 						doc.Text = truncateString(doc.Text, int(m.conn.Conn.MaxPayload()/2))
 						updates = append(updates,
 							protocol.DocumentUpdate{
+								Space: current.Space,
 								Documents: []protocol.Document{
 									doc,
 								},

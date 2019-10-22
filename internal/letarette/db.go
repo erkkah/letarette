@@ -59,7 +59,7 @@ func (state InterestListState) createdAtTime() time.Time {
 type Database interface {
 	Close()
 
-	addDocumentUpdate(ctx context.Context, doc protocol.Document) error
+	addDocumentUpdates(ctx context.Context, space string, doc []protocol.Document) error
 	commitInterestList(ctx context.Context, space string) error
 	getLastUpdateTime(context.Context, string) (time.Time, error)
 
@@ -132,8 +132,8 @@ func (db *database) getLastUpdateTime(ctx context.Context, space string) (t time
 	return
 }
 
-func (db *database) addDocumentUpdate(ctx context.Context, doc protocol.Document) error {
-	spaceID, err := db.getSpaceID(ctx, doc.Space)
+func (db *database) addDocumentUpdates(ctx context.Context, space string, docs []protocol.Document) error {
+	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {
 		return err
 	}
@@ -149,28 +149,37 @@ func (db *database) addDocumentUpdate(ctx context.Context, doc protocol.Document
 		}
 	}()
 
-	txt := ""
-	if doc.Alive {
-		txt = doc.Text
-	}
-	res, err := tx.ExecContext(ctx, `replace into docs (spaceID, docID, updatedNanos, txt, alive) values (?, ?, ?, ?, ?)`,
-		spaceID, doc.ID, doc.Updated.UnixNano(), txt, doc.Alive)
-
+	docsStatement, err := tx.PrepareContext(ctx, `replace into docs (spaceID, docID, updatedNanos, txt, alive) values (?, ?, ?, ?, ?)`)
 	if err != nil {
-		return fmt.Errorf("Failed to update doc: %w", err)
+		return err
 	}
 
-	updatedRows, _ := res.RowsAffected()
-	if updatedRows != 1 {
-		return fmt.Errorf("Failed to update index, no rows affected")
-	}
-
-	_, err = tx.ExecContext(ctx, `update interest set state=? where spaceID=? and docID=?`, served, spaceID, doc.ID)
-
+	interestStatement, err := tx.PrepareContext(ctx, `update interest set state=? where spaceID=? and docID=?`)
 	if err != nil {
-		return fmt.Errorf("Failed to update interest list: %w", err)
+		return err
 	}
+	for _, doc := range docs {
+		txt := ""
+		if doc.Alive {
+			txt = doc.Text
+		}
+		res, err := docsStatement.ExecContext(ctx, spaceID, doc.ID, doc.Updated.UnixNano(), txt, doc.Alive)
 
+		if err != nil {
+			return fmt.Errorf("Failed to update doc: %w", err)
+		}
+
+		updatedRows, _ := res.RowsAffected()
+		if updatedRows != 1 {
+			return fmt.Errorf("Failed to update index, no rows affected")
+		}
+
+		_, err = interestStatement.ExecContext(ctx, served, spaceID, doc.ID)
+
+		if err != nil {
+			return fmt.Errorf("Failed to update interest list: %w", err)
+		}
+	}
 	err = tx.Commit()
 	if err == nil {
 		tx = nil
