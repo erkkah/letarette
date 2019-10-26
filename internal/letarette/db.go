@@ -98,6 +98,10 @@ func OpenDatabase(cfg Config) (Database, error) {
 	return newDB, nil
 }
 
+// ResetMigration forces the migration version of a db.
+// It is typically used to back out of a failed migration.
+// Note: no migration steps are actually performed, it only
+// sets the version and resets the dirty flag.
 func ResetMigration(cfg Config, version int) error {
 	registerSnowballDriver(cfg)
 	db, err := openMigrationConnection(cfg.Db.Path)
@@ -209,7 +213,10 @@ func (db *database) commitInterestList(ctx context.Context, space string) error 
 		with listState as (
 			select listCreatedAtNanos from spaces where space = ?
 		)
-		select docs.updatedNanos, docs.docID from interest left join docs using(docID)
+		select docs.updatedNanos, docs.docID
+		from
+		interest
+		left join docs using(docID)
 		cross join listState
 		where interest.state = ? and docs.updatedNanos < listState.listCreatedAtNanos
 		order by docs.updatedNanos desc, docs.docID

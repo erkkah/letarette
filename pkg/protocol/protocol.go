@@ -19,8 +19,8 @@ type IndexStatus struct {
 // the specified document or timestamp.
 type IndexUpdateRequest struct {
 	Space         string
-	StartTime     time.Time
-	StartDocument DocumentID
+	FromTime      time.Time
+	AfterDocument DocumentID
 	Limit         uint16
 }
 

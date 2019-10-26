@@ -182,13 +182,13 @@ func min(a int, b int) int {
 	return b
 }
 
-func fetchByReference(startDocument protocol.DocumentID, startTime time.Time, limit uint16) []protocol.DocumentID {
+func fetchByReference(afterDocument protocol.DocumentID, fromTime time.Time, limit uint16) []protocol.DocumentID {
 	startIndex := sort.Search(len(ix), func(i int) bool {
-		return !ix[i].date.Before(startTime)
+		return !ix[i].date.Before(fromTime)
 	})
 
 	subIndex := ix[startIndex:]
-	numID, _ := strconv.Atoi(string(startDocument))
+	numID, _ := strconv.Atoi(string(afterDocument))
 	docIndex := -1
 	for i, v := range subIndex {
 		if v.id == numID {
@@ -232,30 +232,31 @@ func handleIndexRequest(req protocol.IndexUpdateRequest) (protocol.IndexUpdate, 
 
 	updates := []protocol.DocumentID{}
 
-	if req.StartDocument == "" {
+	if req.AfterDocument == "" {
 		// Initial index fetch
 		updates = fetchInitial(req.Limit)
 	} else {
-		entryID, err := strconv.Atoi(string(req.StartDocument))
+		log.Printf("Index request, after %v, from %v", req.AfterDocument, req.FromTime)
+		entryID, err := strconv.Atoi(string(req.AfterDocument))
 		if err != nil {
-			return protocol.IndexUpdate{}, fmt.Errorf("Invalid document ID: %v", req.StartDocument)
+			return protocol.IndexUpdate{}, fmt.Errorf("Invalid document ID: %v", req.AfterDocument)
 		}
 		refEntry, found := db[entryID]
 		if !found {
 			// invalid index state, log
-			log.Printf("Unexpected index state, doc %v not found\n", req.StartDocument)
-			updates = fetchByTime(req.StartTime, req.Limit)
+			log.Printf("Unexpected index state, doc %v not found\n", req.AfterDocument)
+			updates = fetchByTime(req.FromTime, req.Limit)
 		} else {
-			if refEntry.Date.After(req.StartTime) {
+			if refEntry.Date.After(req.FromTime) {
 				// entry updated, only use date
-				updates = fetchByTime(req.StartTime, req.Limit)
-			} else if refEntry.Date.Before(req.StartTime) {
+				updates = fetchByTime(req.FromTime, req.Limit)
+			} else if refEntry.Date.Before(req.FromTime) {
 				log.Printf("Unexpected index state doc %v@%v has index time %v\n",
-					req.StartDocument, refEntry.Date.String(), req.StartTime.String())
-				updates = fetchByTime(req.StartTime, req.Limit)
+					req.AfterDocument, refEntry.Date.String(), req.FromTime.String())
+				updates = fetchByTime(req.FromTime, req.Limit)
 			} else {
 				// use ref entry
-				updates = fetchByReference(req.StartDocument, req.StartTime, req.Limit)
+				updates = fetchByReference(req.AfterDocument, req.FromTime, req.Limit)
 			}
 		}
 	}
@@ -306,7 +307,7 @@ func handleDocumentRequest(req protocol.DocumentRequest) (protocol.DocumentUpdat
 		doc, found := db[entryID]
 
 		if config.Verbose {
-			log.Printf("Found doc from %v\n", doc.Date.String())
+			log.Printf("Found doc %v from %v\n", entryID, doc.Date.String())
 		}
 
 		if found {

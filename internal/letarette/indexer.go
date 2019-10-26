@@ -30,12 +30,14 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 
 	ec, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 
-	closer := make(chan bool, 0)
+	mainContext, cancel := context.WithCancel(context.Background())
+
 	self := &indexer{
-		closer: closer,
-		cfg:    cfg,
-		conn:   ec,
-		db:     db,
+		context: mainContext,
+		close:   cancel,
+		cfg:     cfg,
+		conn:    ec,
+		db:      db,
 	}
 
 	updates := make(chan protocol.DocumentUpdate)
@@ -59,9 +61,10 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 	go func() {
 		logger.Info.Printf("Indexer starting")
 
-		mainContext, cancel := context.WithCancel(context.Background())
 		var lastDocumentRequest time.Time
 		for {
+			cycleThrottle := time.After(cfg.Index.CycleWait)
+
 			for _, space := range cfg.Index.Spaces {
 				interests, err := db.getInterestList(mainContext, space)
 				if err != nil {
@@ -129,14 +132,14 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 			}
 
 			select {
-			case <-closer:
+			case <-mainContext.Done():
 				logger.Info.Printf("Indexer exiting")
 				cancel()
 				subscription.Unsubscribe()
 				close(updates)
-				closer <- true
 				return
-			case <-time.After(cfg.Index.CycleWait):
+			case <-cycleThrottle:
+				// Loop will never be faster than cfg.CycleWait
 			}
 		}
 
@@ -146,16 +149,16 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 }
 
 type indexer struct {
-	closer chan bool
-	cfg    Config
-	conn   *nats.EncodedConn
-	db     Database
+	close   context.CancelFunc
+	context context.Context
+
+	cfg  Config
+	conn *nats.EncodedConn
+	db   Database
 }
 
 func (idx *indexer) Close() {
-	assert(idx.closer != nil, "Indexer close channel is not nil")
-	idx.closer <- true
-	<-idx.closer
+	idx.close()
 }
 
 func (idx *indexer) commitFetched(ctx context.Context, space string) error {
@@ -170,8 +173,8 @@ func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 	}
 	updateRequest := protocol.IndexUpdateRequest{
 		Space:         space,
-		StartTime:     state.lastUpdatedTime(),
-		StartDocument: state.LastUpdatedDocID,
+		FromTime:      state.lastUpdatedTime(),
+		AfterDocument: state.LastUpdatedDocID,
 		Limit:         idx.cfg.Index.ChunkSize,
 	}
 	timeout, cancel := context.WithTimeout(ctx, idx.cfg.Index.MaxInterestWait)
