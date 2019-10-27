@@ -3,6 +3,7 @@ package letarette
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/nats-io/go-nats"
@@ -40,15 +41,17 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		db:      db,
 	}
 
-	updates := make(chan protocol.DocumentUpdate)
+	updates := make(chan protocol.DocumentUpdate, 10)
 
 	go func() {
+		self.waiter.Add(1)
 		for update := range updates {
-			err := db.addDocumentUpdates(context.Background(), update.Space, update.Documents)
+			err := db.addDocumentUpdates(mainContext, update.Space, update.Documents)
 			if err != nil {
 				logger.Error.Printf("Failed to add document update: %v", err)
 			}
 		}
+		self.waiter.Done()
 	}()
 
 	subscription, err := ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *protocol.DocumentUpdate) {
@@ -60,6 +63,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 
 	go func() {
 		logger.Info.Printf("Indexer starting")
+		self.waiter.Add(1)
 
 		var lastDocumentRequest time.Time
 		for {
@@ -134,9 +138,11 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 			select {
 			case <-mainContext.Done():
 				logger.Info.Printf("Indexer exiting")
-				cancel()
+				// ??? Need to empty this to be safe
 				subscription.Unsubscribe()
+				cancel()
 				close(updates)
+				self.waiter.Done()
 				return
 			case <-cycleThrottle:
 				// Loop will never be faster than cfg.CycleWait
@@ -151,6 +157,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 type indexer struct {
 	close   context.CancelFunc
 	context context.Context
+	waiter  sync.WaitGroup
 
 	cfg  Config
 	conn *nats.EncodedConn
@@ -159,6 +166,7 @@ type indexer struct {
 
 func (idx *indexer) Close() {
 	idx.close()
+	idx.waiter.Wait()
 }
 
 func (idx *indexer) commitFetched(ctx context.Context, space string) error {

@@ -44,7 +44,12 @@ func main() {
 		logger.Error.Printf("Failed to connect to DB: %v", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			logger.Error.Printf("Failed to close DB: %v", err)
+		}
+	}()
 
 	err = letarette.CheckStemmerSettings(db, cfg)
 	if err == letarette.ErrStemmerSettingsMismatch {
@@ -52,20 +57,28 @@ func main() {
 		os.Exit(1)
 	}
 	if err != nil {
-		logger.Error.Printf("Failed to check stemmer config")
+		logger.Error.Printf("Failed to check stemmer config: %w", err)
 		os.Exit(1)
 	}
 
-	indexer, err := letarette.StartIndexer(conn, db, cfg)
-	if err != nil {
-		logger.Error.Printf("Failed to start indexer: %v", err)
-		os.Exit(1)
+	var indexer letarette.Indexer
+	if !cfg.Index.Disable {
+		indexer, err = letarette.StartIndexer(conn, db, cfg)
+		if err != nil {
+			logger.Error.Printf("Failed to start indexer: %v", err)
+			os.Exit(1)
+		}
 	}
-	searcher, err := letarette.StartSearcher(conn, db, cfg)
-	if err != nil {
-		logger.Error.Printf("Failed to start searcher: %v", err)
-		os.Exit(1)
+
+	var searcher letarette.Searcher
+	if !cfg.Search.Disable {
+		searcher, err = letarette.StartSearcher(conn, db, cfg)
+		if err != nil {
+			logger.Error.Printf("Failed to start searcher: %v", err)
+			os.Exit(1)
+		}
 	}
+
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT)
 
@@ -81,7 +94,11 @@ func main() {
 	select {
 	case s := <-signals:
 		logger.Info.Printf("Received signal %v\n", s)
-		indexer.Close()
-		searcher.Close()
+		if searcher != nil {
+			searcher.Close()
+		}
+		if indexer != nil {
+			indexer.Close()
+		}
 	}
 }

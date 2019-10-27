@@ -24,6 +24,7 @@ type Config struct {
 		MaxDocumentWait time.Duration `default:"1s"`
 		CycleWait       time.Duration `default:"100ms"`
 		MaxOutstanding  uint16        `default:"10"`
+		Disable         bool          `default:"false"`
 	}
 	Stemmer struct {
 		Languages        []string `split_words:"true" required:"true" default:"english"`
@@ -34,6 +35,7 @@ type Config struct {
 	Search struct {
 		Timeout      time.Duration `default:"200ms"`
 		CacheTimeout time.Duration `split_words:"true" default:"1m"`
+		Disable      bool          `default:"false"`
 	}
 	MetricsPort uint16 `split_words:"true" default:"8000"`
 }

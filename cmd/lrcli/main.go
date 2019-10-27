@@ -82,6 +82,13 @@ Options:
 		doSearch(cfg)
 	} else if cmdline.Index {
 		db, err := letarette.OpenDatabase(cfg)
+		defer func() {
+			err := db.Close()
+			if err != nil {
+				logger.Error.Printf("Failed to close db: %v", err)
+			}
+		}()
+
 		if err != nil {
 			logger.Error.Printf("Failed to open db: %v", err)
 			return

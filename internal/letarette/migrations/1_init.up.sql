@@ -38,15 +38,15 @@ create virtual table if not exists fts using fts5(
     tokenize="porter unicode61 tokenchars '#'"
 );
 
-create trigger docs_ai after insert on docs begin
+create trigger if not exists docs_ai after insert on docs begin
     insert into fts(rowid, txt) values (new.id, new.txt);
 end;
 
-create trigger docs_ad after delete on docs begin
+create trigger if not exists docs_ad after delete on docs begin
     insert into fts(fts, rowid, txt) values ('delete', old.id, old.txt);
 end;
 
-create trigger docs_au after update on docs begin
+create trigger if not exists docs_au after update on docs begin
     insert into fts(fts, rowid, txt) values ('delete', old.id, old.txt);
     insert into fts(rowid, txt) values (new.id, new.txt);
 end;

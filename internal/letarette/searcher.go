@@ -92,7 +92,7 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 		cache,
 	}
 
-	ec.QueueSubscribe(
+	subscription, err := ec.QueueSubscribe(
 		cfg.Nats.Topic+".q", cfg.Nats.SearchGroup,
 		func(sub, reply string, query *protocol.SearchRequest) {
 			// Handle query
@@ -106,10 +106,15 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 			ec.Publish(reply, response)
 		})
 
+	if err != nil {
+		return nil, err
+	}
+
 	go func() {
 		// for ever:
 		logger.Info.Printf("Searcher starting")
 		<-closer
+		subscription.Unsubscribe()
 		logger.Info.Printf("Searcher exiting")
 		closer <- true
 	}()

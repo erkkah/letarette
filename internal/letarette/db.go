@@ -57,7 +57,7 @@ func (state InterestListState) createdAtTime() time.Time {
 // Database is a live connection to a SQLite database file,
 // providing access methods for all db interactions.
 type Database interface {
-	Close()
+	Close() error
 
 	addDocumentUpdates(ctx context.Context, space string, doc []protocol.Document) error
 	commitInterestList(ctx context.Context, space string) error
@@ -120,9 +120,17 @@ func ResetMigration(cfg Config, version int) error {
 	return err
 }
 
-func (db *database) Close() {
-	db.rdb.Close()
-	db.wdb.Close()
+func (db *database) Close() error {
+	logger.Debug.Printf("Closing database")
+	rErr := db.rdb.Close()
+
+	_, tErr := db.wdb.Exec("pragma wal_checkpoint(TRUNCATE);")
+
+	wErr := db.wdb.Close()
+	if rErr != nil || wErr != nil || wErr != nil {
+		return fmt.Errorf("Failed to close db: %w, %w, %w", rErr, tErr, wErr)
+	}
+	return nil
 }
 
 func (db *database) getRawDB() *sqlx.DB {
@@ -555,7 +563,7 @@ func getDatabaseURL(dbPath string, mode connectionMode) (string, error) {
 	if mode == readOnly {
 		return fmt.Sprintf("file:%s?_journal=WAL&_query_only=true&_foreign_keys=true&_timeout=500&cache=shared", escapedPath), nil
 	}
-	return fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_timeout=500&cache=private", escapedPath), nil
+	return fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_timeout=500&cache=private&_sync=1&_rt=true", escapedPath), nil
 }
 
 func openMigrationConnection(dbPath string) (db *sqlx.DB, err error) {

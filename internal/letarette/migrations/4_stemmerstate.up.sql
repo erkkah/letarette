@@ -6,6 +6,8 @@ create table if not exists stemmerstate (
     updated timestamp default current_timestamp
 );
 
-create trigger stemmerstate_au after update on stemmerstate begin
+create trigger if not exists stemmerstate_au after update
+of laguages, removeDiacritics, tokenCharacters, separators
+on stemmerstate begin
     update stemmerstate set updated = current_timestamp;
 end;
