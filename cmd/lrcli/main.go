@@ -7,13 +7,13 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/erkkah/letarette/pkg/charma"
+	"github.com/briandowns/spinner"
+	"github.com/docopt/docopt-go"
 
 	"github.com/erkkah/letarette/internal/letarette"
 	"github.com/erkkah/letarette/internal/snowball"
 
-	"github.com/docopt/docopt-go"
-
+	"github.com/erkkah/letarette/pkg/charma"
 	"github.com/erkkah/letarette/pkg/client"
 	"github.com/erkkah/letarette/pkg/logger"
 )
@@ -30,7 +30,10 @@ var cmdline struct {
 	Index        bool
 	Stats        bool
 	Check        bool
+	Pgsize       bool
+	Size         int `docopt:"<size>"`
 	Rebuild      bool
+	Optimize     bool
 	ForceStemmer bool `docopt:"forcestemmer"`
 
 	ResetMigration bool `docopt:"resetmigration"`
@@ -47,6 +50,8 @@ Usage:
 	lrcli search [-v] [-l <limit>] [-o <offset>] <space> <phrase>...
 	lrcli index stats
 	lrcli index check
+	lrcli index pgsize <size>
+	lrcli index optimize
 	lrcli index rebuild
 	lrcli index forcestemmer
 	lrcli resetmigration <version>
@@ -83,6 +88,7 @@ Options:
 	} else if cmdline.Index {
 		db, err := letarette.OpenDatabase(cfg)
 		defer func() {
+			logger.Debug.Printf("Closing db...")
 			err := db.Close()
 			if err != nil {
 				logger.Error.Printf("Failed to close db: %v", err)
@@ -101,8 +107,12 @@ Options:
 				logger.Warning.Printf("Index and config stemmer settings mismatch. Re-build index or force changes.")
 			}
 			checkIndex(db)
+		case cmdline.Pgsize:
+			setIndexPageSize(db, cmdline.Size)
 		case cmdline.Stats:
 			printIndexStats(db)
+		case cmdline.Optimize:
+			optimizeIndex(db)
 		case cmdline.Rebuild:
 			rebuildIndex(db)
 		case cmdline.ForceStemmer:
@@ -124,6 +134,16 @@ func checkIndex(db letarette.Database) {
 	err := letarette.CheckIndex(db)
 	if err != nil {
 		logger.Error.Printf("Index check failed: %v", err)
+		return
+	}
+	fmt.Println("OK")
+}
+
+func setIndexPageSize(db letarette.Database, pageSize int) {
+	fmt.Printf("Setting page size to %v...\n", pageSize)
+	err := letarette.SetIndexPageSize(db, pageSize)
+	if err != nil {
+		logger.Error.Printf("Failed to set page size: %v", err)
 		return
 	}
 	fmt.Println("OK")
@@ -153,7 +173,9 @@ Top terms:
 `
 
 func printIndexStats(db letarette.Database) {
-	fmt.Println("Crunching numbers...")
+	s := getSpinner("Crunching numbers ", "\n")
+	s.Start()
+	defer s.Stop()
 
 	var err error
 	stats, err := letarette.GetIndexStats(db)
@@ -175,17 +197,42 @@ func printIndexStats(db letarette.Database) {
 		return
 	}
 
+	s.Stop()
 	tmpl.Execute(os.Stdout, &stats)
 }
 
+func optimizeIndex(db letarette.Database) {
+	s := getSpinner("Optimizing index ", "OK\n")
+	s.Start()
+	defer s.Stop()
+	optimizer, err := letarette.StartIndexOptimization(db, 100)
+	if err != nil {
+		logger.Error.Printf("Failed to start optimizer: %w", err)
+		return
+	}
+	defer optimizer.Close()
+	for {
+		done, err := optimizer.Step()
+		if err != nil {
+			logger.Error.Printf("Failed to run optimize step: %w", err)
+			return
+		}
+		if done {
+			break
+		}
+	}
+}
+
 func rebuildIndex(db letarette.Database) {
-	fmt.Println("Rebuilding index...")
+	s := getSpinner("Rebuilding index ", "OK\n")
+	s.Start()
+	defer s.Stop()
+
 	err := letarette.RebuildIndex(db)
 	if err != nil {
 		logger.Error.Printf("Failed to rebuild index: %v", err)
 		return
 	}
-	fmt.Println("OK")
 }
 
 func forceIndexStemmerState(state snowball.Settings, db letarette.Database) {
@@ -214,7 +261,7 @@ func doSearch(cfg letarette.Config) {
 
 	fmt.Printf("Query executed in %v seconds with status %q\n\n", res.Duration, res.Status.String())
 	for _, doc := range res.Documents {
-		fmt.Println(doc.Snippet)
+		fmt.Printf("[%v] %s\n", doc.ID, doc.Snippet)
 	}
 }
 
@@ -226,4 +273,16 @@ func resetMigration(cfg letarette.Config, version int) {
 		return
 	}
 	fmt.Println("OK")
+}
+
+func getSpinner(labels ...string) *spinner.Spinner {
+	spnr := spinner.New(spinner.CharSets[2], time.Millisecond*500)
+	spnr.Color("yellow", "bold")
+	if len(labels) > 0 {
+		spnr.Prefix = labels[0]
+	}
+	if len(labels) > 1 {
+		spnr.FinalMSG = labels[1]
+	}
+	return spnr
 }

@@ -2,10 +2,23 @@ package letarette
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+	"reflect"
+	"unsafe"
 
 	"github.com/erkkah/letarette/internal/snowball"
+	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
+// #cgo CFLAGS: -DSQLITE_CORE
+// #cgo darwin CFLAGS: -I/usr/local/opt/sqlite/include
+// #cgo LDFLAGS: -lsqlite3
+// #cgo darwin LDFLAGS: -L/usr/local/opt/sqlite/lib
+// #include <sqlite3.h>
+import "C"
+
+// Stats holds statistics gathered by GetIndexStats
 type Stats struct {
 	Spaces []struct {
 		Name  string
@@ -20,6 +33,8 @@ type Stats struct {
 	Stemmer snowball.Settings
 }
 
+// GetIndexStats collects statistics about the index,
+// partly by the use of the fts4vocab virtual table.
 func GetIndexStats(db Database) (Stats, error) {
 	var s Stats
 
@@ -32,6 +47,7 @@ func GetIndexStats(db Database) (Stats, error) {
 	if err != nil {
 		return s, err
 	}
+	defer conn.Close()
 
 	s.Stemmer, _, _ = db.getStemmerState()
 
@@ -97,6 +113,7 @@ func GetIndexStats(db Database) (Stats, error) {
 	return s, nil
 }
 
+// CheckIndex runs an integrity check on the index
 func CheckIndex(db Database) error {
 	sql := db.getRawDB()
 	_, err := sql.Exec(`insert into fts(fts) values("integrity-check");`)
@@ -106,6 +123,7 @@ func CheckIndex(db Database) error {
 	return nil
 }
 
+// RebuildIndex rebuilds the fts index from the docs table
 func RebuildIndex(db Database) error {
 	sql := db.getRawDB()
 	_, err := sql.Exec(`insert into fts(fts) values("rebuild");`)
@@ -115,6 +133,92 @@ func RebuildIndex(db Database) error {
 	return nil
 }
 
+// IndexOptimizer is used to run step-wise index optimization.
+// The instance must be closed by calling Close() to return
+// the database connection to the pool.
+type IndexOptimizer struct {
+	conn          *sql.Conn
+	ctx           context.Context
+	pageIncrement int
+}
+
+// Step runs one step of the optimizer.
+// Returns true when optimization is complete.
+// Stopping before done is OK.
+func (o IndexOptimizer) Step() (bool, error) {
+	changesBefore, err := o.totalChanges()
+	if err != nil {
+		return false, err
+	}
+	_, err = o.conn.ExecContext(o.ctx, `insert into fts(fts, rank) values("merge", ?);`, o.pageIncrement)
+	if err != nil {
+		return false, err
+	}
+	changesAfter, err := o.totalChanges()
+	if err != nil {
+		return false, err
+	}
+	return changesAfter-changesBefore < 2, nil
+}
+
+// Close returns the database connection to the pool.
+func (o IndexOptimizer) Close() error {
+	return o.conn.Close()
+}
+
+func dbFromConnection(conn *sqlite3.SQLiteConn) *C.sqlite3 {
+	dbVal := reflect.ValueOf(conn).Elem().FieldByName("db")
+	dbPtr := unsafe.Pointer(dbVal.Pointer())
+	return (*C.sqlite3)(dbPtr)
+}
+
+func (o IndexOptimizer) totalChanges() (int, error) {
+	var changes int
+
+	err := o.conn.Raw(func(conn interface{}) error {
+		if driverConn, ok := conn.(*sqlite3.SQLiteConn); ok {
+			var sqliteConn *C.sqlite3 = dbFromConnection(driverConn)
+			changes = int(C.sqlite3_total_changes(sqliteConn))
+			return nil
+		}
+		return fmt.Errorf("Unsupported driver")
+	})
+
+	return changes, err
+}
+
+// StartIndexOptimization initiates a step-wise index optimization and returns
+// an IndexOptimizer instance on success.
+func StartIndexOptimization(db Database, pageIncrement int) (*IndexOptimizer, error) {
+	sql := db.getRawDB()
+	ctx := context.Background()
+	conn, err := sql.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = conn.ExecContext(ctx, `insert into fts(fts, rank) values("merge", ?);`, -pageIncrement)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	return &IndexOptimizer{
+		conn:          conn,
+		ctx:           ctx,
+		pageIncrement: pageIncrement,
+	}, nil
+}
+
+// ForceIndexStemmerState resets the stemmer state stored in the database
+// to the provided state.
 func ForceIndexStemmerState(state snowball.Settings, db Database) error {
 	return db.setStemmerState(state)
+}
+
+// SetIndexPageSize sets the max page size for future index allocations.
+func SetIndexPageSize(db Database, pageSize int) error {
+	sql := db.getRawDB()
+	_, err := sql.Exec(`insert into fts(fts, rank) values("pgsz", ?)`, pageSize)
+	return err
 }
