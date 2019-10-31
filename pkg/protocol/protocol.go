@@ -62,6 +62,7 @@ type SearchRequest struct {
 
 // SearchResult represents one search hit
 type SearchResult struct {
+	Space   string
 	ID      DocumentID
 	Snippet string
 	Rank    float32

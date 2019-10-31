@@ -345,7 +345,7 @@ Usage:
     tinysrv [-n <url>] [-l <limit>] [-u <secs>] [-d <secs>] [-c] [-v] <space> <dbfile>
 
 Options:
-	-n <url>    NATS url to connect to [default: nats://localhost:4222]
+    -n <url>    NATS url to connect to [default: nats://localhost:4222]
     -l <limit>  Max number of documents to load [default: unlimited]
     -u <secs>   Auto-update random documents every SECS second
     -d <secs>   Auto-delete random documents every SECS second

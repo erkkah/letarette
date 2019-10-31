@@ -8,6 +8,8 @@
 // migrations/3_snowball.up.sql
 // migrations/4_stemmerstate.down.sql
 // migrations/4_stemmerstate.up.sql
+// migrations/5_spaceindex.down.sql
+// migrations/5_spaceindex.up.sql
 // DO NOT EDIT!
 
 package letarette
@@ -235,6 +237,46 @@ func migrations4_stemmerstateUpSql() (*asset, error) {
 	return a, nil
 }
 
+var _migrations5_spaceindexDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x4a\x29\xca\x2f\x50\xc8\xcc\x4b\x49\xad\x50\x48\xc9\x4f\x2e\x8e\x2f\x2e\x48\x4c\x4e\x05\xf3\xad\xb9\x00\x01\x00\x00\xff\xff\xb4\x81\x4f\x9f\x1c\x00\x00\x00")
+
+func migrations5_spaceindexDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations5_spaceindexDownSql,
+		"migrations/5_spaceindex.down.sql",
+	)
+}
+
+func migrations5_spaceindexDownSql() (*asset, error) {
+	bytes, err := migrations5_spaceindexDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/5_spaceindex.down.sql", size: 28, mode: os.FileMode(436), modTime: time.Unix(1572301520, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _migrations5_spaceindexUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x4a\x2e\x4a\x4d\x2c\x49\x55\xc8\xcc\x4b\x49\xad\x50\xc8\x4c\x53\xc8\xcb\x2f\x51\x48\xad\xc8\x2c\x2e\x29\x56\x48\xc9\x4f\x2e\x8e\x2f\x2e\x48\x4c\x4e\x05\xcb\x72\xe5\xe7\x81\x85\x34\xc0\x42\x9e\x2e\x9a\xd6\x5c\x80\x00\x00\x00\xff\xff\xeb\xd3\x8d\x25\x3d\x00\x00\x00")
+
+func migrations5_spaceindexUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations5_spaceindexUpSql,
+		"migrations/5_spaceindex.up.sql",
+	)
+}
+
+func migrations5_spaceindexUpSql() (*asset, error) {
+	bytes, err := migrations5_spaceindexUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/5_spaceindex.up.sql", size: 61, mode: os.FileMode(436), modTime: time.Unix(1572301506, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -295,6 +337,8 @@ var _bindata = map[string]func() (*asset, error){
 	"migrations/3_snowball.up.sql": migrations3_snowballUpSql,
 	"migrations/4_stemmerstate.down.sql": migrations4_stemmerstateDownSql,
 	"migrations/4_stemmerstate.up.sql": migrations4_stemmerstateUpSql,
+	"migrations/5_spaceindex.down.sql": migrations5_spaceindexDownSql,
+	"migrations/5_spaceindex.up.sql": migrations5_spaceindexUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -346,6 +390,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"3_snowball.up.sql": &bintree{migrations3_snowballUpSql, map[string]*bintree{}},
 		"4_stemmerstate.down.sql": &bintree{migrations4_stemmerstateDownSql, map[string]*bintree{}},
 		"4_stemmerstate.up.sql": &bintree{migrations4_stemmerstateUpSql, map[string]*bintree{}},
+		"5_spaceindex.down.sql": &bintree{migrations5_spaceindexDownSql, map[string]*bintree{}},
+		"5_spaceindex.up.sql": &bintree{migrations5_spaceindexUpSql, map[string]*bintree{}},
 	}},
 }}
 
