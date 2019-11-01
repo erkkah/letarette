@@ -19,11 +19,12 @@ type Config struct {
 	}
 	Index struct {
 		Spaces          []string      `required:"true" default:"docs"`
-		ChunkSize       uint16        `default:"100"`
+		ChunkSize       uint16        `default:"250"`
 		MaxInterestWait time.Duration `default:"5s"`
 		MaxDocumentWait time.Duration `default:"1s"`
 		CycleWait       time.Duration `default:"100ms"`
-		MaxOutstanding  uint16        `default:"10"`
+		EmptyCycleWait  time.Duration `default:"5s"`
+		MaxOutstanding  uint16        `default:"25"`
 		Disable         bool          `default:"false"`
 	}
 	Stemmer struct {

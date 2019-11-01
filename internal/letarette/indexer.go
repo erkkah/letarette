@@ -68,12 +68,14 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		var lastDocumentRequest time.Time
 		for {
 			cycleThrottle := time.After(cfg.Index.CycleWait)
+			totalInterests := 0
 
 			for _, space := range cfg.Index.Spaces {
 				interests, err := db.getInterestList(mainContext, space)
 				if err != nil {
 					logger.Error.Printf("Failed to fetch current interest list: %v", err)
 				} else {
+					totalInterests += len(interests)
 
 					numPending := 0
 					numRequested := 0
@@ -135,6 +137,9 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 				}
 			}
 
+			if totalInterests == 0 {
+				cycleThrottle = time.After(cfg.Index.EmptyCycleWait)
+			}
 			select {
 			case <-mainContext.Done():
 				logger.Info.Printf("Indexer exiting")
