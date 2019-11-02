@@ -36,6 +36,9 @@ var cmdline struct {
 	Optimize     bool
 	ForceStemmer bool `docopt:"forcestemmer"`
 
+	SQL       bool     `docopt:"sql"`
+	Statement []string `docopt:"<sql>"`
+
 	ResetMigration bool `docopt:"resetmigration"`
 	Version        int  `docopt:"<version>"`
 
@@ -48,6 +51,7 @@ func main() {
 
 Usage:
 	lrcli search [-v] [-l <limit>] [-o <offset>] <space> <phrase>...
+	lrcli sql <sql>...
 	lrcli index stats
 	lrcli index check
 	lrcli index pgsize <size>
@@ -126,6 +130,16 @@ Options:
 		}
 	} else if cmdline.ResetMigration {
 		resetMigration(cfg, cmdline.Version)
+	} else if cmdline.SQL {
+		db, err := letarette.OpenDatabase(cfg)
+		defer db.Close()
+
+		if err != nil {
+			logger.Error.Printf("Failed to open db: %v", err)
+			return
+		}
+
+		sql(db, strings.Join(cmdline.Statement, " "))
 	}
 }
 
@@ -285,4 +299,15 @@ func getSpinner(labels ...string) *spinner.Spinner {
 		spnr.FinalMSG = labels[1]
 	}
 	return spnr
+}
+
+func sql(db letarette.Database, statement string) {
+	result, err := db.RawQuery(statement)
+	if err != nil {
+		logger.Error.Printf("Failed to execute query: %v", err)
+		return
+	}
+	for _, v := range result {
+		fmt.Println(v)
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	sqlite3_migrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 
+	"github.com/erkkah/letarette/internal/auxilliary"
 	"github.com/erkkah/letarette/internal/snowball"
 	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
@@ -58,6 +60,7 @@ func (state InterestListState) createdAtTime() time.Time {
 // providing access methods for all db interactions.
 type Database interface {
 	Close() error
+	RawQuery(string) ([]string, error)
 
 	addDocumentUpdates(ctx context.Context, space string, doc []protocol.Document) error
 	commitInterestList(ctx context.Context, space string) error
@@ -88,7 +91,7 @@ type database struct {
 // OpenDatabase connects to a new or existing database and
 // migrates the database up to the latest version.
 func OpenDatabase(cfg Config) (Database, error) {
-	registerSnowballDriver(cfg)
+	registerCustomDriver(cfg)
 	rdb, wdb, err := openDatabase(cfg.Db.Path, cfg.Index.Spaces)
 	if err != nil {
 		return nil, err
@@ -103,7 +106,7 @@ func OpenDatabase(cfg Config) (Database, error) {
 // Note: no migration steps are actually performed, it only
 // sets the version and resets the dirty flag.
 func ResetMigration(cfg Config, version int) error {
-	registerSnowballDriver(cfg)
+	registerCustomDriver(cfg)
 	db, err := openMigrationConnection(cfg.Db.Path)
 	if err != nil {
 		return err
@@ -131,6 +134,34 @@ func (db *database) Close() error {
 		return fmt.Errorf("Failed to close db: %w, %w, %w", rErr, tErr, wErr)
 	}
 	return nil
+}
+
+func (db *database) RawQuery(statement string) ([]string, error) {
+	res, err := db.rdb.Queryx(statement)
+	if err != nil {
+		return nil, err
+	}
+	result := []string{}
+	for res.Next() {
+		row, err := res.SliceScan()
+		if err != nil {
+			return nil, err
+		}
+		colTypes, _ := res.ColumnTypes()
+		var rowdata []string
+		for i, col := range row {
+			var coldata string
+			switch colTypes[i].ScanType().Kind() {
+			case reflect.String:
+				coldata = fmt.Sprintf("%s", col)
+			default:
+				coldata = fmt.Sprintf("%v", col)
+			}
+			rowdata = append(rowdata, coldata)
+		}
+		result = append(result, strings.Join(rowdata, ", "))
+	}
+	return result, nil
 }
 
 func (db *database) getRawDB() *sqlx.DB {
@@ -588,9 +619,9 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 	return nil
 }
 
-const driver = "sqlite3_snowball"
+const driver = "sqlite3_letarette"
 
-func registerSnowballDriver(cfg Config) {
+func registerCustomDriver(cfg Config) {
 	drivers := sql.Drivers()
 	if sort.Search(len(drivers), func(i int) bool { return drivers[i] == driver }) == len(drivers) {
 		logger.Debug.Printf("Registering %q driver", driver)
@@ -598,12 +629,19 @@ func registerSnowballDriver(cfg Config) {
 			&sqlite3.SQLiteDriver{
 				ConnectHook: func(conn *sqlite3.SQLiteConn) error {
 					logger.Debug.Printf("Initializing snowball stemmer")
-					return snowball.Init(conn, snowball.Settings{
+					err := snowball.Init(conn, snowball.Settings{
 						Stemmers:         cfg.Stemmer.Languages,
 						RemoveDiacritics: cfg.Stemmer.RemoveDiacritics,
 						TokenCharacters:  cfg.Stemmer.TokenCharacters,
 						Separators:       cfg.Stemmer.Separators,
 					})
+
+					if err != nil {
+						return err
+					}
+					logger.Debug.Printf("Initializing aux functions")
+					err = auxilliary.Init(conn)
+					return err
 				},
 			})
 	}
