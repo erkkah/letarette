@@ -3,39 +3,13 @@ package letarette
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 
 	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
 )
-
-/*
-
-Search syntax:
-
-<phrase> ::= string | quotedstring
-<query> ::= [-] <phrase> [*]
-<query> ::= <query> <query>
-
-Where the '-' prefix means "not" and the '*' denotes wildcard searches.
-
-Examples:
-
-animal -dog -cat
-
-horse* -"horse head"
-
-The output of the search parser is a list of including phrases and a list of
-excluding phrases. Both lists can contain wildcard expressions, which will lead
-to prefix searches.
-
-The parser is very defensive and will always produce a valid query.
-
-Searches will always be performed as "near" queries for all including phrases
-followed by a NOT list built from all excluding phrases.
-
-*/
 
 /*
 with matches as (
@@ -62,10 +36,43 @@ and space in ("wp")
 order by r asc limit 10 offset 0;
 */
 
-func (db *database) search(ctx context.Context, phrase string, spaces []string, limit uint16, offset uint16) ([]protocol.SearchResult, error) {
+func phrasesToMatchString(phrases []Phrase) string {
+	var includes []string
+	var excludes []string
+
+	for _, v := range phrases {
+		phraseExpr := v.Text
+		if v.Wildcard {
+			phraseExpr += "*"
+		}
+		if v.Exclude {
+			excludes = append(excludes, phraseExpr)
+		} else {
+			includes = append(includes, phraseExpr)
+		}
+	}
+
+	const nearRange = 20
+	matchString := ""
+	if len(includes) > 0 {
+		matchString = fmt.Sprintf("NEAR(%s, %d)", strings.Join(includes, " "), nearRange)
+	}
+	if len(excludes) > 0 {
+		matchString += fmt.Sprintf(" NOT (%s)", strings.Join(excludes, " OR "))
+	}
+
+	return matchString
+}
+
+func (db *database) search(ctx context.Context, userQuery string, spaces []string, limit uint16, offset uint16) ([]protocol.SearchResult, error) {
 	const left = "\u3016"
 	const right = "\u3017"
 	const ellipsis = "\u2026"
+
+	logger.Debug.Printf("User query: %s", userQuery)
+
+	phrases := ParseQuery(userQuery)
+	matchString := phrasesToMatchString(phrases)
 
 	query := `
 	select
@@ -78,7 +85,7 @@ func (db *database) search(ctx context.Context, phrase string, spaces []string, 
 		join docs on fts.rowid = docs.id
 		left join spaces on docs.spaceID = spaces.spaceID
 	where
-		fts match '"%s"'
+		fts match :match
 		and docs.alive
 		and spaces.space in (?)
 	order by rank asc limit :limit offset :offset
@@ -98,6 +105,7 @@ func (db *database) search(ctx context.Context, phrase string, spaces []string, 
 	}
 
 	namedQuery, namedArgs, err := sqlx.Named(spacedQuery, map[string]interface{}{
+		"match":    matchString,
 		"left":     left,
 		"right":    right,
 		"ellipsis": ellipsis,
@@ -108,13 +116,12 @@ func (db *database) search(ctx context.Context, phrase string, spaces []string, 
 		return result, fmt.Errorf("Failed to expand named binds: %w", err)
 	}
 
-	args := append(namedArgs[:0:0], namedArgs[:3]...)
+	args := append(namedArgs[:0:0], namedArgs[:4]...)
 	args = append(args, spacedArgs...)
-	args = append(args, namedArgs[3:]...)
+	args = append(args, namedArgs[4:]...)
 
-	phraseQuery := fmt.Sprintf(namedQuery, phrase)
-	logger.Debug.Printf("Search query: [%s], args: %v", phraseQuery, args)
-	err = db.rdb.SelectContext(ctx, &result, phraseQuery, args...)
+	logger.Debug.Printf("Search query: [%s], args: %v", namedQuery, args)
+	err = db.rdb.SelectContext(ctx, &result, namedQuery, args...)
 
 	return result, err
 }

@@ -2,7 +2,6 @@ package letarette
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/mattn/go-sqlite3"
@@ -31,15 +30,11 @@ func (s *searcher) Close() {
 	<-s.closer
 }
 
-func escapeQuotes(q string) string {
-	return strings.ReplaceAll(q, `"`, `""`)
-}
-
 func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchRequest) (protocol.SearchResponse, error) {
 	var err error
 	var status protocol.SearchStatusCode
 
-	q := escapeQuotes(query.Query)
+	q := query.Query
 	start := time.Now()
 	result, cached := s.cache.Get(q, query.Spaces, query.Limit, query.Offset)
 
