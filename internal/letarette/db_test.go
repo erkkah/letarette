@@ -58,29 +58,32 @@ func TestOpen(t *testing.T) {
 	gta.Assert(t, setup.db != nil, "Database is nil!")
 }
 
-func TestAddDocument_EmptyDocument(t *testing.T) {
+func TestAddDocument_EmptySpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
 	ctx := context.Background()
-	doc := protocol.Document{}
-	err := setup.db.addDocumentUpdate(ctx, doc)
-	gta.ErrorContains(t, err, "No such space", "Adding empty document should fail")
+	docs := []protocol.Document{
+		protocol.Document{},
+	}
+	err := setup.db.addDocumentUpdates(ctx, "", docs)
+	gta.ErrorContains(t, err, "No such space", "Adding document with empty space should fail")
 }
 
 func TestAddDocument_NewDocument(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	doc := protocol.Document{
-		Space:   "test",
-		ID:      "myID",
-		Updated: time.Now(),
-		Text:    "tjo och hej",
-		Alive:   true,
+	docs := []protocol.Document{
+		protocol.Document{
+			ID:      "myID",
+			Updated: time.Now(),
+			Text:    "tjo och hej",
+			Alive:   true,
+		},
 	}
 	ctx := context.Background()
-	err := setup.db.addDocumentUpdate(ctx, doc)
+	err := setup.db.addDocumentUpdates(ctx, "test", docs)
 
 	gta.NilError(t, err, "Failed to add new document")
 }
@@ -124,19 +127,20 @@ func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
 	list := []protocol.DocumentID{"bello", "koko"}
 	docTime := time.Now()
 	docID := protocol.DocumentID("koko")
-	doc := protocol.Document{
-		Space:   "test",
-		ID:      docID,
-		Updated: docTime,
-		Text:    "tjo och hej",
-		Alive:   true,
+	docs := []protocol.Document{
+		protocol.Document{
+			ID:      docID,
+			Updated: docTime,
+			Text:    "tjo och hej",
+			Alive:   true,
+		},
 	}
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, "test", list)
 	gta.NilError(t, err, "Setting interest list failed: %v", err)
 
-	err = setup.db.addDocumentUpdate(ctx, doc)
+	err = setup.db.addDocumentUpdates(ctx, "test", docs)
 	gta.NilError(t, err, "Failed to add document: %v", err)
 
 	err = setup.db.commitInterestList(ctx, "test")
