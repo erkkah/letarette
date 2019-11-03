@@ -60,13 +60,10 @@ func ParseQuery(query string) []Phrase {
 	s.Init(bytes.NewBufferString(query))
 	s.Mode = scanner.ScanIdents | scanner.ScanStrings
 	s.IsIdentRune = func(r rune, i int) bool {
-		if r == '"' && i == 0 {
-			return false
-		}
 		if r == '-' && i == 0 {
 			return false
 		}
-		if r == '*' || r == '\'' || r == '(' || r == ')' {
+		if r == '*' || r == '"' || r == '\'' || r == '(' || r == ')' {
 			return false
 		}
 		return unicode.IsGraphic(r) && !unicode.IsSpace(r)

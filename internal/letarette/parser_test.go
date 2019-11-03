@@ -128,6 +128,23 @@ func TestBadString(t *testing.T) {
 	})
 }
 
+func TestDoubleDoubleQuotedString(t *testing.T) {
+	r := letarette.ParseQuery(`""dog""`)
+	gta.Assert(t, len(r) == 3)
+
+	gta.Assert(t, r[0] == letarette.Phrase{
+		`""`, false, false,
+	})
+
+	gta.Assert(t, r[1] == letarette.Phrase{
+		`"dog"`, false, false,
+	})
+
+	gta.Assert(t, r[2] == letarette.Phrase{
+		`""`, false, false,
+	})
+}
+
 func TestSingleQuoteExclusion(t *testing.T) {
 	r := letarette.ParseQuery(`'WinkelWolt' "'Woff!"`)
 	gta.Assert(t, len(r) == 2)
