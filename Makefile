@@ -23,7 +23,7 @@ $(SNOWBALL)/README:
 	git submodule init && git submodule update --recursive
 
 test:
-	go test -tags "fts5" github.com/erkkah/letarette/internal/letarette
+	go test -tags "fts5" ./letarette/internal/letarette
 
 generate:
 	go generate internal/letarette/db.go
