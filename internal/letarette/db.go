@@ -130,7 +130,7 @@ func (db *database) Close() error {
 	_, tErr := db.wdb.Exec("pragma wal_checkpoint(TRUNCATE);")
 
 	wErr := db.wdb.Close()
-	if rErr != nil || wErr != nil || wErr != nil {
+	if rErr != nil || tErr != nil || wErr != nil {
 		return fmt.Errorf("Failed to close db: %w, %w, %w", rErr, tErr, wErr)
 	}
 	return nil
@@ -370,7 +370,8 @@ func (db *database) setInterestList(ctx context.Context, space string, list []pr
 		return err
 	}
 	if interestCount != 0 {
-		return fmt.Errorf("Cannot overwrite active interest list")
+		err = fmt.Errorf("Cannot overwrite active interest list")
+		return err
 	}
 	_, err = tx.ExecContext(ctx, `delete from interest where spaceID = ?`, spaceID)
 	if err != nil {
