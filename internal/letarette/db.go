@@ -75,7 +75,7 @@ type Database interface {
 
 	getInterestListState(context.Context, string) (InterestListState, error)
 
-	search(ctx context.Context, phrase string, spaces []string, limit uint16, offset uint16) ([]protocol.SearchResult, error)
+	search(ctx context.Context, phrases []Phrase, spaces []string, limit uint16, offset uint16) (protocol.SearchResult, error)
 
 	getStemmerState() (snowball.Settings, time.Time, error)
 	setStemmerState(snowball.Settings) error
@@ -84,8 +84,9 @@ type Database interface {
 }
 
 type database struct {
-	rdb *sqlx.DB
-	wdb *sqlx.DB
+	rdb       *sqlx.DB
+	wdb       *sqlx.DB
+	resultCap int
 }
 
 // OpenDatabase connects to a new or existing database and
@@ -97,7 +98,7 @@ func OpenDatabase(cfg Config) (Database, error) {
 		return nil, err
 	}
 
-	newDB := &database{rdb, wdb}
+	newDB := &database{rdb, wdb, cfg.Search.Cap}
 	return newDB, nil
 }
 

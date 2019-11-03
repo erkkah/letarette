@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"text/template"
@@ -139,7 +140,16 @@ Options:
 			return
 		}
 
-		sql(db, strings.Join(cmdline.Statement, " "))
+		statement := strings.Join(cmdline.Statement, " ")
+		if strings.HasPrefix(statement, "@") {
+			bytes, err := ioutil.ReadFile(strings.TrimLeft(statement, "@"))
+			if err != nil {
+				logger.Error.Printf("Failed to load statement file: %v", err)
+				return
+			}
+			statement = string(bytes)
+		}
+		sql(db, statement)
 	}
 }
 
@@ -273,8 +283,9 @@ func doSearch(cfg letarette.Config) {
 		return
 	}
 
-	fmt.Printf("Query executed in %v seconds with status %q\n\n", res.Duration, res.Status.String())
-	for _, doc := range res.Documents {
+	fmt.Printf("Query executed in %v seconds with status %q\n", res.Duration, res.Status.String())
+	fmt.Printf("Returning %v of %v total hits, capped: %v\n\n", len(res.Result.Hits), res.Result.TotalHits, res.Result.Capped)
+	for _, doc := range res.Result.Hits {
 		fmt.Printf("[%v] %s\n", doc.ID, doc.Snippet)
 	}
 }
@@ -302,11 +313,14 @@ func getSpinner(labels ...string) *spinner.Spinner {
 }
 
 func sql(db letarette.Database, statement string) {
+	start := time.Now()
 	result, err := db.RawQuery(statement)
 	if err != nil {
 		logger.Error.Printf("Failed to execute query: %v", err)
 		return
 	}
+	duration := float32(time.Since(start)) / float32(time.Second)
+	fmt.Printf("Executed in %vs\n", duration)
 	for _, v := range result {
 		fmt.Println(v)
 	}

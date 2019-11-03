@@ -60,8 +60,17 @@ type SearchRequest struct {
 	Offset uint16
 }
 
-// SearchResult represents one search hit
+// SearchResult is a collection of search hits.
+// When Capped is true, the search was truncated at Config.Search.Cap.
+// Capped results are only locally sorted by rank.
 type SearchResult struct {
+	Hits      []SearchHit
+	Capped    bool
+	TotalHits int
+}
+
+// SearchHit represents one search hit
+type SearchHit struct {
 	Space   string
 	ID      DocumentID
 	Snippet string
@@ -95,7 +104,7 @@ func (ssc SearchStatusCode) String() string {
 
 // SearchResponse is sent in response to SearchRequest
 type SearchResponse struct {
-	Documents []SearchResult
-	Duration  float32
-	Status    SearchStatusCode
+	Result   SearchResult
+	Duration float32
+	Status   SearchStatusCode
 }

@@ -2,6 +2,7 @@ package letarette
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/mattn/go-sqlite3"
@@ -34,17 +35,20 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 	var err error
 	var status protocol.SearchStatusCode
 
-	q := query.Query
+	phrases := ParseQuery(query.Query)
 	start := time.Now()
-	result, cached := s.cache.Get(q, query.Spaces, query.Limit, query.Offset)
+	// ??? Use canonical list?
+	cacheKey := fmt.Sprintf("%s", phrases)
+	result, cached := s.cache.Get(cacheKey, query.Spaces, query.Limit, query.Offset)
 
 	if cached {
 		status = protocol.SearchStatusCacheHit
 	} else {
-		result, err = s.db.search(ctx, q, query.Spaces, query.Limit, query.Offset)
+
+		result, err = s.db.search(ctx, phrases, query.Spaces, query.Limit, query.Offset)
 		if err == nil {
 			status = protocol.SearchStatusIndexHit
-			s.cache.Put(q, query.Spaces, query.Limit, query.Offset, result)
+			s.cache.Put(cacheKey, query.Spaces, query.Limit, query.Offset, result)
 		}
 	}
 	duration := float32(time.Since(start)) / float32(time.Second)
@@ -57,14 +61,14 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 		} else {
 			status = protocol.SearchStatusServerError
 		}
-	} else if len(result) == 0 {
+	} else if len(result.Hits) == 0 {
 		status = protocol.SearchStatusNoHit
 	}
 
 	response := protocol.SearchResponse{
-		Documents: result,
-		Status:    status,
-		Duration:  duration,
+		Result:   result,
+		Status:   status,
+		Duration: duration,
 	}
 	return response, err
 }

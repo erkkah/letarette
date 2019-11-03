@@ -35,6 +35,7 @@ type Config struct {
 	}
 	Search struct {
 		Timeout      time.Duration `default:"200ms"`
+		Cap          int           `default:"25000"`
 		CacheTimeout time.Duration `split_words:"true" default:"1m"`
 		Disable      bool          `default:"false"`
 	}

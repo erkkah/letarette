@@ -24,9 +24,9 @@ type entryMap map[string]cacheEntry
 type cacheRequest chan entryMap
 
 type cacheEntry struct {
-	key   string
-	hits  []protocol.SearchResult
-	stamp time.Time
+	key    string
+	result protocol.SearchResult
+	stamp  time.Time
 }
 
 // NewCache creates cache with a given timeout.
@@ -93,20 +93,21 @@ func makeKey(query string, spaces []string, limit uint16, offset uint16) string 
 }
 
 // Get fetches cached search results
-func (c *Cache) Get(query string, spaces []string, limit uint16, offset uint16) ([]protocol.SearchResult, bool) {
+func (c *Cache) Get(query string, spaces []string, limit uint16, offset uint16) (protocol.SearchResult, bool) {
 	mapped := c.getEntries()
 	entry, found := mapped[makeKey(query, spaces, limit, offset)]
-	res := entry.hits
-	return res, found
+	return entry.result, found
 }
 
 // Put stores search results in the cache
-func (c *Cache) Put(query string, spaces []string, limit uint16, offset uint16, res []protocol.SearchResult) {
-	clone := append(res[:0:0], res...)
+func (c *Cache) Put(query string, spaces []string, limit uint16, offset uint16, res protocol.SearchResult) {
+	clonedHits := append(res.Hits[:0:0], res.Hits...)
+
 	entry := cacheEntry{
-		key:   makeKey(query, spaces, limit, offset),
-		hits:  clone,
-		stamp: time.Now(),
+		key:    makeKey(query, spaces, limit, offset),
+		result: res,
+		stamp:  time.Now(),
 	}
+	entry.result.Hits = clonedHits
 	c.updates <- entry
 }

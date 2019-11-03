@@ -11,31 +11,6 @@ import (
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
-/*
-with matches as (
-select
-	rowid,
-	--replace(snippet(fts, 0, "(", ")", "...", 8), X'0A', " ") as snippet,
-	rank as r
-from
-	fts
-where
-	fts match 'NEAR(london city limits)'
-limit 5000
-),
-stats as (
-select count(*) as cnt from matches
-)
-select spaces.space, docs.docID, matches.r, stats.cnt, replace(substr(docs.txt, 0, 25), X'0A', " ")||"..."
-from matches
-join docs on docs.id = matches.rowid
-left join spaces using (spaceID)
-cross join stats
-where docs.alive
-and space in ("wp")
-order by r asc limit 10 offset 0;
-*/
-
 func phrasesToMatchString(phrases []Phrase) string {
 	var includes []string
 	var excludes []string
@@ -52,7 +27,7 @@ func phrasesToMatchString(phrases []Phrase) string {
 		}
 	}
 
-	const nearRange = 20
+	const nearRange = 15
 	matchString := ""
 	if len(includes) > 0 {
 		matchString = fmt.Sprintf("NEAR(%s, %d)", strings.Join(includes, " "), nearRange)
@@ -64,36 +39,51 @@ func phrasesToMatchString(phrases []Phrase) string {
 	return matchString
 }
 
-func (db *database) search(ctx context.Context, userQuery string, spaces []string, limit uint16, offset uint16) ([]protocol.SearchResult, error) {
+func (db *database) search(ctx context.Context, phrases []Phrase, spaces []string, limit uint16, offset uint16) (protocol.SearchResult, error) {
 	const left = "\u3016"
 	const right = "\u3017"
 	const ellipsis = "\u2026"
 
-	logger.Debug.Printf("User query: %s", userQuery)
-
-	phrases := ParseQuery(userQuery)
 	matchString := phrasesToMatchString(phrases)
 
 	query := `
+	with
+	matches as (
+		select
+			rowid,
+			firstmatch(fts) as first,
+			rank as r
+		from
+			fts
+		where
+			fts match :match
+		limit :cap
+	),
+	stats as (
+		select count(*) as cnt from matches
+	)
 	select
-		spaces.space as space,
-		docs.docID as id,
-		replace(snippet(fts, 0, :left, :right, :ellipsis, 8), X'0A', " ") as snippet,
-		rank
-	from 
-		fts
-		join docs on fts.rowid = docs.id
-		left join spaces on docs.spaceID = spaces.spaceID
+		spaces.space, docs.docID as id, matches.r as rank, stats.cnt as total,
+		replace(gettokens(fts, docs.txt, first, 10), X'0A', " ")||:ellipsis as snippet
+	from
+		matches
+		join docs on docs.id = matches.rowid
+		left join fts on fts.rowid = (select id from docs limit 1)
+		left join spaces using (spaceID)
+		cross join stats
 	where
-		fts match :match
-		and docs.alive
-		and spaces.space in (?)
-	order by rank asc limit :limit offset :offset
+		docs.alive
+		and space in (?)
+	order by matches.r asc limit :limit offset :offset;
 	`
 
-	logger.Debug.Printf("Search query: [%s]", query)
+	type hit struct {
+		protocol.SearchHit
+		Total int
+	}
+	var hits []hit
 
-	var result []protocol.SearchResult
+	var result protocol.SearchResult
 
 	spaceArgs := make([]interface{}, len(spaces))
 	for i, v := range spaces {
@@ -106,8 +96,7 @@ func (db *database) search(ctx context.Context, userQuery string, spaces []strin
 
 	namedQuery, namedArgs, err := sqlx.Named(spacedQuery, map[string]interface{}{
 		"match":    matchString,
-		"left":     left,
-		"right":    right,
+		"cap":      db.resultCap,
 		"ellipsis": ellipsis,
 		"limit":    limit,
 		"offset":   offset,
@@ -116,12 +105,27 @@ func (db *database) search(ctx context.Context, userQuery string, spaces []strin
 		return result, fmt.Errorf("Failed to expand named binds: %w", err)
 	}
 
-	args := append(namedArgs[:0:0], namedArgs[:4]...)
+	args := append(namedArgs[:0:0], namedArgs[:3]...)
 	args = append(args, spacedArgs...)
-	args = append(args, namedArgs[4:]...)
+	args = append(args, namedArgs[3:]...)
 
 	logger.Debug.Printf("Search query: [%s], args: %v", namedQuery, args)
-	err = db.rdb.SelectContext(ctx, &result, namedQuery, args...)
+	err = db.rdb.SelectContext(ctx, &hits, namedQuery, args...)
+	if err != nil {
+		return result, err
+	}
+
+	if len(hits) > 0 {
+		result.TotalHits = hits[0].Total
+	}
+	if result.TotalHits > db.resultCap {
+		result.TotalHits = db.resultCap
+		result.Capped = true
+	}
+	result.Hits = make([]protocol.SearchHit, len(hits))
+	for i, hit := range hits {
+		result.Hits[i] = hit.SearchHit
+	}
 
 	return result, err
 }
