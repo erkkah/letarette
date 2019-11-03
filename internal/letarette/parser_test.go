@@ -14,15 +14,15 @@ func TestParsePlainPhrases(t *testing.T) {
 	gta.Assert(t, len(r) == 3)
 
 	gta.Assert(t, r[0] == letarette.Phrase{
-		"cat", false, false,
+		`"cat"`, false, false,
 	})
 
 	gta.Assert(t, r[1] == letarette.Phrase{
-		"dog", false, false,
+		`"dog"`, false, false,
 	})
 
 	gta.Assert(t, r[2] == letarette.Phrase{
-		"banana", false, false,
+		`"banana"`, false, false,
 	})
 }
 
@@ -31,19 +31,19 @@ func TestIncludeExcludePhrases(t *testing.T) {
 	gta.Assert(t, len(r) == 4)
 
 	gta.Assert(t, r[0] == letarette.Phrase{
-		"cat", false, false,
+		`"cat"`, false, false,
 	})
 
 	gta.Assert(t, r[1] == letarette.Phrase{
-		"dog", false, true,
+		`"dog"`, false, true,
 	})
 
 	gta.Assert(t, r[2] == letarette.Phrase{
-		"banana", false, false,
+		`"banana"`, false, false,
 	})
 
 	gta.Assert(t, r[3] == letarette.Phrase{
-		"fishtank", false, true,
+		`"fishtank"`, false, true,
 	})
 }
 
@@ -52,19 +52,19 @@ func TestWildcardPhrases(t *testing.T) {
 	gta.Assert(t, len(r) == 4)
 
 	gta.Assert(t, r[0] == letarette.Phrase{
-		"cat", true, false,
+		`"cat"`, true, false,
 	})
 
 	gta.Assert(t, r[1] == letarette.Phrase{
-		"dog", true, true,
+		`"dog"`, true, true,
 	})
 
 	gta.Assert(t, r[2] == letarette.Phrase{
-		"banana", false, false,
+		`"banana"`, false, false,
 	})
 
 	gta.Assert(t, r[3] == letarette.Phrase{
-		"fishtank", false, true,
+		`"fishtank"`, false, true,
 	})
 }
 
@@ -73,15 +73,15 @@ func TestEmbeddedAndFreeExcludes(t *testing.T) {
 	gta.Assert(t, len(r) == 3)
 
 	gta.Assert(t, r[0] == letarette.Phrase{
-		"cat-", false, false,
+		`"cat-"`, false, false,
 	})
 
 	gta.Assert(t, r[1] == letarette.Phrase{
-		"cat-litter", false, false,
+		`"cat-litter"`, false, false,
 	})
 
 	gta.Assert(t, r[2] == letarette.Phrase{
-		"dog", false, true,
+		`"dog"`, false, true,
 	})
 }
 
@@ -90,15 +90,15 @@ func TestEmbeddedWildcard(t *testing.T) {
 	gta.Assert(t, len(r) == 4)
 
 	gta.Assert(t, r[0] == letarette.Phrase{
-		"cat", true, false,
+		`"cat"`, true, false,
 	})
 
 	gta.Assert(t, r[1] == letarette.Phrase{
-		"cat", true, false,
+		`"cat"`, true, false,
 	})
 
 	gta.Assert(t, r[2] == letarette.Phrase{
-		"litter", false, false,
+		`"litter"`, false, false,
 	})
 
 	gta.Assert(t, r[3] == letarette.Phrase{
@@ -128,8 +128,34 @@ func TestBadString(t *testing.T) {
 	})
 }
 
+func TestSingleQuoteExclusion(t *testing.T) {
+	r := letarette.ParseQuery(`'WinkelWolt' "'Woff!"`)
+	gta.Assert(t, len(r) == 2)
+
+	gta.Assert(t, r[0] == letarette.Phrase{
+		`"WinkelWolt"`, false, false,
+	})
+
+	gta.Assert(t, r[1] == letarette.Phrase{
+		`"'Woff!"`, false, false,
+	})
+}
+
+func TestParenthesisExclusion(t *testing.T) {
+	r := letarette.ParseQuery(`(WinkelWolt) )))((( "()"`)
+	gta.Assert(t, len(r) == 2)
+
+	gta.Assert(t, r[0] == letarette.Phrase{
+		`"WinkelWolt"`, false, false,
+	})
+
+	gta.Assert(t, r[1] == letarette.Phrase{
+		`"()"`, false, false,
+	})
+}
+
 func TestToString(t *testing.T) {
 	r := letarette.ParseQuery(`"horse head" - nebula star * * -`)
 	str := fmt.Sprintf("%s", r)
-	gta.Assert(t, str == `["horse head" -nebula star*]`)
+	gta.Assert(t, str == `["horse head" -"nebula" "star"*]`)
 }
