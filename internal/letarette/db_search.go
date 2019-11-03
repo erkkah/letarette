@@ -11,6 +11,33 @@ import (
 )
 
 /*
+
+Search syntax:
+
+<phrase> ::= string | quotedstring
+<query> ::= [-] <phrase> [*]
+<query> ::= <query> <query>
+
+Where the '-' prefix means "not" and the '*' denotes wildcard searches.
+
+Examples:
+
+animal -dog -cat
+
+horse* -"horse head"
+
+The output of the search parser is a list of including phrases and a list of
+excluding phrases. Both lists can contain wildcard expressions, which will lead
+to prefix searches.
+
+The parser is very defensive and will always produce a valid query.
+
+Searches will always be performed as "near" queries for all including phrases
+followed by a NOT list built from all excluding phrases.
+
+*/
+
+/*
 with matches as (
 select
 	rowid,

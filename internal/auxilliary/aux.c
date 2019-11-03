@@ -118,6 +118,7 @@ int initAuxilliaryFunctions(sqlite3* db) {
     }
 
     int result = fts->xCreateFunction(
+        // firstmatch(fts)
         fts, "firstmatch", (void*) 0, firstmatch, (void*) 0
     );
 
@@ -126,6 +127,7 @@ int initAuxilliaryFunctions(sqlite3* db) {
     }
 
     result = fts->xCreateFunction(
+        // gettokens(fts, text, starttoken, count)
         fts, "gettokens", (void*) 0, gettokens, (void*) 0
     );
 
