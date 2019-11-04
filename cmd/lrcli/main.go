@@ -154,13 +154,15 @@ Options:
 }
 
 func checkIndex(db letarette.Database) {
-	fmt.Println("Checking index...")
+	s := getSpinner("Checking index ", "OK\n")
+	s.Start()
+	defer s.Stop()
+
 	err := letarette.CheckIndex(db)
 	if err != nil {
 		logger.Error.Printf("Index check failed: %v", err)
 		return
 	}
-	fmt.Println("OK")
 }
 
 func setIndexPageSize(db letarette.Database, pageSize int) {
