@@ -44,6 +44,10 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 	const right = "\u3017"
 	const ellipsis = "\u2026"
 
+	if len(phrases) == 0 {
+		return protocol.SearchResult{}, fmt.Errorf("Empty search phrase list")
+	}
+
 	matchString := phrasesToMatchString(phrases)
 
 	query := `
@@ -96,7 +100,7 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 
 	namedQuery, namedArgs, err := sqlx.Named(spacedQuery, map[string]interface{}{
 		"match":    matchString,
-		"cap":      db.resultCap,
+		"cap":      db.resultCap + 1,
 		"ellipsis": ellipsis,
 		"limit":    limit,
 		"offset":   offset,

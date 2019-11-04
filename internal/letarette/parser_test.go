@@ -176,3 +176,12 @@ func TestToString(t *testing.T) {
 	str := fmt.Sprintf("%s", r)
 	gta.Assert(t, str == `["horse head" -"nebula" "star"*]`)
 }
+
+func TestReducePhraseList(t *testing.T) {
+	phrases := letarette.ParseQuery("a a - angle grinder*t")
+	gta.Assert(t, len(phrases) == 5)
+	phrases = letarette.ReducePhraseList(phrases)
+	gta.Assert(t, len(phrases) == 2)
+	gta.Assert(t, phrases[0].Text == `"angle"`)
+	gta.Assert(t, phrases[1].Text == `"grinder"`)
+}

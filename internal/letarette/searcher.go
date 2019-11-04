@@ -35,20 +35,24 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 	var err error
 	var status protocol.SearchStatusCode
 
-	phrases := ParseQuery(query.Query)
 	start := time.Now()
-	// ??? Use canonical list?
-	cacheKey := fmt.Sprintf("%s", phrases)
-	result, cached := s.cache.Get(cacheKey, query.Spaces, query.Limit, query.Offset)
+	phrases := ParseQuery(query.Query)
+	phrases = ReducePhraseList(phrases)
+	var result protocol.SearchResult
 
-	if cached {
-		status = protocol.SearchStatusCacheHit
-	} else {
+	if len(phrases) > 0 {
+		cacheKey := fmt.Sprintf("%s", CanonicalizePhraseList(phrases))
+		var cached bool
+		result, cached = s.cache.Get(cacheKey, query.Spaces, query.Limit, query.Offset)
 
-		result, err = s.db.search(ctx, phrases, query.Spaces, query.Limit, query.Offset)
-		if err == nil {
-			status = protocol.SearchStatusIndexHit
-			s.cache.Put(cacheKey, query.Spaces, query.Limit, query.Offset, result)
+		if cached {
+			status = protocol.SearchStatusCacheHit
+		} else {
+			result, err = s.db.search(ctx, phrases, query.Spaces, query.Limit, query.Offset)
+			if err == nil {
+				status = protocol.SearchStatusIndexHit
+				s.cache.Put(cacheKey, query.Spaces, query.Limit, query.Offset, result)
+			}
 		}
 	}
 	duration := float32(time.Since(start)) / float32(time.Second)
