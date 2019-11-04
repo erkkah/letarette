@@ -47,8 +47,12 @@ const prefix = "LETARETTE"
 // LoadConfig loads configuration variables from the environment
 // and returns a fully populated Config instance.
 func LoadConfig() (cfg Config, err error) {
-	err = envconfig.Process(prefix, &cfg)
+	err = envconfig.CheckDisallowed(prefix, &cfg)
+	if err != nil {
+		return
+	}
 
+	err = envconfig.Process(prefix, &cfg)
 	if err != nil {
 		return
 	}
