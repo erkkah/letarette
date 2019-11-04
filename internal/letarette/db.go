@@ -193,9 +193,13 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 		return err
 	}
 
-	version, _, err := m.Version()
+	version, dirty, err := m.Version()
 	if err != nil && err != migrate.ErrNilVersion {
 		return err
+	}
+
+	if dirty {
+		return fmt.Errorf("Database has a dirty migration at level %v", version)
 	}
 
 	runMigration := version == 0
