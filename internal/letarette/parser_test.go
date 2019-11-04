@@ -178,10 +178,10 @@ func TestToString(t *testing.T) {
 }
 
 func TestReducePhraseList(t *testing.T) {
-	phrases := letarette.ParseQuery("a a - angle grinder*t")
-	gta.Assert(t, len(phrases) == 5)
+	phrases := letarette.ParseQuery(`a a "b b" - angle "grinder u"*t`)
+	gta.Assert(t, len(phrases) == 6)
 	phrases = letarette.ReducePhraseList(phrases)
 	gta.Assert(t, len(phrases) == 2)
 	gta.Assert(t, phrases[0].Text == `"angle"`)
-	gta.Assert(t, phrases[1].Text == `"grinder"`)
+	gta.Assert(t, phrases[1].Text == `"grinder "`)
 }
