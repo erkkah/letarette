@@ -10,6 +10,8 @@
 // migrations/4_stemmerstate.up.sql
 // migrations/5_spaceindex.down.sql
 // migrations/5_spaceindex.up.sql
+// migrations/6_prefixindex.down.sql
+// migrations/6_prefixindex.up.sql
 // DO NOT EDIT!
 
 package letarette
@@ -277,6 +279,46 @@ func migrations5_spaceindexUpSql() (*asset, error) {
 	return a, nil
 }
 
+var _migrations6_prefixindexDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x3c\xcc\xc1\x0a\x83\x40\x0c\x04\xd0\x7b\xbe\x22\xb7\x28\x78\xed\x49\xfc\x96\xb2\xba\xb1\x84\x2e\x49\xd9\x64\x55\xfa\xf5\x65\x69\xe9\x6d\x86\x79\x4c\xae\xf6\xc2\x48\x6b\x61\xdc\xc3\x67\x80\xad\x72\x0a\xc6\x43\x6a\xb4\x54\x7e\x93\xec\xa8\x16\xc8\x97\x78\x78\x87\xd8\x5c\xf4\xd1\xd3\x6d\x00\x44\xc4\xb8\x62\xc2\xcd\x34\x58\x63\xa1\x6c\x9b\xd3\xbf\xdf\xab\x9d\x92\x17\x92\x4c\xd3\x17\xdb\x93\x55\xde\xbc\x90\xab\x9d\x6b\x2a\x85\x60\x9c\x01\x44\x9d\x6b\xa0\x68\x58\xbf\x1e\xf6\xf0\x11\x8f\x54\x1a\xfb\x40\x95\xd7\x26\x25\xd3\x38\xc3\x27\x00\x00\xff\xff\xd6\xf9\xe1\xa0\xb5\x00\x00\x00")
+
+func migrations6_prefixindexDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations6_prefixindexDownSql,
+		"migrations/6_prefixindex.down.sql",
+	)
+}
+
+func migrations6_prefixindexDownSql() (*asset, error) {
+	bytes, err := migrations6_prefixindexDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/6_prefixindex.down.sql", size: 181, mode: os.FileMode(436), modTime: time.Unix(1572894572, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _migrations6_prefixindexUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x3c\xcd\x4d\x6a\xc5\x30\x0c\x04\xe0\xbd\x4f\x31\x3b\x25\x90\x55\x7f\x56\x21\x67\x29\x4e\x2c\x17\x51\x23\x3d\x2c\xf9\x25\xf4\xf4\x25\xb4\x74\x37\xc3\x7c\x30\xa5\xdb\x03\x91\xf7\xc6\xa8\xe1\x6b\x4a\x47\xe7\x1c\x8c\xa7\xf4\x18\xb9\xfd\x4d\x52\xa1\x16\xe0\x4b\x3c\xfc\x86\x18\x2e\xfa\x79\xa7\xf7\x29\x01\x40\x5c\xb1\xe0\x30\x0d\xd6\xd8\xa8\xd8\xe1\xf4\xdf\x3f\xba\x9d\x52\x36\x92\x42\xcb\x2f\xb6\x2f\x56\xf9\xe6\x8d\x5c\xed\xdc\x73\x6b\xb4\xe0\xd1\xb9\xca\xb5\xd1\x0b\x5e\xf1\x46\x69\x5e\x53\x12\x75\xee\x01\xd1\xb0\xfb\x6a\xaa\xe1\x33\x9e\xb9\x0d\xf6\x89\x3a\xef\x43\x5a\xa1\x79\x4d\x3f\x01\x00\x00\xff\xff\xbc\x67\xa2\xb3\xc5\x00\x00\x00")
+
+func migrations6_prefixindexUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		_migrations6_prefixindexUpSql,
+		"migrations/6_prefixindex.up.sql",
+	)
+}
+
+func migrations6_prefixindexUpSql() (*asset, error) {
+	bytes, err := migrations6_prefixindexUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "migrations/6_prefixindex.up.sql", size: 197, mode: os.FileMode(436), modTime: time.Unix(1572896163, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -339,6 +381,8 @@ var _bindata = map[string]func() (*asset, error){
 	"migrations/4_stemmerstate.up.sql": migrations4_stemmerstateUpSql,
 	"migrations/5_spaceindex.down.sql": migrations5_spaceindexDownSql,
 	"migrations/5_spaceindex.up.sql": migrations5_spaceindexUpSql,
+	"migrations/6_prefixindex.down.sql": migrations6_prefixindexDownSql,
+	"migrations/6_prefixindex.up.sql": migrations6_prefixindexUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -392,6 +436,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"4_stemmerstate.up.sql": &bintree{migrations4_stemmerstateUpSql, map[string]*bintree{}},
 		"5_spaceindex.down.sql": &bintree{migrations5_spaceindexDownSql, map[string]*bintree{}},
 		"5_spaceindex.up.sql": &bintree{migrations5_spaceindexUpSql, map[string]*bintree{}},
+		"6_prefixindex.down.sql": &bintree{migrations6_prefixindexDownSql, map[string]*bintree{}},
+		"6_prefixindex.up.sql": &bintree{migrations6_prefixindexUpSql, map[string]*bintree{}},
 	}},
 }}
 
