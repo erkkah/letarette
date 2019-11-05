@@ -38,6 +38,7 @@ type Config struct {
 		Cap          int           `default:"25000"`
 		CacheTimeout time.Duration `split_words:"true" default:"1m"`
 		Disable      bool          `default:"false"`
+		Strategy     int           `default:"2"`
 	}
 	MetricsPort uint16 `split_words:"true" default:"8000"`
 }

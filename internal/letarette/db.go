@@ -1,6 +1,6 @@
 package letarette
 
-//go:generate go-bindata -pkg $GOPACKAGE -o migrations.go migrations/
+//go:generate go-bindata -pkg $GOPACKAGE -o bindata.go migrations/ queries/
 
 import (
 	"context"
@@ -84,9 +84,10 @@ type Database interface {
 }
 
 type database struct {
-	rdb       *sqlx.DB
-	wdb       *sqlx.DB
-	resultCap int
+	rdb            *sqlx.DB
+	wdb            *sqlx.DB
+	resultCap      int
+	searchStrategy int
 }
 
 // OpenDatabase connects to a new or existing database and
@@ -98,7 +99,7 @@ func OpenDatabase(cfg Config) (Database, error) {
 		return nil, err
 	}
 
-	newDB := &database{rdb, wdb, cfg.Search.Cap}
+	newDB := &database{rdb, wdb, cfg.Search.Cap, cfg.Search.Strategy}
 	return newDB, nil
 }
 

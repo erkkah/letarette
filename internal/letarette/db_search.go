@@ -50,36 +50,11 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 
 	matchString := phrasesToMatchString(phrases)
 
-	query := `
-	with
-	matches as (
-		select
-			rowid,
-			firstmatch(fts) as first,
-			rank as r
-		from
-			fts
-		where
-			fts match :match
-		limit :cap
-	),
-	stats as (
-		select count(*) as cnt from matches
-	)
-	select
-		spaces.space, docs.docID as id, matches.r as rank, stats.cnt as total,
-		replace(gettokens(fts, docs.txt, first, 10), X'0A', " ")||:ellipsis as snippet
-	from
-		matches
-		join docs on docs.id = matches.rowid
-		left join fts on fts.rowid = (select id from docs limit 1)
-		left join spaces using (spaceID)
-		cross join stats
-	where
-		docs.alive
-		and space in (?)
-	order by matches.r asc limit :limit offset :offset;
-	`
+	queryAsset := fmt.Sprintf("queries/search_%d.sql", db.searchStrategy)
+	query, err := Asset(queryAsset)
+	if err != nil {
+		return protocol.SearchResult{}, err
+	}
 
 	type hit struct {
 		protocol.SearchHit
@@ -93,7 +68,7 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 	for i, v := range spaces {
 		spaceArgs[i] = v
 	}
-	spacedQuery, spacedArgs, err := sqlx.In(query, spaceArgs...)
+	spacedQuery, spacedArgs, err := sqlx.In(string(query), spaceArgs...)
 	if err != nil {
 		return result, fmt.Errorf("Failed to expand 'in' values: %w", err)
 	}
