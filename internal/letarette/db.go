@@ -5,6 +5,7 @@ package letarette
 import (
 	"context"
 	"database/sql"
+	drv "database/sql/driver"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -260,7 +261,17 @@ func registerCustomDriver(cfg Config) {
 					}
 					logger.Debug.Printf("Initializing aux functions")
 					err = auxilliary.Init(conn)
-					return err
+					if err != nil {
+						return err
+					}
+
+					logger.Debug.Printf("Setting up pragmas")
+					_, err = conn.Exec("pragma threads=4;pragma temp_store=2;", []drv.Value{})
+					if err != nil {
+						return err
+					}
+
+					return nil
 				},
 			})
 	}
