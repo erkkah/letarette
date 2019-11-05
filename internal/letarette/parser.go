@@ -120,6 +120,8 @@ func reducePhrase(phrase string) string {
 	return `"` + reduced + `"`
 }
 
+// ReducePhraseList removes one character phrases
+// from a list of phrases.
 func ReducePhraseList(phrases []Phrase) []Phrase {
 	var result []Phrase
 	for _, phrase := range phrases {
@@ -134,8 +136,13 @@ func ReducePhraseList(phrases []Phrase) []Phrase {
 	return result
 }
 
+// CanonicalizePhraseList turns all phrases in a phrase list to lower case,
+// sorts it and eliminates duplicates.
 func CanonicalizePhraseList(phrases []Phrase) []Phrase {
 	result := append(phrases[:0:0], phrases...)
+	if len(result) == 0 {
+		return result
+	}
 	for i, v := range result {
 		result[i].Text = strings.ToLower(v.Text)
 	}
@@ -154,5 +161,14 @@ func CanonicalizePhraseList(phrases []Phrase) []Phrase {
 		}
 		return false
 	})
-	return result
+
+	last := result[0]
+	unique := []Phrase{last}
+	for _, v := range result[1:] {
+		if v != last {
+			unique = append(unique, v)
+		}
+		last = v
+	}
+	return unique
 }

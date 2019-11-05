@@ -185,3 +185,11 @@ func TestReducePhraseList(t *testing.T) {
 	gta.Assert(t, phrases[0].Text == `"angle"`)
 	gta.Assert(t, phrases[1].Text == `"grinder "`)
 }
+
+func TestCanonicalizePhraseList(t *testing.T) {
+	listA := letarette.ParseQuery(`Yabba* -Dabba Doo Doo`)
+	listB := letarette.ParseQuery(`-daBBa -dAbBa "DOO" "YABBA" *`)
+	listA = letarette.CanonicalizePhraseList(listA)
+	listB = letarette.CanonicalizePhraseList(listB)
+	gta.DeepEqual(t, listA, listB)
+}
