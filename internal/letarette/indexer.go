@@ -64,114 +64,31 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		return nil, err
 	}
 
-	go func() {
-		logger.Info.Printf("Indexer starting")
-		self.waiter.Add(1)
-
-		var lastDocumentRequest time.Time
-		for {
-			cycleThrottle := time.After(cfg.Index.CycleWait)
-			totalInterests := 0
-
-			for _, space := range cfg.Index.Spaces {
-				interests, err := db.getInterestList(mainContext, space)
-				if err != nil {
-					logger.Error.Printf("Failed to fetch current interest list: %v", err)
-				} else {
-					totalInterests += len(interests)
-
-					numPending := 0
-					numRequested := 0
-					numServed := 0
-					pendingIDs := []protocol.DocumentID{}
-					maxOutstanding := int(cfg.Index.MaxOutstanding)
-
-					for _, interest := range interests {
-						switch interest.State {
-						case served:
-							numServed++
-						case pending:
-							numPending++
-							pendingIDs = append(pendingIDs, interest.DocID)
-						case requested:
-							numRequested++
-						}
+	atExit := func() {
+		logger.Info.Printf("Indexer exiting")
+		err = subscription.Drain()
+		if err != nil {
+			logger.Error.Printf("Failed to drain document subscription: %v", err)
+		} else {
+			go func() {
+				self.waiter.Add(1)
+				for {
+					messages, _, _ := subscription.Pending()
+					if messages == 0 {
+						break
 					}
-
-					docsToRequest := min(numPending, maxOutstanding-numRequested)
-					if docsToRequest > 0 {
-						logger.Info.Printf("Requesting %v docs\n", docsToRequest)
-						metrics.docRequests.Add(float64(docsToRequest))
-						err = self.requestDocuments(mainContext, space, pendingIDs[:docsToRequest])
-						if err != nil {
-							logger.Error.Printf("Failed to request documents: %v", err)
-						} else {
-							lastDocumentRequest = time.Now()
-							numRequested += docsToRequest
-						}
-					}
-
-					allServed := numPending == 0 && numRequested == 0
-
-					if allServed {
-
-						err = self.commitFetched(mainContext, space)
-						if err != nil {
-							logger.Error.Printf("Failed to commit docs: %v", err)
-							continue
-						}
-
-						err = self.requestNextChunk(mainContext, space)
-						if err != nil {
-							logger.Error.Printf("Failed to request next chunk: %v", err)
-							continue
-						}
-
-					} else {
-						timeout := cfg.Index.MaxDocumentWait
-						if timeout != 0 && time.Now().After(lastDocumentRequest.Add(timeout)) {
-							logger.Warning.Printf("Timeout waiting for documents, re-requesting")
-							err = db.resetRequested(mainContext, space)
-							if err != nil {
-								logger.Error.Printf("Failed to reset interest list state: %v", err)
-							}
-						}
-					}
+					time.Sleep(time.Millisecond * 20)
 				}
-			}
-
-			if totalInterests == 0 {
-				cycleThrottle = time.After(cfg.Index.EmptyCycleWait)
-			}
-			select {
-			case <-mainContext.Done():
-				logger.Info.Printf("Indexer exiting")
-				err = subscription.Drain()
-				if err != nil {
-					logger.Error.Printf("Failed to drain document subscription: %v", err)
-				} else {
-					go func() {
-						self.waiter.Add(1)
-						for {
-							messages, _, _ := subscription.Pending()
-							if messages == 0 {
-								break
-							}
-							time.Sleep(time.Millisecond * 20)
-						}
-						self.waiter.Done()
-					}()
-				}
-				cancel()
-				close(updates)
 				self.waiter.Done()
-				return
-			case <-cycleThrottle:
-				// Loop will never be faster than cfg.CycleWait
-			}
+			}()
 		}
+		cancel()
+		close(updates)
+		self.waiter.Done()
+	}
 
-	}()
+	self.waiter.Add(1)
+	go self.main(atExit)
 
 	return self, nil
 }
@@ -191,13 +108,110 @@ func (idx *indexer) Close() {
 	idx.waiter.Wait()
 }
 
-func (idx *indexer) commitFetched(ctx context.Context, space string) error {
-	return idx.db.commitInterestList(ctx, space)
+func (idx *indexer) main(atExit func()) {
+	logger.Info.Printf("Indexer starting")
+
+	for {
+		cycleThrottle := time.After(idx.cfg.Index.CycleWait)
+		totalInterests := 0
+
+		for _, space := range idx.cfg.Index.Spaces {
+			totalInterests += idx.runUpdateCycle(space)
+		}
+
+		if totalInterests == 0 {
+			cycleThrottle = time.After(idx.cfg.Index.EmptyCycleWait)
+		}
+		select {
+		case <-idx.context.Done():
+			atExit()
+			return
+		case <-cycleThrottle:
+			// Loop will never be faster than cfg.CycleWait
+		}
+	}
+
 }
 
-func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
+var lastDocumentRequest time.Time
+
+func (idx *indexer) runUpdateCycle(space string) (total int) {
+	interests, err := idx.db.getInterestList(idx.context, space)
+	if err != nil {
+		logger.Error.Printf("Failed to fetch current interest list: %v", err)
+		return
+	}
+
+	total = len(interests)
+
+	numPending := 0
+	numRequested := 0
+	numServed := 0
+	pendingIDs := []protocol.DocumentID{}
+	maxOutstanding := int(idx.cfg.Index.MaxOutstanding)
+
+	for _, interest := range interests {
+		switch interest.State {
+		case served:
+			numServed++
+		case pending:
+			numPending++
+			pendingIDs = append(pendingIDs, interest.DocID)
+		case requested:
+			numRequested++
+		}
+	}
+
+	docsToRequest := min(numPending, maxOutstanding-numRequested)
+	if docsToRequest > 0 {
+		logger.Info.Printf("Requesting %v docs\n", docsToRequest)
+		metrics.docRequests.Add(float64(docsToRequest))
+		err = idx.requestDocuments(space, pendingIDs[:docsToRequest])
+		if err != nil {
+			logger.Error.Printf("Failed to request documents: %v", err)
+		} else {
+			lastDocumentRequest = time.Now()
+			numRequested += docsToRequest
+		}
+	}
+
+	allServed := numPending == 0 && numRequested == 0
+
+	if allServed {
+
+		err = idx.commitFetched(space)
+		if err != nil {
+			logger.Error.Printf("Failed to commit docs: %v", err)
+			return
+		}
+
+		err = idx.requestNextChunk(space)
+		if err != nil {
+			logger.Error.Printf("Failed to request next chunk: %v", err)
+			return
+		}
+
+	} else {
+		timeout := idx.cfg.Index.MaxDocumentWait
+		if timeout != 0 && time.Now().After(lastDocumentRequest.Add(timeout)) {
+			logger.Warning.Printf("Timeout waiting for documents, re-requesting")
+			err = idx.db.resetRequested(idx.context, space)
+			if err != nil {
+				logger.Error.Printf("Failed to reset interest list state: %v", err)
+			}
+		}
+	}
+
+	return
+}
+
+func (idx *indexer) commitFetched(space string) error {
+	return idx.db.commitInterestList(idx.context, space)
+}
+
+func (idx *indexer) requestNextChunk(space string) error {
 	topic := idx.cfg.Nats.Topic + ".index.request"
-	state, err := idx.db.getInterestListState(ctx, space)
+	state, err := idx.db.getInterestListState(idx.context, space)
 	if err != nil {
 		return fmt.Errorf("Failed to get interest list state: %w", err)
 	}
@@ -207,7 +221,7 @@ func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 		AfterDocument: state.LastUpdatedDocID,
 		Limit:         idx.cfg.Index.ChunkSize,
 	}
-	timeout, cancel := context.WithTimeout(ctx, idx.cfg.Index.MaxInterestWait)
+	timeout, cancel := context.WithTimeout(idx.context, idx.cfg.Index.MaxInterestWait)
 
 	var update protocol.IndexUpdate
 	err = idx.conn.RequestWithContext(timeout, topic, updateRequest, &update)
@@ -220,7 +234,7 @@ func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 	if len(update.Updates) > 0 {
 		logger.Info.Printf("Received interest list of %v docs\n", len(update.Updates))
 	}
-	err = idx.db.setInterestList(ctx, update.Space, update.Updates)
+	err = idx.db.setInterestList(idx.context, update.Space, update.Updates)
 
 	if err != nil {
 		return fmt.Errorf("Failed to set interest list: %w", err)
@@ -229,14 +243,14 @@ func (idx *indexer) requestNextChunk(ctx context.Context, space string) error {
 	return nil
 }
 
-func (idx *indexer) requestDocuments(ctx context.Context, space string, wanted []protocol.DocumentID) error {
+func (idx *indexer) requestDocuments(space string, wanted []protocol.DocumentID) error {
 	topic := idx.cfg.Nats.Topic + ".document.request"
 	request := protocol.DocumentRequest{
 		Space:  space,
 		Wanted: wanted,
 	}
 	for _, docID := range wanted {
-		err := idx.db.setInterestState(ctx, space, docID, requested)
+		err := idx.db.setInterestState(idx.context, space, docID, requested)
 		if err != nil {
 			return fmt.Errorf("Failed to update interest state: %w", err)
 		}
