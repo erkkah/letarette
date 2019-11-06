@@ -1,5 +1,5 @@
 #include <sqlite3.h>
 
-int initAuxilliaryFunctions(
+int initAuxiliaryFunctions(
     sqlite3* db
 );

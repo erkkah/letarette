@@ -111,7 +111,7 @@ static fts5_api *fts5APIFromDB(sqlite3 *db){
     return pRet;
 }
 
-int initAuxilliaryFunctions(sqlite3* db) {
+int initAuxiliaryFunctions(sqlite3* db) {
     fts5_api* fts = fts5APIFromDB(db);
     if (!fts) {
         return SQLITE_ERROR;

@@ -21,7 +21,7 @@ import (
 	sqlite3_migrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 
-	"github.com/erkkah/letarette/internal/auxilliary"
+	"github.com/erkkah/letarette/internal/auxiliary"
 	"github.com/erkkah/letarette/internal/snowball"
 	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
@@ -260,7 +260,7 @@ func registerCustomDriver(cfg Config) {
 						return err
 					}
 					logger.Debug.Printf("Initializing aux functions")
-					err = auxilliary.Init(conn)
+					err = auxiliary.Init(conn)
 					if err != nil {
 						return err
 					}

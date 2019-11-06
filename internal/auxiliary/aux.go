@@ -1,4 +1,4 @@
-package auxilliary
+package auxiliary
 
 // #cgo CFLAGS: -DSQLITE_CORE
 // #cgo darwin CFLAGS: -I/usr/local/opt/sqlite/include
@@ -16,9 +16,9 @@ import (
 
 func Init(conn *sqlite3.SQLiteConn) error {
 	db := dbFromConnection(conn)
-	result := C.initAuxilliaryFunctions(db)
+	result := C.initAuxiliaryFunctions(db)
 	if result != C.SQLITE_OK {
-		return fmt.Errorf("Failed to init auxilliary functions")
+		return fmt.Errorf("Failed to init auxiliary functions")
 	}
 	return nil
 }
