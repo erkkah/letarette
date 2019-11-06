@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/erkkah/letarette/pkg/protocol"
-	"github.com/nats-io/go-nats"
+	"github.com/nats-io/nats.go"
 )
 
 type SearchClient interface {

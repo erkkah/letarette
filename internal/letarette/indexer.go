@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nats-io/go-nats"
+	"github.com/nats-io/nats.go"
 
 	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
@@ -29,7 +29,10 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		}
 	}
 
-	ec, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
+	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
+	if err != nil {
+		return nil, err
+	}
 
 	mainContext, cancel := context.WithCancel(context.Background())
 
@@ -143,8 +146,22 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 			select {
 			case <-mainContext.Done():
 				logger.Info.Printf("Indexer exiting")
-				// ??? Need to empty this to be safe
-				subscription.Unsubscribe()
+				err = subscription.Drain()
+				if err != nil {
+					logger.Error.Printf("Failed to drain document subscription: %v", err)
+				} else {
+					go func() {
+						self.waiter.Add(1)
+						for {
+							messages, _, _ := subscription.Pending()
+							if messages == 0 {
+								break
+							}
+							time.Sleep(time.Millisecond * 20)
+						}
+						self.waiter.Done()
+					}()
+				}
 				cancel()
 				close(updates)
 				self.waiter.Done()

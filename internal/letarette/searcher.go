@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/mattn/go-sqlite3"
-	"github.com/nats-io/go-nats"
+	"github.com/nats-io/nats.go"
 
 	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"

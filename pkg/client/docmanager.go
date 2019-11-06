@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/erkkah/letarette/pkg/protocol"
-	"github.com/nats-io/go-nats"
+	"github.com/nats-io/nats.go"
 )
 
 // IndexRequestHandler processes index update requests from the letarette cluster

@@ -1,6 +1,6 @@
 package client
 
-import "github.com/nats-io/go-nats"
+import "github.com/nats-io/nats.go"
 
 type state struct {
 	conn    *nats.EncodedConn
