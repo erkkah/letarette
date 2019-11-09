@@ -39,7 +39,7 @@ func phrasesToMatchString(phrases []Phrase) string {
 	return matchString
 }
 
-func (db *database) search(ctx context.Context, phrases []Phrase, spaces []string, limit uint16, offset uint16) (protocol.SearchResult, error) {
+func (db *database) search(ctx context.Context, phrases []Phrase, spaces []string, pageLimit uint16, pageOffset uint16) (protocol.SearchResult, error) {
 	const left = "\u3016"
 	const right = "\u3017"
 	const ellipsis = "\u2026"
@@ -53,7 +53,7 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 	queryAsset := fmt.Sprintf("queries/search_%d.sql", db.searchStrategy)
 	query, err := Asset(queryAsset)
 	if err != nil {
-		return protocol.SearchResult{}, err
+		return protocol.SearchResult{}, fmt.Errorf("Search strategy %d not found", db.searchStrategy)
 	}
 
 	type hit struct {
@@ -77,8 +77,8 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 		"match":    matchString,
 		"cap":      db.resultCap + 1,
 		"ellipsis": ellipsis,
-		"limit":    limit,
-		"offset":   offset,
+		"limit":    pageLimit,
+		"offset":   pageOffset * pageLimit,
 	})
 	if err != nil {
 		return result, fmt.Errorf("Failed to expand named binds: %w", err)

@@ -22,11 +22,11 @@ import (
 var cmdline struct {
 	Verbose bool `docopt:"-v"`
 
-	Search  bool
-	Space   string   `docopt:"<space>"`
-	Phrases []string `docopt:"<phrase>"`
-	Limit   int      `docopt:"-l"`
-	Offset  int      `docopt:"-o"`
+	Search     bool
+	Space      string   `docopt:"<space>"`
+	Phrases    []string `docopt:"<phrase>"`
+	PageLimit  int      `docopt:"-l"`
+	PageOffset int      `docopt:"-p"`
 
 	Index        bool
 	Stats        bool
@@ -51,7 +51,7 @@ func main() {
 	usage := title + `
 
 Usage:
-	lrcli search [-v] [-l <limit>] [-o <offset>] <space> <phrase>...
+	lrcli search [-v] [-l <limit>] [-p <page>] <space> <phrase>...
 	lrcli sql <sql>...
 	lrcli index stats
 	lrcli index check
@@ -64,8 +64,8 @@ Usage:
 
 Options:
     -v           Verbose
-    -l <limit>   Search result limit [default: 10]
-    -o <offset>  Search result offset [default: 0]
+    -l <limit>   Search result page limit [default: 10]
+    -p <page>    Search result page [default: 0]
 `
 
 	args, err := docopt.ParseDoc(usage)
@@ -279,7 +279,12 @@ func doSearch(cfg letarette.Config) {
 	}
 	defer c.Close()
 
-	res, err := c.Search(strings.Join(cmdline.Phrases, " "), []string{cmdline.Space}, cmdline.Limit, cmdline.Offset)
+	res, err := c.Search(
+		strings.Join(cmdline.Phrases, " "),
+		[]string{cmdline.Space},
+		cmdline.PageLimit,
+		cmdline.PageOffset,
+	)
 	if err != nil {
 		logger.Error.Printf("Failed to perform search: %v", err)
 		return

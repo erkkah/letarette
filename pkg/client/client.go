@@ -9,7 +9,7 @@ import (
 
 type SearchClient interface {
 	Close()
-	Search(q string, spaces []string, limit int, offset int) (protocol.SearchResponse, error)
+	Search(q string, spaces []string, pageLimit int, pageOffset int) (protocol.SearchResponse, error)
 }
 
 func NewSearchClient(url string, options ...Option) (SearchClient, error) {
@@ -36,12 +36,12 @@ func (client *searchClient) Close() {
 	client.conn.Close()
 }
 
-func (client *searchClient) Search(q string, spaces []string, limit int, offset int) (res protocol.SearchResponse, err error) {
+func (client *searchClient) Search(q string, spaces []string, pageLimit int, pageOffset int) (res protocol.SearchResponse, err error) {
 	req := protocol.SearchRequest{
-		Spaces: spaces,
-		Query:  q,
-		Limit:  uint16(limit),
-		Offset: uint16(offset),
+		Spaces:     spaces,
+		Query:      q,
+		PageLimit:  uint16(pageLimit),
+		PageOffset: uint16(pageOffset),
 	}
 	err = client.conn.Request(client.topic+".q", req, &res, time.Second*2)
 	return

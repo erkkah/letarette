@@ -60,10 +60,14 @@ type DocumentRequest struct {
 
 // SearchRequest is sent from a search handler to search the index.
 type SearchRequest struct {
+	// Spaces to search
 	Spaces []string
-	Query  string
-	Limit  uint16
-	Offset uint16
+	// Query string in letarette syntax
+	Query string
+	// Maximum number of hits returned in one page.
+	PageLimit uint16
+	// Zero-indexed page of hits to retrieve
+	PageOffset uint16
 }
 
 // SearchResult is a collection of search hits.
