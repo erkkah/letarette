@@ -92,9 +92,9 @@ type SearchStatusCode uint8
 
 // Codes returned in search responses
 const (
-	SearchStatusIndexHit SearchStatusCode = iota + 42
+	SearchStatusNoHit SearchStatusCode = iota + 42
 	SearchStatusCacheHit
-	SearchStatusNoHit
+	SearchStatusIndexHit
 	SearchStatusTimeout
 	SearchStatusQueryError
 	SearchStatusServerError
