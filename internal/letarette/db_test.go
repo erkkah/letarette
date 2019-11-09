@@ -105,9 +105,19 @@ func TestCommitInterestList_NonEmptyNoUpdates(t *testing.T) {
 	beforeState, err := setup.db.getInterestListState(ctx, "test")
 	gta.NilError(t, err, "Failed to get list state")
 
-	list := []protocol.DocumentID{"bello", "koko"}
+	list := protocol.IndexUpdate{
+		Space: "test",
+		Updates: []protocol.DocumentReference{
+			{
+				ID: "bello", Updated: time.Now(),
+			},
+			{
+				ID: "koko", Updated: time.Now(),
+			},
+		},
+	}
 
-	err = setup.db.setInterestList(ctx, "test", list)
+	err = setup.db.setInterestList(ctx, list)
 	gta.NilError(t, err, "Setting interest list failed")
 
 	err = setup.db.commitInterestList(ctx, "test")
@@ -124,7 +134,18 @@ func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	list := []protocol.DocumentID{"bello", "koko"}
+	list := protocol.IndexUpdate{
+		Space: "test",
+		Updates: []protocol.DocumentReference{
+			{
+				ID: "bello", Updated: time.Now(),
+			},
+			{
+				ID: "koko", Updated: time.Now(),
+			},
+		},
+	}
+
 	docTime := time.Now()
 	docID := protocol.DocumentID("koko")
 	docs := []protocol.Document{
@@ -137,7 +158,7 @@ func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	err := setup.db.setInterestList(ctx, "test", list)
+	err := setup.db.setInterestList(ctx, list)
 	gta.NilError(t, err, "Setting interest list failed: %v", err)
 
 	err = setup.db.addDocumentUpdates(ctx, "test", docs)
@@ -202,8 +223,18 @@ func TestSetInterestList_NonexistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	list := protocol.IndexUpdate{
+		Space: "kawonka",
+		Updates: []protocol.DocumentReference{
+
+			{
+				ID: "koko", Updated: time.Now(),
+			},
+		},
+	}
+
 	ctx := context.Background()
-	err := setup.db.setInterestList(ctx, "kawonka", []protocol.DocumentID{"koko"})
+	err := setup.db.setInterestList(ctx, list)
 	gta.ErrorContains(t, err, "sql: no rows", "Setting interest list for nonexisting space should fail!")
 }
 
@@ -211,10 +242,20 @@ func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	list := []protocol.DocumentID{"bello", "koko"}
+	list := protocol.IndexUpdate{
+		Space: "test",
+		Updates: []protocol.DocumentReference{
+			{
+				ID: "bello", Updated: time.Now(),
+			},
+			{
+				ID: "koko", Updated: time.Now(),
+			},
+		},
+	}
 
 	ctx := context.Background()
-	err := setup.db.setInterestList(ctx, "test", list)
+	err := setup.db.setInterestList(ctx, list)
 	gta.NilError(t, err, "Setting interest list failed: %v", err)
 
 	fetchedSlice, err := setup.db.getInterestList(ctx, "test")
@@ -227,7 +268,7 @@ func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
 		if interest.State == served {
 			t.Errorf("New interest should be unserved")
 		}
-		if interest.DocID != list[i] {
+		if interest.DocID != list.Updates[i].ID {
 			t.Errorf("New list does not match")
 		}
 	}
@@ -237,13 +278,23 @@ func TestSetInterestList_CurrentListNonEmpty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	list := [2]protocol.DocumentID{"bello", "koko"}
+	list := protocol.IndexUpdate{
+		Space: "test",
+		Updates: []protocol.DocumentReference{
+			{
+				ID: "bello", Updated: time.Now(),
+			},
+			{
+				ID: "koko", Updated: time.Now(),
+			},
+		},
+	}
 
 	ctx := context.Background()
-	err := setup.db.setInterestList(ctx, "test", list[:])
+	err := setup.db.setInterestList(ctx, list)
 	gta.NilError(t, err, "Setting interest list failed: %v", err)
 
-	err = setup.db.setInterestList(ctx, "test", list[:])
+	err = setup.db.setInterestList(ctx, list)
 	gta.ErrorContains(t, err, "Cannot overwrite", "Setting interest list with current list should fail!")
 }
 

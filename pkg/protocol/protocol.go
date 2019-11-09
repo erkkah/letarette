@@ -24,11 +24,17 @@ type IndexUpdateRequest struct {
 	Limit         uint16
 }
 
-// IndexUpdate is a list of updated IDs, sent in response to
+// DocumentReference corresponds to one document at one point in time
+type DocumentReference struct {
+	ID      DocumentID
+	Updated time.Time
+}
+
+// IndexUpdate is a list of updated documents, sent in response to
 // the IndexUpdateRequest above.
 type IndexUpdate struct {
 	Space   string
-	Updates []DocumentID
+	Updates []DocumentReference
 }
 
 // Document is the representation of a searchable item

@@ -38,8 +38,9 @@ const (
 
 // Interest represents one row in the interest list
 type Interest struct {
-	DocID protocol.DocumentID `db:"docID"`
-	State InterestState
+	DocID   protocol.DocumentID `db:"docID"`
+	State   InterestState
+	Updated int64 `db:"updatedNanos"`
 }
 
 // InterestListState keeps track of where the index process is
@@ -70,12 +71,13 @@ type Database interface {
 	clearInterestList(context.Context, string) error
 	resetRequested(context.Context, string) error
 
-	setInterestList(context.Context, string, []protocol.DocumentID) error
+	setInterestList(context.Context, protocol.IndexUpdate) error
 	getInterestList(context.Context, string) ([]Interest, error)
 	setInterestState(context.Context, string, protocol.DocumentID, InterestState) error
 
 	getInterestListState(context.Context, string) (InterestListState, error)
 
+	hasDocument(ctx context.Context, space string, doc Interest) (bool, error)
 	search(ctx context.Context, phrases []Phrase, spaces []string, limit uint16, offset uint16) (protocol.SearchResult, error)
 
 	getStemmerState() (snowball.Settings, time.Time, error)

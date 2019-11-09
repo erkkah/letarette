@@ -154,23 +154,29 @@ func updateRandomDocument(delete bool) {
 	sortIndex()
 }
 
-func fetchInitial(limit uint16) []protocol.DocumentID {
-	result := []protocol.DocumentID{}
+func fetchInitial(limit uint16) []protocol.DocumentReference {
+	result := []protocol.DocumentReference{}
 	for _, v := range ix[:limit] {
-		result = append(result, protocol.DocumentID(strconv.Itoa(v.id)))
+		result = append(result, protocol.DocumentReference{
+			ID:      protocol.DocumentID(strconv.Itoa(v.id)),
+			Updated: v.date,
+		})
 	}
 	return result
 }
 
-func fetchByTime(startTime time.Time, limit uint16) []protocol.DocumentID {
+func fetchByTime(startTime time.Time, limit uint16) []protocol.DocumentReference {
 	startIndex := sort.Search(len(ix), func(i int) bool {
 		return !ix[i].date.Before(startTime)
 	})
 
-	result := []protocol.DocumentID{}
+	result := []protocol.DocumentReference{}
 	end := min(len(ix), startIndex+int(limit))
 	for _, v := range ix[startIndex:end] {
-		result = append(result, protocol.DocumentID(strconv.Itoa(v.id)))
+		result = append(result, protocol.DocumentReference{
+			ID:      protocol.DocumentID(strconv.Itoa(v.id)),
+			Updated: v.date,
+		})
 	}
 	return result
 }
@@ -182,7 +188,7 @@ func min(a int, b int) int {
 	return b
 }
 
-func fetchByReference(afterDocument protocol.DocumentID, fromTime time.Time, limit uint16) []protocol.DocumentID {
+func fetchByReference(afterDocument protocol.DocumentID, fromTime time.Time, limit uint16) []protocol.DocumentReference {
 	startIndex := sort.Search(len(ix), func(i int) bool {
 		return !ix[i].date.Before(fromTime)
 	})
@@ -198,13 +204,16 @@ func fetchByReference(afterDocument protocol.DocumentID, fromTime time.Time, lim
 	}
 	if docIndex == -1 {
 		log.Printf("Could not find entry % v in fetchByRerefence\n", numID)
-		return []protocol.DocumentID{}
+		return []protocol.DocumentReference{}
 	}
 
-	result := []protocol.DocumentID{}
+	result := []protocol.DocumentReference{}
 	end := min(len(subIndex), docIndex+int(limit))
 	for _, v := range subIndex[docIndex:end] {
-		result = append(result, protocol.DocumentID(strconv.Itoa(v.id)))
+		result = append(result, protocol.DocumentReference{
+			ID:      protocol.DocumentID(strconv.Itoa(v.id)),
+			Updated: v.date,
+		})
 	}
 	return result
 }
@@ -230,7 +239,7 @@ func handleIndexRequest(req protocol.IndexUpdateRequest) (protocol.IndexUpdate, 
 		updateRandomDocument(true)
 	}
 
-	updates := []protocol.DocumentID{}
+	updates := []protocol.DocumentReference{}
 
 	if req.AfterDocument == "" {
 		// Initial index fetch

@@ -3,6 +3,7 @@ package letarette
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -147,7 +148,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 	numPending := 0
 	numRequested := 0
 	numServed := 0
-	pendingIDs := []protocol.DocumentID{}
+	pendingDocs := []Interest{}
 	maxOutstanding := int(idx.cfg.Index.MaxOutstanding)
 
 	for _, interest := range interests {
@@ -156,7 +157,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 			numServed++
 		case pending:
 			numPending++
-			pendingIDs = append(pendingIDs, interest.DocID)
+			pendingDocs = append(pendingDocs, interest)
 		case requested:
 			numRequested++
 		}
@@ -166,7 +167,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 	if docsToRequest > 0 {
 		logger.Info.Printf("Requesting %v docs\n", docsToRequest)
 		metrics.docRequests.Add(float64(docsToRequest))
-		err = idx.requestDocuments(space, pendingIDs[:docsToRequest])
+		err = idx.requestDocuments(space, pendingDocs[:docsToRequest])
 		if err != nil {
 			logger.Error.Printf("Failed to request documents: %v", err)
 		} else {
@@ -234,7 +235,7 @@ func (idx *indexer) requestNextChunk(space string) error {
 	if len(update.Updates) > 0 {
 		logger.Info.Printf("Received interest list of %v docs\n", len(update.Updates))
 	}
-	err = idx.db.setInterestList(idx.context, update.Space, update.Updates)
+	err = idx.db.setInterestList(idx.context, update)
 
 	if err != nil {
 		return fmt.Errorf("Failed to set interest list: %w", err)
@@ -243,18 +244,43 @@ func (idx *indexer) requestNextChunk(space string) error {
 	return nil
 }
 
-func (idx *indexer) requestDocuments(space string, wanted []protocol.DocumentID) error {
-	topic := idx.cfg.Nats.Topic + ".document.request"
-	request := protocol.DocumentRequest{
-		Space:  space,
-		Wanted: wanted,
+func (idx *indexer) requestDocuments(space string, wanted []Interest) error {
+	var wantedIDs []protocol.DocumentID
+	var existingIDs []protocol.DocumentID
+
+	for _, v := range wanted {
+		if ok, err := idx.db.hasDocument(idx.context, space, v); ok && err == nil {
+			existingIDs = append(existingIDs, v.DocID)
+		} else {
+			wantedIDs = append(wantedIDs, v.DocID)
+		}
 	}
-	for _, docID := range wanted {
-		err := idx.db.setInterestState(idx.context, space, docID, requested)
+
+	for _, interest := range existingIDs {
+		err := idx.db.setInterestState(idx.context, space, interest, served)
 		if err != nil {
 			return fmt.Errorf("Failed to update interest state: %w", err)
 		}
 	}
+
+	rand.Shuffle(len(wantedIDs), func(i, j int) {
+		wantedIDs[i], wantedIDs[j] = wantedIDs[j], wantedIDs[i]
+	})
+
+	for _, interest := range wantedIDs {
+		err := idx.db.setInterestState(idx.context, space, interest, requested)
+		if err != nil {
+			return fmt.Errorf("Failed to update interest state: %w", err)
+		}
+	}
+
+	topic := idx.cfg.Nats.Topic + ".document.request"
+
+	request := protocol.DocumentRequest{
+		Space:  space,
+		Wanted: wantedIDs,
+	}
+
 	err := idx.conn.Publish(topic, request)
 	return err
 }
