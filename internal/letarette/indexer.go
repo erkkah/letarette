@@ -3,6 +3,7 @@ package letarette
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -22,13 +23,6 @@ type Indexer interface {
 // same time.
 func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 
-	for _, space := range cfg.Index.Spaces {
-		err := db.clearInterestList(context.Background(), space)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to clear interest list: %w", err)
-		}
-	}
-
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 	if err != nil {
 		return nil, err
@@ -41,7 +35,14 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		close:   cancel,
 		cfg:     cfg,
 		conn:    ec,
-		db:      db,
+		db:      db.(*database),
+	}
+
+	for _, space := range cfg.Index.Spaces {
+		err := self.db.clearInterestList(context.Background(), space)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to clear interest list: %w", err)
+		}
 	}
 
 	updates := make(chan protocol.DocumentUpdate, 10)
@@ -49,7 +50,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 	go func() {
 		self.waiter.Add(1)
 		for update := range updates {
-			err := db.addDocumentUpdates(mainContext, update.Space, update.Documents)
+			err := self.db.addDocumentUpdates(mainContext, update.Space, update.Documents)
 			if err != nil {
 				logger.Error.Printf("Failed to add document update: %v", err)
 			}
@@ -58,7 +59,17 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 	}()
 
 	subscription, err := ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *protocol.DocumentUpdate) {
-		updates <- *update
+		filtered := make([]protocol.Document, 0, len(update.Documents))
+		for _, doc := range update.Documents {
+			index := shardIndexFromDocumentID(doc.ID, int(cfg.ShardgroupSize))
+			if index == int(cfg.ShardgroupIndex) {
+				filtered = append(filtered, doc)
+			}
+		}
+		updates <- protocol.DocumentUpdate{
+			Space:     update.Space,
+			Documents: filtered,
+		}
 	})
 	if err != nil {
 		return nil, err
@@ -100,7 +111,7 @@ type indexer struct {
 
 	cfg  Config
 	conn *nats.EncodedConn
-	db   Database
+	db   *database
 }
 
 func (idx *indexer) Close() {
@@ -147,7 +158,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 	numPending := 0
 	numRequested := 0
 	numServed := 0
-	pendingIDs := []protocol.DocumentID{}
+	pendingDocs := []Interest{}
 	maxOutstanding := int(idx.cfg.Index.MaxOutstanding)
 
 	for _, interest := range interests {
@@ -156,7 +167,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 			numServed++
 		case pending:
 			numPending++
-			pendingIDs = append(pendingIDs, interest.DocID)
+			pendingDocs = append(pendingDocs, interest)
 		case requested:
 			numRequested++
 		}
@@ -164,9 +175,9 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 
 	docsToRequest := min(numPending, maxOutstanding-numRequested)
 	if docsToRequest > 0 {
-		logger.Info.Printf("Requesting %v docs\n", docsToRequest)
+		logger.Debug.Printf("Requesting %v docs\n", docsToRequest)
 		metrics.docRequests.Add(float64(docsToRequest))
-		err = idx.requestDocuments(space, pendingIDs[:docsToRequest])
+		err = idx.requestDocuments(space, pendingDocs[:docsToRequest])
 		if err != nil {
 			logger.Error.Printf("Failed to request documents: %v", err)
 		} else {
@@ -231,11 +242,21 @@ func (idx *indexer) requestNextChunk(space string) error {
 		return fmt.Errorf("NATS request failed: %w", err)
 	}
 
-	if len(update.Updates) > 0 {
-		logger.Info.Printf("Received interest list of %v docs\n", len(update.Updates))
+	filtered := make([]protocol.DocumentReference, 0, len(update.Updates))
+	for _, u := range update.Updates {
+		index := shardIndexFromDocumentID(u.ID, int(idx.cfg.ShardgroupSize))
+		if index == int(idx.cfg.ShardgroupIndex) {
+			filtered = append(filtered, u)
+		}
 	}
-	err = idx.db.setInterestList(idx.context, update.Space, update.Updates)
 
+	update.Updates = filtered
+
+	if len(update.Updates) > 0 {
+		logger.Debug.Printf("Received interest list of %v docs\n", len(update.Updates))
+	}
+
+	err = idx.db.setInterestList(idx.context, update)
 	if err != nil {
 		return fmt.Errorf("Failed to set interest list: %w", err)
 	}
@@ -243,18 +264,43 @@ func (idx *indexer) requestNextChunk(space string) error {
 	return nil
 }
 
-func (idx *indexer) requestDocuments(space string, wanted []protocol.DocumentID) error {
-	topic := idx.cfg.Nats.Topic + ".document.request"
-	request := protocol.DocumentRequest{
-		Space:  space,
-		Wanted: wanted,
+func (idx *indexer) requestDocuments(space string, wanted []Interest) error {
+	var wantedIDs []protocol.DocumentID
+	var existingIDs []protocol.DocumentID
+
+	for _, v := range wanted {
+		if ok, err := idx.db.hasDocument(idx.context, space, v); ok && err == nil {
+			existingIDs = append(existingIDs, v.DocID)
+		} else {
+			wantedIDs = append(wantedIDs, v.DocID)
+		}
 	}
-	for _, docID := range wanted {
-		err := idx.db.setInterestState(idx.context, space, docID, requested)
+
+	for _, interest := range existingIDs {
+		err := idx.db.setInterestState(idx.context, space, interest, served)
 		if err != nil {
 			return fmt.Errorf("Failed to update interest state: %w", err)
 		}
 	}
+
+	rand.Shuffle(len(wantedIDs), func(i, j int) {
+		wantedIDs[i], wantedIDs[j] = wantedIDs[j], wantedIDs[i]
+	})
+
+	for _, interest := range wantedIDs {
+		err := idx.db.setInterestState(idx.context, space, interest, requested)
+		if err != nil {
+			return fmt.Errorf("Failed to update interest state: %w", err)
+		}
+	}
+
+	topic := idx.cfg.Nats.Topic + ".document.request"
+
+	request := protocol.DocumentRequest{
+		Space:  space,
+		Wanted: wantedIDs,
+	}
+
 	err := idx.conn.Publish(topic, request)
 	return err
 }

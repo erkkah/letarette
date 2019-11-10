@@ -15,7 +15,8 @@ var ErrStemmerSettingsMismatch = fmt.Errorf("Config does not match index state")
 // current config. If there are no index settings, they will be set from the
 // provided config.
 func CheckStemmerSettings(db Database, cfg Config) error {
-	state, _, err := db.getStemmerState()
+	internal := db.(*database)
+	state, _, err := internal.getStemmerState()
 	if err == sql.ErrNoRows {
 		state := snowball.Settings{
 			Stemmers:         cfg.Stemmer.Languages,
@@ -23,7 +24,7 @@ func CheckStemmerSettings(db Database, cfg Config) error {
 			TokenCharacters:  cfg.Stemmer.TokenCharacters,
 			Separators:       cfg.Stemmer.Separators,
 		}
-		return db.setStemmerState(state)
+		return internal.setStemmerState(state)
 	}
 	if err != nil {
 		return err

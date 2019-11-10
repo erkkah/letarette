@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -17,16 +19,23 @@ import (
 	"github.com/erkkah/letarette/pkg/charma"
 	"github.com/erkkah/letarette/pkg/client"
 	"github.com/erkkah/letarette/pkg/logger"
+	"github.com/erkkah/letarette/pkg/protocol"
 )
 
 var cmdline struct {
 	Verbose bool `docopt:"-v"`
 
-	Search  bool
-	Space   string   `docopt:"<space>"`
-	Phrases []string `docopt:"<phrase>"`
-	Limit   int      `docopt:"-l"`
-	Offset  int      `docopt:"-o"`
+	Search     bool
+	Space      string   `docopt:"<space>"`
+	Phrases    []string `docopt:"<phrase>"`
+	PageLimit  int      `docopt:"-l"`
+	PageOffset int      `docopt:"-p"`
+	GroupSize  int32    `docopt:"-g"`
+
+	Monitor bool
+
+	SQL       bool     `docopt:"sql"`
+	Statement []string `docopt:"<sql>"`
 
 	Index        bool
 	Stats        bool
@@ -36,9 +45,6 @@ var cmdline struct {
 	Rebuild      bool
 	Optimize     bool
 	ForceStemmer bool `docopt:"forcestemmer"`
-
-	SQL       bool     `docopt:"sql"`
-	Statement []string `docopt:"<sql>"`
 
 	ResetMigration bool `docopt:"resetmigration"`
 	Version        int  `docopt:"<version>"`
@@ -51,7 +57,8 @@ func main() {
 	usage := title + `
 
 Usage:
-	lrcli search [-v] [-l <limit>] [-o <offset>] <space> <phrase>...
+	lrcli search [-v] [-l <limit>] [-p <page>] [-g <groupsize>] <space> <phrase>...
+	lrcli monitor
 	lrcli sql <sql>...
 	lrcli index stats
 	lrcli index check
@@ -63,9 +70,10 @@ Usage:
 	lrcli env
 
 Options:
-    -v           Verbose
-    -l <limit>   Search result limit [default: 10]
-    -o <offset>  Search result offset [default: 0]
+    -v             Verbose
+    -l <limit>     Search result page limit [default: 10]
+	-p <page>      Search result page [default: 0]
+	-g <groupsize> Force shard group size, do not discover
 `
 
 	args, err := docopt.ParseDoc(usage)
@@ -150,6 +158,8 @@ Options:
 			statement = string(bytes)
 		}
 		sql(db, statement)
+	} else if cmdline.Monitor {
+		doMonitor(cfg)
 	}
 }
 
@@ -272,14 +282,19 @@ func forceIndexStemmerState(state snowball.Settings, db letarette.Database) {
 }
 
 func doSearch(cfg letarette.Config) {
-	c, err := client.NewSearchClient(cfg.Nats.URL)
+	c, err := client.NewSearchClient(cfg.Nats.URL, client.WithShardgroupSize(cmdline.GroupSize))
 	if err != nil {
 		logger.Error.Printf("Failed to create search client: %v", err)
 		return
 	}
 	defer c.Close()
 
-	res, err := c.Search(strings.Join(cmdline.Phrases, " "), []string{cmdline.Space}, cmdline.Limit, cmdline.Offset)
+	res, err := c.Search(
+		strings.Join(cmdline.Phrases, " "),
+		[]string{cmdline.Space},
+		cmdline.PageLimit,
+		cmdline.PageOffset,
+	)
 	if err != nil {
 		logger.Error.Printf("Failed to perform search: %v", err)
 		return
@@ -289,6 +304,25 @@ func doSearch(cfg letarette.Config) {
 	fmt.Printf("Returning %v of %v total hits, capped: %v\n\n", len(res.Result.Hits), res.Result.TotalHits, res.Result.Capped)
 	for _, doc := range res.Result.Hits {
 		fmt.Printf("[%v] %s\n", doc.ID, doc.Snippet)
+	}
+}
+
+func doMonitor(cfg letarette.Config) {
+	fmt.Printf("Listening to status broadcasts...\n")
+	listener := func(status protocol.IndexStatus) {
+		fmt.Printf("%v\n", status)
+	}
+	m, err := client.NewMonitor(cfg.Nats.URL, listener)
+	if err != nil {
+		logger.Error.Printf("Failed to create monitor: %v", err)
+	}
+	defer m.Close()
+
+	signals := make(chan os.Signal)
+	signal.Notify(signals, syscall.SIGINT)
+
+	select {
+	case <-signals:
 	}
 }
 

@@ -21,7 +21,7 @@ type searcher struct {
 	closer chan bool
 	cfg    Config
 	conn   *nats.EncodedConn
-	db     Database
+	db     *database
 	cache  *Cache
 }
 
@@ -31,27 +31,33 @@ func (s *searcher) Close() {
 	<-s.closer
 }
 
+const minPagesize = 1
+const maxPagesize = 500
+
 func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchRequest) (protocol.SearchResponse, error) {
 	var err error
 	var status protocol.SearchStatusCode
 
 	start := time.Now()
+	query.PageLimit = uint16(max(minPagesize, int(query.PageLimit)))
+	query.PageLimit = uint16(min(maxPagesize, int(query.PageLimit)))
 	phrases := ParseQuery(query.Query)
 	phrases = ReducePhraseList(phrases)
+
 	var result protocol.SearchResult
 
 	if len(phrases) > 0 {
 		cacheKey := fmt.Sprintf("%s", CanonicalizePhraseList(phrases))
 		var cached bool
-		result, cached = s.cache.Get(cacheKey, query.Spaces, query.Limit, query.Offset)
+		result, cached = s.cache.Get(cacheKey, query.Spaces, query.PageLimit, query.PageOffset)
 
 		if cached {
 			status = protocol.SearchStatusCacheHit
 		} else {
-			result, err = s.db.search(ctx, phrases, query.Spaces, query.Limit, query.Offset)
+			result, err = s.db.search(ctx, phrases, query.Spaces, query.PageLimit, query.PageOffset)
 			if err == nil {
 				status = protocol.SearchStatusIndexHit
-				s.cache.Put(cacheKey, query.Spaces, query.Limit, query.Offset, result)
+				s.cache.Put(cacheKey, query.Spaces, query.PageLimit, query.PageOffset, result)
 			}
 		}
 	}
@@ -91,7 +97,7 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 		closer,
 		cfg,
 		ec,
-		db,
+		db.(*database),
 		cache,
 	}
 

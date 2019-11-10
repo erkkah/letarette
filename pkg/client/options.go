@@ -6,6 +6,7 @@ type state struct {
 	conn    *nats.EncodedConn
 	topic   string
 	onError func(error)
+	local   interface{}
 }
 
 func (s *state) apply(options []Option) {

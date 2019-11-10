@@ -1,17 +1,52 @@
 package protocol
 
 import (
+	"fmt"
 	"time"
 )
 
 // DocumentID is just a string, could be uuid, hash, numeric, et.c.
 type DocumentID string
 
-// IndexStatus is sent in response to "index.status" requests
+// IndexStatusCode is what is says
+type IndexStatusCode uint8
+
+// Codes returned in index status updates
+const (
+	IndexStatusInSync IndexStatusCode = iota + 72
+	IndexStatusStartingUp
+	IndexStatusSyncing
+	IndexStatusIncompleteShardgroup
+)
+
+func (isc IndexStatusCode) String() string {
+	strings := map[IndexStatusCode]string{
+		IndexStatusInSync:               "in sync",
+		IndexStatusStartingUp:           "starting up",
+		IndexStatusSyncing:              "syncing",
+		IndexStatusIncompleteShardgroup: "incomplete shard group",
+	}
+	str, found := strings[isc]
+	if !found {
+		return fmt.Sprintf("unknown (%d)", isc)
+	}
+	return str
+}
+
+// IndexStatus is regularly broadcast from all workers
 type IndexStatus struct {
-	DocCount uint64
-	// Out of sync info here?
-	LastUpdate time.Time
+	IndexID        string
+	DocCount       uint64
+	LastUpdate     time.Time
+	ShardgroupSize uint16
+	Shardgroup     uint16
+	Status         IndexStatusCode
+}
+
+func (status IndexStatus) String() string {
+	return fmt.Sprintf("Index@%s(%d/%d): %d docs, last update: %v, status: %v",
+		status.IndexID, status.Shardgroup+1, status.ShardgroupSize,
+		status.DocCount, status.LastUpdate, status.Status)
 }
 
 // IndexUpdateRequest is a request for available updates.
@@ -24,11 +59,17 @@ type IndexUpdateRequest struct {
 	Limit         uint16
 }
 
-// IndexUpdate is a list of updated IDs, sent in response to
+// DocumentReference corresponds to one document at one point in time
+type DocumentReference struct {
+	ID      DocumentID
+	Updated time.Time
+}
+
+// IndexUpdate is a list of updated documents, sent in response to
 // the IndexUpdateRequest above.
 type IndexUpdate struct {
 	Space   string
-	Updates []DocumentID
+	Updates []DocumentReference
 }
 
 // Document is the representation of a searchable item
@@ -54,10 +95,14 @@ type DocumentRequest struct {
 
 // SearchRequest is sent from a search handler to search the index.
 type SearchRequest struct {
+	// Spaces to search
 	Spaces []string
-	Query  string
-	Limit  uint16
-	Offset uint16
+	// Query string in letarette syntax
+	Query string
+	// Maximum number of hits returned in one page.
+	PageLimit uint16
+	// Zero-indexed page of hits to retrieve
+	PageOffset uint16
 }
 
 // SearchResult is a collection of search hits.
@@ -82,9 +127,9 @@ type SearchStatusCode uint8
 
 // Codes returned in search responses
 const (
-	SearchStatusIndexHit SearchStatusCode = iota + 42
+	SearchStatusNoHit SearchStatusCode = iota + 42
 	SearchStatusCacheHit
-	SearchStatusNoHit
+	SearchStatusIndexHit
 	SearchStatusTimeout
 	SearchStatusQueryError
 	SearchStatusServerError
@@ -99,7 +144,11 @@ func (ssc SearchStatusCode) String() string {
 		SearchStatusQueryError:  "query format error",
 		SearchStatusServerError: "server error",
 	}
-	return strings[ssc]
+	str, found := strings[ssc]
+	if !found {
+		return fmt.Sprintf("unknown (%d)", ssc)
+	}
+	return str
 }
 
 // SearchResponse is sent in response to SearchRequest

@@ -3,9 +3,10 @@ package letarette
 //go:generate go-bindata -pkg $GOPACKAGE -o bindata.go migrations/ queries/
 
 import (
-	"context"
+	"crypto/rand"
 	"database/sql"
 	drv "database/sql/driver"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,8 +39,9 @@ const (
 
 // Interest represents one row in the interest list
 type Interest struct {
-	DocID protocol.DocumentID `db:"docID"`
-	State InterestState
+	DocID   protocol.DocumentID `db:"docID"`
+	State   InterestState
+	Updated int64 `db:"updatedNanos"`
 }
 
 // InterestListState keeps track of where the index process is
@@ -62,26 +64,6 @@ func (state InterestListState) createdAtTime() time.Time {
 type Database interface {
 	Close() error
 	RawQuery(string) ([]string, error)
-
-	addDocumentUpdates(ctx context.Context, space string, doc []protocol.Document) error
-	commitInterestList(ctx context.Context, space string) error
-	getLastUpdateTime(context.Context, string) (time.Time, error)
-
-	clearInterestList(context.Context, string) error
-	resetRequested(context.Context, string) error
-
-	setInterestList(context.Context, string, []protocol.DocumentID) error
-	getInterestList(context.Context, string) ([]Interest, error)
-	setInterestState(context.Context, string, protocol.DocumentID, InterestState) error
-
-	getInterestListState(context.Context, string) (InterestListState, error)
-
-	search(ctx context.Context, phrases []Phrase, spaces []string, limit uint16, offset uint16) (protocol.SearchResult, error)
-
-	getStemmerState() (snowball.Settings, time.Time, error)
-	setStemmerState(snowball.Settings) error
-
-	getRawDB() *sqlx.DB
 }
 
 type database struct {
@@ -171,6 +153,12 @@ func (db *database) getRawDB() *sqlx.DB {
 	return db.wdb
 }
 
+func (db *database) getIndexID() (string, error) {
+	var indexID string
+	err := db.rdb.Get(&indexID, "select indexID from meta")
+	return indexID, err
+}
+
 func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 	migrations, err := AssetDir("migrations")
 	if err != nil {
@@ -233,6 +221,26 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 		_, err := db.Exec(createSpace, space)
 		if err != nil {
 			return fmt.Errorf("Failed to create space table: %w", err)
+		}
+	}
+
+	var indexID string
+	err = db.Get(&indexID, "select indexID from meta")
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("Failed to get index id: %w", err)
+	}
+	if len(indexID) == 0 {
+		var buf [128]byte
+		_, err = rand.Read(buf[:])
+		if err != nil {
+			return fmt.Errorf("Failed to generate random index id: %w", err)
+		}
+		high := binary.BigEndian.Uint64(buf[:64])
+		low := binary.BigEndian.Uint64(buf[64:])
+		indexID = fmt.Sprintf("%X%X", high, low)
+		_, err = db.Exec("insert into meta (indexID) values(?)", indexID)
+		if err != nil {
+			return fmt.Errorf("Failed to store index id: %w", err)
 		}
 	}
 

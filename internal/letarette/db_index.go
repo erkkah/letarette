@@ -18,6 +18,12 @@ func (db *database) getLastUpdateTime(ctx context.Context, space string) (t time
 	return
 }
 
+func (db *database) getDocumentCount(ctx context.Context) (uint64, error) {
+	var count uint64
+	err := db.rdb.GetContext(ctx, &count, "select count(*) from docs")
+	return count, err
+}
+
 func (db *database) addDocumentUpdates(ctx context.Context, space string, docs []protocol.Document) error {
 	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {
@@ -193,7 +199,23 @@ func (db *database) resetRequested(ctx context.Context, space string) error {
 	return err
 }
 
-func (db *database) setInterestList(ctx context.Context, space string, list []protocol.DocumentID) error {
+func (db *database) hasDocument(ctx context.Context, space string, doc Interest) (bool, error) {
+	spaceID, err := db.getSpaceID(ctx, space)
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = db.rdb.GetContext(
+		ctx, &exists,
+		`select count(*) == 1 from docs where docs.spaceID = ? and docs.docID = ? and docs.updatedNanos = ?`,
+		spaceID,
+		doc.DocID,
+		doc.Updated,
+	)
+	return exists, err
+}
+
+func (db *database) setInterestList(ctx context.Context, indexUpdate protocol.IndexUpdate) error {
 
 	tx, err := db.wdb.BeginTxx(ctx, nil)
 	defer func() {
@@ -203,7 +225,7 @@ func (db *database) setInterestList(ctx context.Context, space string, list []pr
 	}()
 
 	var spaceID int
-	err = tx.GetContext(ctx, &spaceID, `select spaceID from spaces where space = ?`, space)
+	err = tx.GetContext(ctx, &spaceID, `select spaceID from spaces where space = ?`, indexUpdate.Space)
 	if err != nil {
 		return err
 	}
@@ -220,14 +242,14 @@ func (db *database) setInterestList(ctx context.Context, space string, list []pr
 	if err != nil {
 		return err
 	}
-	st, err := tx.PreparexContext(ctx, `insert into interest (spaceID, docID, state) values(?, ?, ?)`)
+	st, err := tx.PreparexContext(ctx, `insert into interest (spaceID, docID, state, updatedNanos) values(?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
 
-	for _, docID := range list {
-		_, err := st.ExecContext(ctx, spaceID, docID, pending)
+	for _, update := range indexUpdate.Updates {
+		_, err := st.ExecContext(ctx, spaceID, update.ID, pending, update.Updated.UnixNano())
 		if err != nil {
 			return err
 		}

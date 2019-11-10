@@ -35,8 +35,9 @@ type Stats struct {
 
 // GetIndexStats collects statistics about the index,
 // partly by the use of the fts4vocab virtual table.
-func GetIndexStats(db Database) (Stats, error) {
+func GetIndexStats(dbo Database) (Stats, error) {
 	var s Stats
+	db := dbo.(*database)
 
 	sql := db.getRawDB()
 
@@ -114,7 +115,8 @@ func GetIndexStats(db Database) (Stats, error) {
 }
 
 // CheckIndex runs an integrity check on the index
-func CheckIndex(db Database) error {
+func CheckIndex(dbo Database) error {
+	db := dbo.(*database)
 	sql := db.getRawDB()
 	_, err := sql.Exec(`insert into fts(fts) values("integrity-check");`)
 	if err != nil {
@@ -124,7 +126,8 @@ func CheckIndex(db Database) error {
 }
 
 // RebuildIndex rebuilds the fts index from the docs table
-func RebuildIndex(db Database) error {
+func RebuildIndex(dbo Database) error {
+	db := dbo.(*database)
 	sql := db.getRawDB()
 	_, err := sql.Exec(`insert into fts(fts) values("rebuild");`)
 	if err != nil {
@@ -189,7 +192,8 @@ func (o IndexOptimizer) totalChanges() (int, error) {
 
 // StartIndexOptimization initiates a step-wise index optimization and returns
 // an IndexOptimizer instance on success.
-func StartIndexOptimization(db Database, pageIncrement int) (*IndexOptimizer, error) {
+func StartIndexOptimization(dbo Database, pageIncrement int) (*IndexOptimizer, error) {
+	db := dbo.(*database)
 	sql := db.getRawDB()
 	ctx := context.Background()
 	conn, err := sql.Conn(ctx)
@@ -212,12 +216,14 @@ func StartIndexOptimization(db Database, pageIncrement int) (*IndexOptimizer, er
 
 // ForceIndexStemmerState resets the stemmer state stored in the database
 // to the provided state.
-func ForceIndexStemmerState(state snowball.Settings, db Database) error {
+func ForceIndexStemmerState(state snowball.Settings, dbo Database) error {
+	db := dbo.(*database)
 	return db.setStemmerState(state)
 }
 
 // SetIndexPageSize sets the max page size for future index allocations.
-func SetIndexPageSize(db Database, pageSize int) error {
+func SetIndexPageSize(dbo Database, pageSize int) error {
+	db := dbo.(*database)
 	sql := db.getRawDB()
 	_, err := sql.Exec(`insert into fts(fts, rank) values("pgsz", ?)`, pageSize)
 	return err
