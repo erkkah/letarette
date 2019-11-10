@@ -12,10 +12,13 @@ import (
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
+// StatusMonitor communicates worker status with the cluster
 type StatusMonitor interface {
 	Close()
 }
 
+// StartStatusMonitor creates a new StatusMonitor, listening to status broadcasts
+// and broadcasting our status.
 func StartStatusMonitor(nc *nats.Conn, db Database, cfg Config) (StatusMonitor, error) {
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 	if err != nil {

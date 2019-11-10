@@ -14,6 +14,7 @@ var metrics = struct {
 	docRequests: metric.NewCounter("1m5s", "5m10s", "15m10s"),
 }
 
+// ExposeMetrics is a test for exposing metrics
 func ExposeMetrics(port uint16) {
 	expvar.Publish("doc:requests", metrics.docRequests)
 

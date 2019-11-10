@@ -175,7 +175,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 
 	docsToRequest := min(numPending, maxOutstanding-numRequested)
 	if docsToRequest > 0 {
-		logger.Info.Printf("Requesting %v docs\n", docsToRequest)
+		logger.Debug.Printf("Requesting %v docs\n", docsToRequest)
 		metrics.docRequests.Add(float64(docsToRequest))
 		err = idx.requestDocuments(space, pendingDocs[:docsToRequest])
 		if err != nil {
@@ -253,7 +253,7 @@ func (idx *indexer) requestNextChunk(space string) error {
 	update.Updates = filtered
 
 	if len(update.Updates) > 0 {
-		logger.Info.Printf("Received interest list of %v docs\n", len(update.Updates))
+		logger.Debug.Printf("Received interest list of %v docs\n", len(update.Updates))
 	}
 
 	err = idx.db.setInterestList(idx.context, update)
