@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/erkkah/letarette/pkg/charma"
 	"github.com/erkkah/letarette/pkg/client"
 	"github.com/erkkah/letarette/pkg/logger"
+	"github.com/erkkah/letarette/pkg/protocol"
 )
 
 var cmdline struct {
@@ -28,6 +31,11 @@ var cmdline struct {
 	PageLimit  int      `docopt:"-l"`
 	PageOffset int      `docopt:"-p"`
 
+	Monitor bool
+
+	SQL       bool     `docopt:"sql"`
+	Statement []string `docopt:"<sql>"`
+
 	Index        bool
 	Stats        bool
 	Check        bool
@@ -36,9 +44,6 @@ var cmdline struct {
 	Rebuild      bool
 	Optimize     bool
 	ForceStemmer bool `docopt:"forcestemmer"`
-
-	SQL       bool     `docopt:"sql"`
-	Statement []string `docopt:"<sql>"`
 
 	ResetMigration bool `docopt:"resetmigration"`
 	Version        int  `docopt:"<version>"`
@@ -52,6 +57,7 @@ func main() {
 
 Usage:
 	lrcli search [-v] [-l <limit>] [-p <page>] <space> <phrase>...
+	lrcli monitor
 	lrcli sql <sql>...
 	lrcli index stats
 	lrcli index check
@@ -150,6 +156,8 @@ Options:
 			statement = string(bytes)
 		}
 		sql(db, statement)
+	} else if cmdline.Monitor {
+		doMonitor(cfg)
 	}
 }
 
@@ -294,6 +302,25 @@ func doSearch(cfg letarette.Config) {
 	fmt.Printf("Returning %v of %v total hits, capped: %v\n\n", len(res.Result.Hits), res.Result.TotalHits, res.Result.Capped)
 	for _, doc := range res.Result.Hits {
 		fmt.Printf("[%v] %s\n", doc.ID, doc.Snippet)
+	}
+}
+
+func doMonitor(cfg letarette.Config) {
+	fmt.Printf("Listening to status broadcasts...\n")
+	listener := func(status protocol.IndexStatus) {
+		fmt.Printf("%v\n", status)
+	}
+	m, err := client.NewMonitor(cfg.Nats.URL, listener)
+	if err != nil {
+		logger.Error.Printf("Failed to create monitor: %v", err)
+	}
+	defer m.Close()
+
+	signals := make(chan os.Signal)
+	signal.Notify(signals, syscall.SIGINT)
+
+	select {
+	case <-signals:
 	}
 }
 

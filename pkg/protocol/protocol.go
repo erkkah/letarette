@@ -15,7 +15,7 @@ type IndexStatusCode uint8
 const (
 	IndexStatusInSync IndexStatusCode = iota + 72
 	IndexStatusStartingUp
-	IndexStatusRebuilding
+	IndexStatusSyncing
 	IndexStatusIncompleteShardgroup
 )
 
@@ -23,7 +23,7 @@ func (isc IndexStatusCode) String() string {
 	strings := map[IndexStatusCode]string{
 		IndexStatusInSync:               "in sync",
 		IndexStatusStartingUp:           "starting up",
-		IndexStatusRebuilding:           "rebuilding",
+		IndexStatusSyncing:              "syncing",
 		IndexStatusIncompleteShardgroup: "incomplete shard group",
 	}
 	str, found := strings[isc]
@@ -41,6 +41,12 @@ type IndexStatus struct {
 	ShardgroupSize uint16
 	Shardgroup     uint16
 	Status         IndexStatusCode
+}
+
+func (status IndexStatus) String() string {
+	return fmt.Sprintf("Index@%s(%d/%d): %d docs, last update: %v, status: %v",
+		status.IndexID, status.Shardgroup+1, status.ShardgroupSize,
+		status.DocCount, status.LastUpdate, status.Status)
 }
 
 // IndexUpdateRequest is a request for available updates.

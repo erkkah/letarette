@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/erkkah/letarette/pkg/protocol"
@@ -24,32 +25,56 @@ func NewSearchClient(url string, options ...Option) (SearchClient, error) {
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 
 	client := &searchClient{
-		conn:    ec,
-		topic:   "leta",
-		onError: func(error) {},
+		state: state{
+			conn:    ec,
+			topic:   "leta",
+			onError: func(error) {},
+		},
+		volatileNumShards: 1,
 	}
 
-	(*state)(client).apply(options)
+	client.state.apply(options)
+
+	client.monitor, err = NewMonitor(url, func(status protocol.IndexStatus) {
+		atomic.SwapInt32(&client.volatileNumShards, int32(status.ShardgroupSize))
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	return client, nil
 }
 
-type searchClient state
+type searchClient struct {
+	state
+	volatileNumShards int32
+	monitor           Monitor
+}
 
 func (client *searchClient) Close() {
+	client.monitor.Close()
 	client.conn.Close()
 }
 
 func (client *searchClient) Search(q string, spaces []string, pageLimit int, pageOffset int) (res protocol.SearchResponse, err error) {
+	numShards := atomic.LoadInt32(&client.volatileNumShards)
+	shardedLimit := pageLimit / int(numShards)
+	if shardedLimit < 1 {
+		shardedLimit = 1
+	}
 	req := protocol.SearchRequest{
 		Spaces:     spaces,
 		Query:      q,
-		PageLimit:  uint16(pageLimit),
+		PageLimit:  uint16(shardedLimit),
 		PageOffset: uint16(pageOffset),
 	}
-	const numShards = 1
+
 	inbox := client.conn.Conn.NewRespInbox()
 	responseCh := make(chan protocol.SearchResponse, numShards)
+	defer func() {
+		close(responseCh)
+		responseCh = nil
+	}()
 	sub, err := client.conn.Subscribe(inbox, func(response *protocol.SearchResponse) {
 		if responseCh != nil {
 			clone := *response
@@ -60,7 +85,7 @@ func (client *searchClient) Search(q string, spaces []string, pageLimit int, pag
 	if err != nil {
 		return
 	}
-	err = sub.AutoUnsubscribe(numShards)
+	err = sub.AutoUnsubscribe(int(numShards))
 	if err != nil {
 		return
 	}
@@ -76,12 +101,11 @@ waitLoop:
 		select {
 		case <-timeout:
 			sub.Unsubscribe()
-			responseCh = nil
 			err = fmt.Errorf("Timeout waiting for search response")
 			return
 		case response := <-responseCh:
 			responses = append(responses, response)
-			if len(responses) == numShards {
+			if len(responses) == int(numShards) {
 				break waitLoop
 			}
 		}
