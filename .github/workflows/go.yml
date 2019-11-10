@@ -20,7 +20,7 @@ jobs:
       run: go get -u github.com/go-bindata/go-bindata/...
 
     - name: Install sqlite3
-      run: apt-get install -y libsqlite3-dev
+      run: sudo apt-get install -y libsqlite3-dev
 
     - name: Build
       run: make
