@@ -18,6 +18,12 @@ func (db *database) getLastUpdateTime(ctx context.Context, space string) (t time
 	return
 }
 
+func (db *database) getDocumentCount(ctx context.Context) (uint64, error) {
+	var count uint64
+	err := db.rdb.GetContext(ctx, &count, "select count(*) from docs")
+	return count, err
+}
+
 func (db *database) addDocumentUpdates(ctx context.Context, space string, docs []protocol.Document) error {
 	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {

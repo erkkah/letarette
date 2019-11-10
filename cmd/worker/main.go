@@ -61,6 +61,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	monitor, err := letarette.StartStatusMonitor(conn, db, cfg)
+	if err != nil {
+		logger.Error.Printf("Failed to start status monitor: %v", err)
+		os.Exit(1)
+	}
+
 	var indexer letarette.Indexer
 	if !cfg.Index.Disable {
 		indexer, err = letarette.StartIndexer(conn, db, cfg)
@@ -94,6 +100,9 @@ func main() {
 	select {
 	case s := <-signals:
 		logger.Info.Printf("Received signal %v\n", s)
+		if monitor != nil {
+			monitor.Close()
+		}
 		if searcher != nil {
 			searcher.Close()
 		}

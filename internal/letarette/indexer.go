@@ -23,13 +23,6 @@ type Indexer interface {
 // same time.
 func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 
-	for _, space := range cfg.Index.Spaces {
-		err := db.clearInterestList(context.Background(), space)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to clear interest list: %w", err)
-		}
-	}
-
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 	if err != nil {
 		return nil, err
@@ -42,7 +35,14 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		close:   cancel,
 		cfg:     cfg,
 		conn:    ec,
-		db:      db,
+		db:      db.(*database),
+	}
+
+	for _, space := range cfg.Index.Spaces {
+		err := self.db.clearInterestList(context.Background(), space)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to clear interest list: %w", err)
+		}
 	}
 
 	updates := make(chan protocol.DocumentUpdate, 10)
@@ -50,7 +50,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 	go func() {
 		self.waiter.Add(1)
 		for update := range updates {
-			err := db.addDocumentUpdates(mainContext, update.Space, update.Documents)
+			err := self.db.addDocumentUpdates(mainContext, update.Space, update.Documents)
 			if err != nil {
 				logger.Error.Printf("Failed to add document update: %v", err)
 			}
@@ -101,7 +101,7 @@ type indexer struct {
 
 	cfg  Config
 	conn *nats.EncodedConn
-	db   Database
+	db   *database
 }
 
 func (idx *indexer) Close() {

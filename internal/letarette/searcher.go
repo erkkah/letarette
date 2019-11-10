@@ -21,7 +21,7 @@ type searcher struct {
 	closer chan bool
 	cfg    Config
 	conn   *nats.EncodedConn
-	db     Database
+	db     *database
 	cache  *Cache
 }
 
@@ -97,7 +97,7 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 		closer,
 		cfg,
 		ec,
-		db,
+		db.(*database),
 		cache,
 	}
 

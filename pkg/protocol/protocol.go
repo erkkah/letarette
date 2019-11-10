@@ -1,17 +1,46 @@
 package protocol
 
 import (
+	"fmt"
 	"time"
 )
 
 // DocumentID is just a string, could be uuid, hash, numeric, et.c.
 type DocumentID string
 
-// IndexStatus is sent in response to "index.status" requests
+// IndexStatusCode is what is says
+type IndexStatusCode uint8
+
+// Codes returned in index status updates
+const (
+	IndexStatusInSync IndexStatusCode = iota + 72
+	IndexStatusStartingUp
+	IndexStatusRebuilding
+	IndexStatusIncompleteShardgroup
+)
+
+func (isc IndexStatusCode) String() string {
+	strings := map[IndexStatusCode]string{
+		IndexStatusInSync:               "in sync",
+		IndexStatusStartingUp:           "starting up",
+		IndexStatusRebuilding:           "rebuilding",
+		IndexStatusIncompleteShardgroup: "incomplete shard group",
+	}
+	str, found := strings[isc]
+	if !found {
+		return fmt.Sprintf("unknown (%d)", isc)
+	}
+	return str
+}
+
+// IndexStatus is regularly broadcast from all workers
 type IndexStatus struct {
-	DocCount uint64
-	// Out of sync info here?
-	LastUpdate time.Time
+	IndexID        string
+	DocCount       uint64
+	LastUpdate     time.Time
+	ShardgroupSize uint16
+	Shardgroup     uint16
+	Status         IndexStatusCode
 }
 
 // IndexUpdateRequest is a request for available updates.
@@ -109,7 +138,11 @@ func (ssc SearchStatusCode) String() string {
 		SearchStatusQueryError:  "query format error",
 		SearchStatusServerError: "server error",
 	}
-	return strings[ssc]
+	str, found := strings[ssc]
+	if !found {
+		return fmt.Sprintf("unknown (%d)", ssc)
+	}
+	return str
 }
 
 // SearchResponse is sent in response to SearchRequest
