@@ -40,7 +40,7 @@ type Config struct {
 		Cap          int           `default:"25000"`
 		CacheTimeout time.Duration `split_words:"true" default:"1m"`
 		Disable      bool          `default:"false"`
-		Strategy     int           `default:"2"`
+		Strategy     int           `default:"1"`
 	}
 	Shardgroup      string `default:"1/1"`
 	ShardgroupSize  uint16 `ignored:"true"`
