@@ -16,7 +16,7 @@ stats as (
 
 select
     space, r as rank, cnt as total, joined.docID as id,
-    replace(gettokens(fts, docs.txt, first, 10), X'0A', " ")||:ellipsis as snippet
+    substr("…", 1, (first > 0))||replace(gettokens(fts, docs.txt, max(first-1, 0), 10), X'0A', " ")||"…" as snippet
 from (
     select
         space, first, r, stats.cnt, docs.docID, docs.id

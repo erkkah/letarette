@@ -40,10 +40,6 @@ func phrasesToMatchString(phrases []Phrase) string {
 }
 
 func (db *database) search(ctx context.Context, phrases []Phrase, spaces []string, pageLimit uint16, pageOffset uint16) (protocol.SearchResult, error) {
-	const left = "\u3016"
-	const right = "\u3017"
-	const ellipsis = "\u2026"
-
 	if len(phrases) == 0 {
 		return protocol.SearchResult{}, fmt.Errorf("Empty search phrase list")
 	}
@@ -74,19 +70,18 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 	}
 
 	namedQuery, namedArgs, err := sqlx.Named(spacedQuery, map[string]interface{}{
-		"match":    matchString,
-		"cap":      db.resultCap + 1,
-		"ellipsis": ellipsis,
-		"limit":    pageLimit,
-		"offset":   pageOffset * pageLimit,
+		"match":  matchString,
+		"cap":    db.resultCap + 1,
+		"limit":  pageLimit,
+		"offset": pageOffset * pageLimit,
 	})
 	if err != nil {
 		return result, fmt.Errorf("Failed to expand named binds: %w", err)
 	}
 
-	args := append(namedArgs[:0:0], namedArgs[:3]...)
+	args := append(namedArgs[:0:0], namedArgs[:2]...)
 	args = append(args, spacedArgs...)
-	args = append(args, namedArgs[3:]...)
+	args = append(args, namedArgs[2:]...)
 
 	logger.Debug.Printf("Search query: [%s], args: %v", namedQuery, args)
 	err = db.rdb.SelectContext(ctx, &hits, namedQuery, args...)
