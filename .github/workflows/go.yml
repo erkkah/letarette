@@ -15,12 +15,7 @@ jobs:
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v1
-    
-    - name: Init submodules
-      uses: srt32/git-actions@v0.0.3
-      with:
-        args: git submodule update --init --recursive
-    
+        
     - name: Install go-bindata
       run: go get -u github.com/go-bindata/go-bindata/...
 
