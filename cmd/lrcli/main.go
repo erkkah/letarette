@@ -30,6 +30,7 @@ var cmdline struct {
 	Phrases    []string `docopt:"<phrase>"`
 	PageLimit  int      `docopt:"-l"`
 	PageOffset int      `docopt:"-p"`
+	GroupSize  int32    `docopt:"-g"`
 
 	Monitor bool
 
@@ -56,7 +57,7 @@ func main() {
 	usage := title + `
 
 Usage:
-	lrcli search [-v] [-l <limit>] [-p <page>] <space> <phrase>...
+	lrcli search [-v] [-l <limit>] [-p <page>] [-g <groupsize>] <space> <phrase>...
 	lrcli monitor
 	lrcli sql <sql>...
 	lrcli index stats
@@ -69,9 +70,10 @@ Usage:
 	lrcli env
 
 Options:
-    -v           Verbose
-    -l <limit>   Search result page limit [default: 10]
-    -p <page>    Search result page [default: 0]
+    -v             Verbose
+    -l <limit>     Search result page limit [default: 10]
+	-p <page>      Search result page [default: 0]
+	-g <groupsize> Force shard group size, do not discover
 `
 
 	args, err := docopt.ParseDoc(usage)
@@ -280,7 +282,7 @@ func forceIndexStemmerState(state snowball.Settings, db letarette.Database) {
 }
 
 func doSearch(cfg letarette.Config) {
-	c, err := client.NewSearchClient(cfg.Nats.URL)
+	c, err := client.NewSearchClient(cfg.Nats.URL, client.WithShardgroupSize(cmdline.GroupSize))
 	if err != nil {
 		logger.Error.Printf("Failed to create search client: %v", err)
 		return

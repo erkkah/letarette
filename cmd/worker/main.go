@@ -88,15 +88,6 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT)
 
-	sighup := make(chan os.Signal, 1)
-	signal.Notify(sighup, syscall.SIGHUP)
-
-	go func() {
-		for range sighup {
-			logger.Debug.Printf("not reloading config...")
-		}
-	}()
-
 	select {
 	case s := <-signals:
 		logger.Info.Printf("Received signal %v\n", s)

@@ -59,7 +59,17 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 	}()
 
 	subscription, err := ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *protocol.DocumentUpdate) {
-		updates <- *update
+		filtered := make([]protocol.Document, 0, len(update.Documents))
+		for _, doc := range update.Documents {
+			index := shardIndexFromDocumentID(doc.ID, int(cfg.ShardgroupSize))
+			if index == int(cfg.ShardgroupIndex) {
+				filtered = append(filtered, doc)
+			}
+		}
+		updates <- protocol.DocumentUpdate{
+			Space:     update.Space,
+			Documents: filtered,
+		}
 	})
 	if err != nil {
 		return nil, err
@@ -232,11 +242,21 @@ func (idx *indexer) requestNextChunk(space string) error {
 		return fmt.Errorf("NATS request failed: %w", err)
 	}
 
+	filtered := make([]protocol.DocumentReference, 0, len(update.Updates))
+	for _, u := range update.Updates {
+		index := shardIndexFromDocumentID(u.ID, int(idx.cfg.ShardgroupSize))
+		if index == int(idx.cfg.ShardgroupIndex) {
+			filtered = append(filtered, u)
+		}
+	}
+
+	update.Updates = filtered
+
 	if len(update.Updates) > 0 {
 		logger.Info.Printf("Received interest list of %v docs\n", len(update.Updates))
 	}
-	err = idx.db.setInterestList(idx.context, update)
 
+	err = idx.db.setInterestList(idx.context, update)
 	if err != nil {
 		return fmt.Errorf("Failed to set interest list: %w", err)
 	}

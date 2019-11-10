@@ -19,7 +19,7 @@ import (
 type testSetup struct {
 	tmpDir string
 	config Config
-	db     Database
+	db     *database
 }
 
 func (setup *testSetup) cleanup() {
@@ -43,10 +43,11 @@ func getTestSetup(t *testing.T) *testSetup {
 	setup.config.Index.Spaces = []string{"test"}
 	setup.config.Stemmer.Languages = []string{"english"}
 
-	setup.db, err = OpenDatabase(setup.config)
+	db, err := OpenDatabase(setup.config)
 	if err != nil {
 		t.Fatalf("Failed to open database: %v", err)
 	}
+	setup.db = db.(*database)
 
 	return setup
 }

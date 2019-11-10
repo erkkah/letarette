@@ -31,7 +31,7 @@ func (s *searcher) Close() {
 	<-s.closer
 }
 
-const minPagesize = 10
+const minPagesize = 1
 const maxPagesize = 500
 
 func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchRequest) (protocol.SearchResponse, error) {

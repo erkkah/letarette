@@ -16,6 +16,14 @@ type SearchClient interface {
 	Search(q string, spaces []string, pageLimit int, pageOffset int) (protocol.SearchResponse, error)
 }
 
+// WithShardgroupSize forces shard group size instead of using discovery
+func WithShardgroupSize(groupSize int32) Option {
+	return func(st *state) {
+		sc := st.local.(*searchClient)
+		sc.volatileNumShards = groupSize
+	}
+}
+
 // NewSearchClient - SearchClient constructor
 func NewSearchClient(url string, options ...Option) (SearchClient, error) {
 	nc, err := nats.Connect(url)
@@ -30,9 +38,10 @@ func NewSearchClient(url string, options ...Option) (SearchClient, error) {
 			topic:   "leta",
 			onError: func(error) {},
 		},
-		volatileNumShards: 1,
+		volatileNumShards: 0,
 	}
 
+	client.local = client
 	client.state.apply(options)
 
 	client.monitor, err = NewMonitor(url, func(status protocol.IndexStatus) {
@@ -56,8 +65,19 @@ func (client *searchClient) Close() {
 	client.conn.Close()
 }
 
+func (client *searchClient) getNumShards() int32 {
+	for {
+		numShards := atomic.LoadInt32(&client.volatileNumShards)
+		if numShards == 0 {
+			time.Sleep(time.Millisecond * 100)
+		} else {
+			return numShards
+		}
+	}
+}
+
 func (client *searchClient) Search(q string, spaces []string, pageLimit int, pageOffset int) (res protocol.SearchResponse, err error) {
-	numShards := atomic.LoadInt32(&client.volatileNumShards)
+	numShards := client.getNumShards()
 	shardedLimit := pageLimit / int(numShards)
 	if shardedLimit < 1 {
 		shardedLimit = 1

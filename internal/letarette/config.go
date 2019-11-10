@@ -14,7 +14,7 @@ type Config struct {
 	Nats struct {
 		URL         string `default:"nats://localhost:4222"`
 		Topic       string `default:"leta"`
-		SearchGroup string `default:"1"`
+		SearchGroup string `ignored:"true"`
 	}
 	Db struct {
 		Path string `default:"letarette.db"`
@@ -78,6 +78,7 @@ func LoadConfig() (cfg Config, err error) {
 	cfg.ShardgroupIndex = uint16(group - 1)
 	cfg.ShardgroupSize = uint16(size)
 
+	cfg.Nats.SearchGroup = fmt.Sprintf("%v", cfg.ShardgroupIndex)
 	return
 }
 
