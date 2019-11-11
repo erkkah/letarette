@@ -266,6 +266,7 @@ func registerCustomDriver(cfg Config) {
 						RemoveDiacritics: cfg.Stemmer.RemoveDiacritics,
 						TokenCharacters:  cfg.Stemmer.TokenCharacters,
 						Separators:       cfg.Stemmer.Separators,
+						MinTokenLength:   2,
 					})
 
 					if err != nil {

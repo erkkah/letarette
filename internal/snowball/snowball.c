@@ -13,6 +13,7 @@
 
 struct StemmerModuleData {
     struct sb_stemmer** stemmers;
+    int minTokenLength;
     const char** parentArgs;
     int nParentArgs;
     fts5_api *fts;
@@ -76,24 +77,26 @@ static int ftsSnowballCallback(
 ){
     struct StemmerContext* ctx = (struct StemmerContext*) pCtx;
 
+    if (nToken < ctx->instance->module->minTokenLength) {
+        return SQLITE_OK;
+    }
     if (nToken > MAX_TOKEN_LEN || nToken < MIN_TOKEN_LEN) {
         return ctx->xToken(ctx->callerContext, tflags, pToken, nToken, iStart, iEnd);
-    } else {
-        char buffer[MAX_TOKEN_LEN];
-        memcpy(buffer, pToken, nToken);
-        struct sb_stemmer** stemmer = ctx->instance->module->stemmers;
-        const sb_symbol* stemmed = (const sb_symbol*) pToken;
-        int stemmedLength = nToken;
-        while (*stemmer) {
-            stemmed = sb_stemmer_stem(*stemmer, (unsigned char*) buffer, nToken);
-            stemmedLength = sb_stemmer_length(*stemmer);
-            if (stemmedLength != nToken) {
-                break;
-            }
-            stemmer++;
-        }
-        return ctx->xToken(ctx->callerContext, tflags, (const char*) stemmed, stemmedLength, iStart, iEnd);
     }
+    char buffer[MAX_TOKEN_LEN];
+    memcpy(buffer, pToken, nToken);
+    struct sb_stemmer** stemmer = ctx->instance->module->stemmers;
+    const sb_symbol* stemmed = (const sb_symbol*) pToken;
+    int stemmedLength = nToken;
+    while (*stemmer) {
+        stemmed = sb_stemmer_stem(*stemmer, (unsigned char*) buffer, nToken);
+        stemmedLength = sb_stemmer_length(*stemmer);
+        if (stemmedLength != nToken) {
+            break;
+        }
+        stemmer++;
+    }
+    return ctx->xToken(ctx->callerContext, tflags, (const char*) stemmed, stemmedLength, iStart, iEnd);
 }
 
 static int ftsSnowballTokenize(
@@ -168,7 +171,8 @@ int initSnowballStemmer(
     int nLanguages,
     int removeDiacritics,
     const char* tokenCharacters,
-    const char* separators
+    const char* separators,
+    int minTokenLength
 ){
     fts5_tokenizer tokenizer = {ftsSnowballCreate, ftsSnowballDelete, ftsSnowballTokenize};
 
@@ -184,6 +188,7 @@ int initSnowballStemmer(
     }
 
     modData->stemmers = stemmers;
+    modData->minTokenLength = minTokenLength;
 
     const int maxArgs = 6;
     const char** args = sqlite3_malloc(sizeof(char*) * maxArgs);

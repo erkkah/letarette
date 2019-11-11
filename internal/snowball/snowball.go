@@ -23,6 +23,7 @@ type Settings struct {
 	RemoveDiacritics bool
 	TokenCharacters  string
 	Separators       string
+	MinTokenLength   int
 }
 
 // Init registers the snowball stemmer with the connection and configures
@@ -46,7 +47,7 @@ func Init(conn *sqlite3.SQLiteConn, settings Settings) error {
 		cSeparators = C.CString(settings.Separators)
 	}
 
-	var cRemoveDiacritics = 0
+	var removeDiacritics = 0
 	if settings.RemoveDiacritics {
 		/*
 			??? Does not seem to work on OSX?
@@ -56,10 +57,19 @@ func Init(conn *sqlite3.SQLiteConn, settings Settings) error {
 				cRemoveDiacritics = 2
 			}
 		*/
-		cRemoveDiacritics = 1
+		removeDiacritics = 1
 	}
+
+	minTokenLength := 2
+	if settings.MinTokenLength > 0 {
+		minTokenLength = settings.MinTokenLength
+	}
+
 	result := C.initSnowballStemmer(
-		db, cStemmers, C.int(len(settings.Stemmers)), C.int(cRemoveDiacritics), cTokenCharacters, cSeparators,
+		db,
+		cStemmers, C.int(len(settings.Stemmers)),
+		C.int(removeDiacritics), cTokenCharacters, cSeparators,
+		C.int(minTokenLength),
 	)
 
 	freeCArgs(cStemmers, len(settings.Stemmers))

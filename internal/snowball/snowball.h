@@ -6,5 +6,6 @@ int initSnowballStemmer(
     int nLanguages,
     int removeDiacritics,
     const char* tokenCharacters,
-    const char* separators
+    const char* separators,
+    int minTokenLength
 );
