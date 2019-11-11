@@ -77,7 +77,11 @@ type database struct {
 // migrates the database up to the latest version.
 func OpenDatabase(cfg Config) (Database, error) {
 	registerCustomDriver(cfg)
-	rdb, wdb, err := openDatabase(cfg.Db.Path, cfg.Index.Spaces)
+	var spaces []string
+	if !cfg.Db.ToolConnection {
+		spaces = cfg.Index.Spaces
+	}
+	rdb, wdb, err := openDatabase(cfg.Db.Path, spaces)
 	if err != nil {
 		return nil, err
 	}
@@ -334,9 +338,6 @@ func openDatabase(dbPath string, spaces []string) (rdb *sqlx.DB, wdb *sqlx.DB, e
 		return
 	}
 
-	if len(spaces) < 1 {
-		return nil, nil, fmt.Errorf("No spaces defined: %v", spaces)
-	}
 	err = initDB(wdb, writeSqliteURL, spaces)
 	return
 }

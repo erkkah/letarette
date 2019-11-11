@@ -93,6 +93,7 @@ Options:
 		logger.Error.Printf("Config load problems: %v", err)
 		return
 	}
+	cfg.Db.ToolConnection = true
 
 	if cmdline.Env {
 		letarette.Usage()

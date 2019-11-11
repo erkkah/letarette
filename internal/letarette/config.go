@@ -17,7 +17,8 @@ type Config struct {
 		SearchGroup string `ignored:"true"`
 	}
 	Db struct {
-		Path string `default:"letarette.db"`
+		Path           string `default:"letarette.db"`
+		ToolConnection bool   `ignored:"true"`
 	}
 	Index struct {
 		Spaces                  []string      `required:"true" default:"docs"`
@@ -62,6 +63,10 @@ func LoadConfig() (cfg Config, err error) {
 	err = envconfig.Process(prefix, &cfg)
 	if err != nil {
 		return
+	}
+
+	if len(cfg.Index.Spaces) < 1 {
+		return Config{}, fmt.Errorf("No spaces defined")
 	}
 
 	unique := map[string]string{}
