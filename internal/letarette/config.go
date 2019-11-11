@@ -25,7 +25,7 @@ type Config struct {
 		MaxInterestWait time.Duration `default:"5s"`
 		MaxDocumentWait time.Duration `default:"1s"`
 		CycleWait       time.Duration `default:"100ms"`
-		EmptyCycleWait  time.Duration `default:"5s"`
+		EmptyCycleWait  time.Duration `default:"10s"`
 		MaxOutstanding  uint16        `default:"25"`
 		Disable         bool          `default:"false"`
 	}
@@ -36,7 +36,7 @@ type Config struct {
 		Separators       string
 	}
 	Search struct {
-		Timeout      time.Duration `default:"200ms"`
+		Timeout      time.Duration `default:"500ms"`
 		Cap          int           `default:"25000"`
 		CacheTimeout time.Duration `split_words:"true" default:"1m"`
 		Disable      bool          `default:"false"`

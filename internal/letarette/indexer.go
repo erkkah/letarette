@@ -242,8 +242,14 @@ func (idx *indexer) requestNextChunk(space string) error {
 		return fmt.Errorf("NATS request failed: %w", err)
 	}
 
+	// Ignore documents from the future. We will get there eventually.
+	nowish := time.Now().Add(time.Minute * 5)
 	filtered := make([]protocol.DocumentReference, 0, len(update.Updates))
 	for _, u := range update.Updates {
+		if u.Updated.After(nowish) {
+			logger.Info.Printf("Ignoring future document: %v (%v)", u.ID, u.Updated)
+			continue
+		}
 		index := shardIndexFromDocumentID(u.ID, int(idx.cfg.ShardgroupSize))
 		if index == int(idx.cfg.ShardgroupIndex) {
 			filtered = append(filtered, u)
