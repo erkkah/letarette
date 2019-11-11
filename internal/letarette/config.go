@@ -38,11 +38,12 @@ type Config struct {
 		Separators       string
 	}
 	Search struct {
-		Timeout      time.Duration `default:"500ms"`
-		Cap          int           `default:"25000"`
-		CacheTimeout time.Duration `split_words:"true" default:"1m"`
-		Disable      bool          `default:"false"`
-		Strategy     int           `default:"1"`
+		Timeout        time.Duration `default:"500ms"`
+		Cap            int           `default:"25000"`
+		CacheTimeout   time.Duration `split_words:"true" default:"1m"`
+		CacheMaxsizeMB uint64        `split_words:"true" default:"250"`
+		Disable        bool          `default:"false"`
+		Strategy       int           `default:"1"`
 	}
 	Shardgroup      string `default:"1/1"`
 	ShardgroupSize  uint16 `ignored:"true"`

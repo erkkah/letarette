@@ -92,7 +92,8 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 		return &searcher{}, err
 	}
 
-	cache := NewCache(cfg.Search.CacheTimeout)
+	maxSize := cfg.Search.CacheMaxsizeMB * 1000 * 1000
+	cache := NewCache(cfg.Search.CacheTimeout, maxSize)
 	self := &searcher{
 		closer,
 		cfg,
