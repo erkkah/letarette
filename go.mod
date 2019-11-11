@@ -3,6 +3,7 @@ module github.com/erkkah/letarette
 require (
 	github.com/briandowns/spinner v1.7.0
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
+	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/golang-migrate/migrate/v4 v4.6.2
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/kelseyhightower/envconfig v1.4.0
