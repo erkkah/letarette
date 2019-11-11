@@ -199,13 +199,13 @@ func (db *database) resetRequested(ctx context.Context, space string) error {
 	return err
 }
 
-func (db *database) clearPending(ctx context.Context, space string) error {
+func (db *database) fakeServeRequested(ctx context.Context, space string) error {
 	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {
 		return err
 	}
-	_, err = db.wdb.ExecContext(ctx, `delete from interest where state = ? and spaceID = ?`,
-		pending, spaceID)
+	_, err = db.wdb.ExecContext(ctx, `update interest set state = ? where state = ? and spaceID = ?`,
+		served, requested, spaceID)
 	return err
 }
 

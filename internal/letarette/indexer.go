@@ -218,7 +218,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 
 			if now.After(state.createdAtTime().Add(timeout)) {
 				logger.Warning.Printf("Waited too long for documents, moving on")
-				err = idx.db.clearPending(idx.context, space)
+				err = idx.db.fakeServeRequested(idx.context, space)
 			}
 
 			logger.Warning.Printf("Timeout waiting for documents, re-requesting")
