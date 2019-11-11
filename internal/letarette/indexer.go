@@ -31,11 +31,12 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 	mainContext, cancel := context.WithCancel(context.Background())
 
 	self := &indexer{
-		context: mainContext,
-		close:   cancel,
-		cfg:     cfg,
-		conn:    ec,
-		db:      db.(*database),
+		context:             mainContext,
+		close:               cancel,
+		lastDocumentRequest: map[string]time.Time{},
+		cfg:                 cfg,
+		conn:                ec,
+		db:                  db.(*database),
 	}
 
 	for _, space := range cfg.Index.Spaces {
@@ -109,6 +110,8 @@ type indexer struct {
 	context context.Context
 	waiter  sync.WaitGroup
 
+	lastDocumentRequest map[string]time.Time
+
 	cfg  Config
 	conn *nats.EncodedConn
 	db   *database
@@ -143,8 +146,6 @@ func (idx *indexer) main(atExit func()) {
 	}
 
 }
-
-var lastDocumentRequest time.Time
 
 func (idx *indexer) runUpdateCycle(space string) (total int) {
 	interests, err := idx.db.getInterestList(idx.context, space)
@@ -181,7 +182,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 		if err != nil {
 			logger.Error.Printf("Failed to request documents: %v", err)
 		} else {
-			lastDocumentRequest = time.Now()
+			idx.lastDocumentRequest[space] = time.Now()
 			numRequested += docsToRequest
 		}
 	}
@@ -203,8 +204,23 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 		}
 
 	} else {
+		now := time.Now()
 		timeout := idx.cfg.Index.MaxDocumentWait
-		if timeout != 0 && time.Now().After(lastDocumentRequest.Add(timeout)) {
+		refetchInterval := idx.cfg.Index.DocumentRefetchInterval
+
+		lastRequest := idx.lastDocumentRequest[space]
+		if now.After(lastRequest.Add(refetchInterval)) {
+			state, err := idx.db.getInterestListState(idx.context, space)
+			if err != nil {
+				logger.Error.Printf("Failed to get interest list state: %v", err)
+				return
+			}
+
+			if now.After(state.createdAtTime().Add(timeout)) {
+				logger.Warning.Printf("Waited too long for documents, moving on")
+				err = idx.db.clearPending(idx.context, space)
+			}
+
 			logger.Warning.Printf("Timeout waiting for documents, re-requesting")
 			err = idx.db.resetRequested(idx.context, space)
 			if err != nil {

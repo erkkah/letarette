@@ -199,6 +199,16 @@ func (db *database) resetRequested(ctx context.Context, space string) error {
 	return err
 }
 
+func (db *database) clearPending(ctx context.Context, space string) error {
+	spaceID, err := db.getSpaceID(ctx, space)
+	if err != nil {
+		return err
+	}
+	_, err = db.wdb.ExecContext(ctx, `delete from interest where state = ? and spaceID = ?`,
+		pending, spaceID)
+	return err
+}
+
 func (db *database) hasDocument(ctx context.Context, space string, doc Interest) (bool, error) {
 	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {

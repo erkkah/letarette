@@ -20,14 +20,15 @@ type Config struct {
 		Path string `default:"letarette.db"`
 	}
 	Index struct {
-		Spaces          []string      `required:"true" default:"docs"`
-		ChunkSize       uint16        `default:"250"`
-		MaxInterestWait time.Duration `default:"5s"`
-		MaxDocumentWait time.Duration `default:"1s"`
-		CycleWait       time.Duration `default:"100ms"`
-		EmptyCycleWait  time.Duration `default:"10s"`
-		MaxOutstanding  uint16        `default:"25"`
-		Disable         bool          `default:"false"`
+		Spaces                  []string      `required:"true" default:"docs"`
+		ChunkSize               uint16        `default:"250"`
+		MaxInterestWait         time.Duration `default:"5s"`
+		DocumentRefetchInterval time.Duration `default:"1s"`
+		MaxDocumentWait         time.Duration `default:"10s"`
+		CycleWait               time.Duration `default:"100ms"`
+		EmptyCycleWait          time.Duration `default:"10s"`
+		MaxOutstanding          uint16        `default:"25"`
+		Disable                 bool          `default:"false"`
 	}
 	Stemmer struct {
 		Languages        []string `split_words:"true" required:"true" default:"english"`
@@ -71,6 +72,10 @@ func LoadConfig() (cfg Config, err error) {
 		return Config{}, fmt.Errorf("Space names must be unique")
 	}
 
+	if !validateIndexDurations(cfg) {
+		return Config{}, fmt.Errorf("Invalid index timing settings")
+	}
+
 	group, size, err := parseShardGroupString(cfg.Shardgroup)
 	if err != nil {
 		return
@@ -80,6 +85,14 @@ func LoadConfig() (cfg Config, err error) {
 
 	cfg.Nats.SearchGroup = fmt.Sprintf("%v", cfg.ShardgroupIndex)
 	return
+}
+
+func validateIndexDurations(cfg Config) bool {
+	return (cfg.Index.MaxInterestWait > time.Millisecond*20 &&
+		cfg.Index.CycleWait > time.Millisecond &&
+		cfg.Index.CycleWait < cfg.Index.EmptyCycleWait &&
+		cfg.Index.DocumentRefetchInterval > time.Millisecond*20 &&
+		cfg.Index.DocumentRefetchInterval < cfg.Index.MaxDocumentWait)
 }
 
 // Usage prints usage help to stdout
