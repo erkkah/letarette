@@ -25,7 +25,7 @@ type Config struct {
 		ChunkSize               uint16        `default:"250"`
 		MaxInterestWait         time.Duration `default:"5s"`
 		DocumentRefetchInterval time.Duration `default:"1s"`
-		MaxDocumentWait         time.Duration `default:"10s"`
+		MaxDocumentWait         time.Duration `default:"20s"`
 		CycleWait               time.Duration `default:"100ms"`
 		EmptyCycleWait          time.Duration `default:"10s"`
 		MaxOutstanding          uint16        `default:"25"`
