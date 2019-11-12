@@ -109,20 +109,23 @@ func Usage() {
 
 func parseShardGroupString(shardGroup string) (group, size int, err error) {
 	parts := strings.SplitN(shardGroup, "/", 2)
+	parseError := fmt.Errorf("Invalid shard group setting")
 	if len(parts) != 2 {
-		err = fmt.Errorf("Invalid shard group setting")
+		err = parseError
 		return
 	}
 	group, err = strconv.Atoi(parts[0])
 	if err != nil {
+		err = parseError
 		return
 	}
 	size, err = strconv.Atoi(parts[1])
 	if err != nil {
+		err = parseError
 		return
 	}
 	if group > size || group < 1 {
-		err = fmt.Errorf("Invalid shard group setting")
+		err = parseError
 	}
 	return
 }
