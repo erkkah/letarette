@@ -76,6 +76,7 @@ type IndexUpdate struct {
 type Document struct {
 	ID      DocumentID
 	Updated time.Time
+	Title   string
 	Text    string
 	Alive   bool
 }

@@ -39,14 +39,14 @@ create virtual table if not exists fts using fts5(
 );
 
 create trigger if not exists docs_ai after insert on docs begin
-    insert into fts(rowid, txt) values (new.id, new.txt);
+    insert into fts(rowid, title, txt) values (new.id, new.title, new.txt);
 end;
 
 create trigger if not exists docs_ad after delete on docs begin
-    insert into fts(fts, rowid, txt) values ('delete', old.id, old.txt);
+    insert into fts(fts, rowid, title, txt) values ('delete', old.id, old.title, old.txt);
 end;
 
 create trigger if not exists docs_au after update on docs begin
-    insert into fts(fts, rowid, txt) values ('delete', old.id, old.txt);
-    insert into fts(rowid, txt) values (new.id, new.txt);
+    insert into fts(fts, rowid, title, txt) values ('delete', old.id, old.title, old.txt);
+    insert into fts(rowid, title, txt) values (new.id, new.title, new.txt);
 end;

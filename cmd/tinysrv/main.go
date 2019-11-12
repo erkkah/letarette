@@ -293,7 +293,8 @@ func entryToDocument(id protocol.DocumentID, e entry) (protocol.Document, error)
 		} else {
 			text = e.Text
 		}
-		doc.Text = e.Title + "\n" + text
+		doc.Title = e.Title
+		doc.Text = text
 	}
 	return doc, nil
 }
