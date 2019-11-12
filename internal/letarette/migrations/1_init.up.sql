@@ -1,8 +1,11 @@
+-- Index meta data
 create table if not exists meta (
+    -- Unique id for this index
     indexID text not null,
     created timestamp default current_timestamp
 );
 
+-- Search spaces, each with their own index update position
 create table if not exists spaces(
     spaceID integer primary key,
     space text not null unique,
@@ -19,6 +22,7 @@ create table if not exists spaces(
     )
 );
 
+-- The list of documents we are currently interested in getting updated
 create table if not exists interest(
     spaceID integer not null,
     docID text not null,
@@ -27,6 +31,7 @@ create table if not exists interest(
     foreign key (spaceID) references spaces(spaceID)
 );
 
+-- Document table with triggers to keep the full text index updated
 create table if not exists docs(
     id integer primary key,
     spaceID integer not null,
@@ -55,6 +60,7 @@ create trigger if not exists docs_au after update on docs begin
     insert into fts(rowid, title, txt) values (new.id, new.title, new.txt);
 end;
 
+-- Current stemmer configuration
 create table if not exists stemmerstate (
     languages text not null,
     removeDiacritics boolean not null,
@@ -69,7 +75,11 @@ on stemmerstate begin
     update stemmerstate set updated = current_timestamp;
 end;
 
+-- The full text index
 create virtual table if not exists fts using fts5(
     title, txt, content='docs', content_rowid='id',
     tokenize='snowball', prefix='2 3 4'
 );
+
+-- Give titles three times the weight of the text body
+insert into fts (fts, rank) values('rank', 'bm25(3.0, 1.0)');
