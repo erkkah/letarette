@@ -30,7 +30,7 @@ func phrasesToMatchString(phrases []Phrase) string {
 	const nearRange = 15
 	matchString := ""
 	if len(includes) > 0 {
-		matchString = fmt.Sprintf("NEAR(%s, %d)", strings.Join(includes, " "), nearRange)
+		matchString += fmt.Sprintf("NEAR(%s, %d)", strings.Join(includes, " "), nearRange)
 	}
 	if len(excludes) > 0 {
 		matchString += fmt.Sprintf(" NOT (%s)", strings.Join(excludes, " OR "))

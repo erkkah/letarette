@@ -2,7 +2,8 @@ with
 matches as (
     select
         rowid,
-        firstmatch(fts) as first,
+        firstmatch(fts, 0) as matchColumn,
+        firstmatch(fts, 1) as matchOffset,
         rank as r
     from
         fts
@@ -16,10 +17,20 @@ stats as (
 
 select
     space, r as rank, cnt as total, joined.docID as id,
-    substr("…", 1, (first > 0))||replace(gettokens(fts, docs.txt, max(first-1, 0), 10), X'0A', " ")||"…" as snippet
+    substr("…", 1, (matchOffset > 1)) ||
+    replace(
+        gettokens(fts,
+            case matchColumn
+                when 0 then docs.title
+                when 1 then docs.txt
+            end,
+            max(matchOffset-1, 0), 10),
+        X'0A', " "
+    )
+    || "…" as snippet
 from (
     select
-        space, first, r, stats.cnt, docs.docID, docs.id
+        space, matchColumn, matchOffset, r, stats.cnt, docs.docID, docs.id
     from
         matches
         left join docs on docs.id = matches.rowid

@@ -41,7 +41,7 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 		}
 	}()
 
-	docsStatement, err := tx.PrepareContext(ctx, `replace into docs (spaceID, docID, updatedNanos, txt, alive) values (?, ?, ?, ?, ?)`)
+	docsStatement, err := tx.PrepareContext(ctx, `replace into docs (spaceID, docID, updatedNanos, title, txt, alive) values (?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,11 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 		if doc.Alive {
 			txt = doc.Text
 		}
-		res, err := docsStatement.ExecContext(ctx, spaceID, doc.ID, doc.Updated.UnixNano(), txt, doc.Alive)
+		title := ""
+		if doc.Alive {
+			title = doc.Title
+		}
+		res, err := docsStatement.ExecContext(ctx, spaceID, doc.ID, doc.Updated.UnixNano(), title, txt, doc.Alive)
 
 		if err != nil {
 			return fmt.Errorf("Failed to update doc: %w", err)

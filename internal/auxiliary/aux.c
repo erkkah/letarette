@@ -2,6 +2,13 @@
 #include <string.h>
 #include <stdlib.h>
 
+struct MatchData {
+    sqlite3_int64 rowid;
+    int phrase;
+    int column;
+    int offset;
+};
+
 static void firstmatch(
     const Fts5ExtensionApi *pApi,   // API offered by current FTS version
     Fts5Context *pFts,              // First arg to pass to pApi functions
@@ -9,22 +16,43 @@ static void firstmatch(
     int nVal,                       // Number of values in apVal[] array
     sqlite3_value **apVal           // Array of trailing arguments
 ) {
-    int matchCount = 0;
-    int result = pApi->xInstCount(pFts, &matchCount);
-    if (result != SQLITE_OK) {
-        sqlite3_result_error_code(pCtx, result);
+    if (nVal != 1) {
+        sqlite3_result_error_code(pCtx, SQLITE_ERROR);
+        return;
+    }
+    int columnOrOffset = sqlite3_value_int(apVal[0]);
+
+    sqlite3_int64 rowid = pApi->xRowid(pFts);
+
+    struct MatchData* cached = pApi->xGetAuxdata(pFts, 0);
+    if (cached != 0 && cached->rowid == rowid) {
+        sqlite3_result_int(pCtx, columnOrOffset ? cached->offset : cached->column);
         return;
     }
 
     int phrase = 0;
     int column = 0;
     int offset = 0;
-    result = pApi->xInst(pFts, 0, &phrase, &column, &offset);
+    int result = pApi->xInst(pFts, 0, &phrase, &column, &offset);
     if (result != SQLITE_OK) {
         sqlite3_result_error_code(pCtx, result);
         return;
     }
-    sqlite3_result_int(pCtx, offset);
+
+    if (cached == 0) {
+        cached = sqlite3_malloc(sizeof(struct MatchData));
+        result = pApi->xSetAuxdata(pFts, cached, sqlite3_free);
+        if (result != SQLITE_OK) {
+            sqlite3_result_error_code(pCtx, result);
+            return;
+        }
+    }
+    cached->rowid = rowid;
+    cached->phrase = phrase;
+    cached->column = column;
+    cached->offset = offset;
+
+    sqlite3_result_int(pCtx, columnOrOffset ? offset : column);
 }
 
 struct TokenRangeContext {
