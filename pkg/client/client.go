@@ -44,11 +44,13 @@ func NewSearchClient(url string, options ...Option) (SearchClient, error) {
 	client.local = client
 	client.state.apply(options)
 
-	client.monitor, err = NewMonitor(url, func(status protocol.IndexStatus) {
-		atomic.SwapInt32(&client.volatileNumShards, int32(status.ShardgroupSize))
-	})
-	if err != nil {
-		return nil, err
+	if client.volatileNumShards == 0 {
+		client.monitor, err = NewMonitor(url, func(status protocol.IndexStatus) {
+			atomic.SwapInt32(&client.volatileNumShards, int32(status.ShardgroupSize))
+		}, WithTopic(client.state.topic))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return client, nil
@@ -61,7 +63,10 @@ type searchClient struct {
 }
 
 func (client *searchClient) Close() {
-	client.monitor.Close()
+	if client.monitor != nil {
+		client.monitor.Close()
+	}
+
 	client.conn.Close()
 }
 
