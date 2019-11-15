@@ -113,13 +113,12 @@ func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) {
 }
 
 func truncateString(long string, max int) string {
-	chars := 0
 	result := long
+	// i indexes in bytes, but steps in runes
 	for i := range long {
-		if chars >= max {
+		if i >= max {
 			result = long[:i] + "\u2026" // ellipsis
 		}
-		chars++
 	}
 	return result
 }
