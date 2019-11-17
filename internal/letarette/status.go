@@ -33,23 +33,36 @@ func StartStatusMonitor(nc *nats.Conn, db Database, cfg Config) (StatusMonitor, 
 		conn:           ec,
 		db:             db.(*database),
 		updates:        make(chan protocol.IndexStatus),
-		clusterStatus:  map[string]protocol.IndexStatus{},
+		workerStatus:   map[string]protocol.IndexStatus{},
 		workerPingtime: map[string]time.Time{},
 	}
 
+	indexID, err := self.db.getIndexID()
+	if err != nil {
+		return nil, err
+	}
+	self.workerStatus[indexID] = protocol.IndexStatus{
+		IndexID:        indexID,
+		ShardgroupSize: cfg.ShardgroupSize,
+		Shardgroup:     cfg.ShardgroupIndex,
+		Status:         protocol.IndexStatusStartingUp,
+	}
+
 	sub, err := ec.Subscribe(cfg.Nats.Topic+".status", func(sub, reply string, status *protocol.IndexStatus) {
-		self.updates <- *status
+		if status.IndexID != indexID {
+			self.updates <- *status
+		}
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
-		checkpoint := time.After(time.Second * 5)
+		checkpoint := time.After(time.Millisecond * 100)
 		for {
 			select {
 			case status := <-self.updates:
-				self.clusterStatus[status.IndexID] = status
+				self.workerStatus[status.IndexID] = status
 				self.workerPingtime[status.IndexID] = time.Now()
 			case <-self.ctx.Done():
 				sub.Unsubscribe()
@@ -72,7 +85,7 @@ type monitor struct {
 	ctx            context.Context
 	updates        chan protocol.IndexStatus
 	statusCode     protocol.IndexStatusCode
-	clusterStatus  map[string]protocol.IndexStatus
+	workerStatus   map[string]protocol.IndexStatus
 	workerPingtime map[string]time.Time
 }
 
@@ -92,9 +105,12 @@ func (m *monitor) checkpoint() {
 	var numWorkers int
 	newStatus := protocol.IndexStatusInSync
 
-	for _, v := range m.clusterStatus {
+	for _, v := range m.workerStatus {
 		if v.ShardgroupSize != m.cfg.ShardgroupSize {
-			logger.Error.Printf("Shard group size mismatch")
+			logger.Error.Printf(
+				"Shard group size mismatch: worker@%v(%v) != local(%v)",
+				v.IndexID, v.ShardgroupSize, m.cfg.ShardgroupSize,
+			)
 			newStatus = protocol.IndexStatusIncompleteShardgroup
 		}
 		if indexID == v.IndexID || m.workerPingtime[v.IndexID].After(staleTime) {
@@ -132,34 +148,27 @@ func (m *monitor) checkpoint() {
 	}
 	m.statusCode = newStatus
 
-	var status protocol.IndexStatus
-	var found bool
-	if status, found = m.clusterStatus[indexID]; found {
-		docCount, err := m.db.getDocumentCount(m.ctx)
+	status := m.workerStatus[indexID]
+
+	docCount, err := m.db.getDocumentCount(m.ctx)
+	if err != nil {
+		logger.Error.Printf("Failed to get document count: %w", err)
+	}
+	status.DocCount = docCount
+	var lastUpdate time.Time
+	for _, space := range m.cfg.Index.Spaces {
+		update, err := m.db.getLastUpdateTime(m.ctx, space)
 		if err != nil {
-			logger.Error.Printf("Failed to get document count: %w", err)
+			logger.Error.Printf("Failed to get last update time: %w", err)
 		}
-		status.DocCount = docCount
-		var lastUpdate time.Time
-		for _, space := range m.cfg.Index.Spaces {
-			update, err := m.db.getLastUpdateTime(m.ctx, space)
-			if err != nil {
-				logger.Error.Printf("Failed to get last update time: %w", err)
-			}
-			if update.After(lastUpdate) {
-				lastUpdate = update
-			}
-		}
-		status.LastUpdate = lastUpdate
-		status.Status = m.statusCode
-	} else {
-		status = protocol.IndexStatus{
-			IndexID:        indexID,
-			ShardgroupSize: m.cfg.ShardgroupSize,
-			Shardgroup:     m.cfg.ShardgroupIndex,
-			Status:         protocol.IndexStatusStartingUp,
+		if update.After(lastUpdate) {
+			lastUpdate = update
 		}
 	}
-	m.clusterStatus[indexID] = status
+
+	status.LastUpdate = lastUpdate
+	status.Status = m.statusCode
+
+	m.workerStatus[indexID] = status
 	m.conn.Publish(m.cfg.Nats.Topic+".status", &status)
 }
