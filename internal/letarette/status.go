@@ -25,24 +25,29 @@ func StartStatusMonitor(nc *nats.Conn, db Database, cfg Config) (StatusMonitor, 
 		return &monitor{}, err
 	}
 
+	privateDB := db.(*database)
+	indexID, err := privateDB.getIndexID()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read index ID: %w", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	self := &monitor{
 		ctx:            ctx,
 		close:          cancel,
 		cfg:            cfg,
 		conn:           ec,
-		db:             db.(*database),
+		db:             privateDB,
 		updates:        make(chan protocol.IndexStatus),
+		indexID:        indexID,
+		version:        protocol.Version,
 		workerStatus:   map[string]protocol.IndexStatus{},
 		workerPingtime: map[string]time.Time{},
 	}
 
-	indexID, err := self.db.getIndexID()
-	if err != nil {
-		return nil, err
-	}
 	self.workerStatus[indexID] = protocol.IndexStatus{
 		IndexID:        indexID,
+		Version:        protocol.Version.String(),
 		ShardgroupSize: cfg.ShardgroupSize,
 		Shardgroup:     cfg.ShardgroupIndex,
 		Status:         protocol.IndexStatusStartingUp,
@@ -83,6 +88,8 @@ type monitor struct {
 	db             *database
 	close          context.CancelFunc
 	ctx            context.Context
+	indexID        string
+	version        protocol.Semver
 	updates        chan protocol.IndexStatus
 	statusCode     protocol.IndexStatusCode
 	workerStatus   map[string]protocol.IndexStatus
@@ -94,26 +101,36 @@ func (m *monitor) Close() {
 }
 
 func (m *monitor) checkpoint() {
-	indexID, err := m.db.getIndexID()
-	if err != nil {
-		logger.Error.Printf("Failed to read index ID: %w", err)
-		return
+	workersPerShard := map[uint16][]string{
+		m.cfg.ShardgroupIndex: {m.indexID},
 	}
-
-	workersPerShard := map[uint16][]string{}
 	staleTime := time.Now().Add(-1 * time.Minute)
 	var numWorkers int
 	newStatus := protocol.IndexStatusInSync
 
-	for _, v := range m.workerStatus {
-		if v.ShardgroupSize != m.cfg.ShardgroupSize {
-			logger.Error.Printf(
-				"Shard group size mismatch: worker@%v(%v) != local(%v)",
-				v.IndexID, v.ShardgroupSize, m.cfg.ShardgroupSize,
-			)
-			newStatus = protocol.IndexStatusIncompleteShardgroup
+	setStatus := func(status protocol.IndexStatusCode) {
+		if status > newStatus {
+			newStatus = status
 		}
-		if indexID == v.IndexID || m.workerPingtime[v.IndexID].After(staleTime) {
+	}
+
+	for _, v := range m.workerStatus {
+		if m.workerPingtime[v.IndexID].After(staleTime) {
+			if v.ShardgroupSize != m.cfg.ShardgroupSize {
+				logger.Error.Printf(
+					"Shard group size mismatch: worker@%v(%v) != local(%v)",
+					v.IndexID, v.ShardgroupSize, m.cfg.ShardgroupSize,
+				)
+				setStatus(protocol.IndexStatusIncompleteShardgroup)
+			}
+			version, _ := protocol.ParseSemver(v.Version)
+			if !version.CompatibleWith(m.version) {
+				logger.Error.Printf(
+					"Incompatible protocol versions: worker@%v(%v%) vs local(%v)",
+					v.IndexID, v.Version, m.version,
+				)
+				setStatus(protocol.IndexStatusIncompatible)
+			}
 			workers := workersPerShard[v.Shardgroup]
 			workers = append(workers, v.IndexID)
 			workersPerShard[v.Shardgroup] = workers
@@ -131,7 +148,7 @@ func (m *monitor) checkpoint() {
 	}
 	if len(missingWorkers) > 0 {
 		logger.Error.Printf("No active workers for shards %s!", strings.Join(missingWorkers, ","))
-		newStatus = protocol.IndexStatusIncompleteShardgroup
+		setStatus(protocol.IndexStatusIncompleteShardgroup)
 	}
 
 	if newStatus == protocol.IndexStatusInSync {
@@ -148,7 +165,7 @@ func (m *monitor) checkpoint() {
 	}
 	m.statusCode = newStatus
 
-	status := m.workerStatus[indexID]
+	status := m.workerStatus[m.indexID]
 
 	docCount, err := m.db.getDocumentCount(m.ctx)
 	if err != nil {
@@ -169,6 +186,6 @@ func (m *monitor) checkpoint() {
 	status.LastUpdate = lastUpdate
 	status.Status = m.statusCode
 
-	m.workerStatus[indexID] = status
+	m.workerStatus[m.indexID] = status
 	m.conn.Publish(m.cfg.Nats.Topic+".status", &status)
 }

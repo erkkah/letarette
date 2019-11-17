@@ -1,3 +1,7 @@
+// Package protocol describes the wire protocol between workers,
+// document managers and search clients.
+// The actual NATS messages are JSON-encoded versions of the
+// types defined here.
 package protocol
 
 import (
@@ -5,18 +9,24 @@ import (
 	"time"
 )
 
+// Version of the wire protocol
+var Version = Semver{0, 5, 0}
+
 // DocumentID is just a string, could be uuid, hash, numeric, et.c.
 type DocumentID string
 
 // IndexStatusCode is what is says
 type IndexStatusCode uint8
 
-// Codes returned in index status updates
+// Codes returned in index status updates.
+// There is only one status level at any given time, with higher
+// valued codes overriding lower valued codes.
 const (
 	IndexStatusInSync IndexStatusCode = iota + 72
 	IndexStatusStartingUp
 	IndexStatusSyncing
 	IndexStatusIncompleteShardgroup
+	IndexStatusIncompatible
 )
 
 func (isc IndexStatusCode) String() string {
@@ -25,6 +35,7 @@ func (isc IndexStatusCode) String() string {
 		IndexStatusStartingUp:           "starting up",
 		IndexStatusSyncing:              "syncing",
 		IndexStatusIncompleteShardgroup: "incomplete shard group",
+		IndexStatusIncompatible:         "incompatible protocol versions",
 	}
 	str, found := strings[isc]
 	if !found {
@@ -36,6 +47,7 @@ func (isc IndexStatusCode) String() string {
 // IndexStatus is regularly broadcast from all workers
 type IndexStatus struct {
 	IndexID        string
+	Version        string
 	DocCount       uint64
 	LastUpdate     time.Time
 	ShardgroupSize uint16
