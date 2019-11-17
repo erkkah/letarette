@@ -293,9 +293,9 @@ func doSearch(cfg letarette.Config) {
 	}
 	defer c.Close()
 
-	os.Stdout.WriteString(">")
 	if cmdline.Interactive {
 		scanner := bufio.NewScanner(os.Stdin)
+		os.Stdout.WriteString(">")
 		for scanner.Scan() {
 			searchPhrase(scanner.Text(), c)
 			os.Stdout.WriteString(">")
