@@ -213,7 +213,7 @@ Top terms:
 `
 
 func printIndexStats(db letarette.Database) {
-	s := getSpinner("Crunching numbers ", "\n")
+	s := getSpinner("Crunching numbers ", "")
 	s.Start()
 	defer s.Stop()
 
