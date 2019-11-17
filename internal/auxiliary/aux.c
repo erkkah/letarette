@@ -180,14 +180,14 @@ int initAuxiliaryFunctions(sqlite3* db) {
         fts, "gettokens", (void*) 0, getTokens, (void*) 0
     );
 
+    if (result != SQLITE_OK) {
+        return result;
+    }
+
     result = fts->xCreateFunction(
         // tokens(fts)
         fts, "tokens", (void*) 0, tokenCount, (void*) 0
     );
-
-    if (result != SQLITE_OK) {
-        return result;
-    }
 
     return result;
 }
