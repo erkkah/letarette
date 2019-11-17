@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,12 +26,13 @@ import (
 var cmdline struct {
 	Verbose bool `docopt:"-v"`
 
-	Search     bool
-	Space      string   `docopt:"<space>"`
-	Phrases    []string `docopt:"<phrase>"`
-	PageLimit  int      `docopt:"-l"`
-	PageOffset int      `docopt:"-p"`
-	GroupSize  int32    `docopt:"-g"`
+	Search      bool
+	Space       string   `docopt:"<space>"`
+	Phrases     []string `docopt:"<phrase>"`
+	PageLimit   int      `docopt:"-l"`
+	PageOffset  int      `docopt:"-p"`
+	GroupSize   int32    `docopt:"-g"`
+	Interactive bool     `docopt:"-i"`
 
 	Monitor bool
 
@@ -57,7 +59,7 @@ func main() {
 	usage := title + `
 
 Usage:
-	lrcli search [-v] [-l <limit>] [-p <page>] [-g <groupsize>] <space> <phrase>...
+	lrcli search [-v] [-l <limit>] [-p <page>] [-g <groupsize>] [-i] <space> [<phrase>...]
 	lrcli monitor
 	lrcli sql <sql>...
 	lrcli index stats
@@ -73,6 +75,7 @@ Options:
     -v             Verbose
     -l <limit>     Search result page limit [default: 10]
 	-p <page>      Search result page [default: 0]
+	-i             Interactive search
 	-g <groupsize> Force shard group size, do not discover
 `
 
@@ -290,8 +293,21 @@ func doSearch(cfg letarette.Config) {
 	}
 	defer c.Close()
 
-	res, err := c.Search(
-		strings.Join(cmdline.Phrases, " "),
+	os.Stdout.WriteString(">")
+	if cmdline.Interactive {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			searchPhrase(scanner.Text(), c)
+			os.Stdout.WriteString(">")
+		}
+	} else {
+		searchPhrase(strings.Join(cmdline.Phrases, " "), c)
+	}
+}
+
+func searchPhrase(phrase string, client client.SearchClient) {
+	res, err := client.Search(
+		phrase,
 		[]string{cmdline.Space},
 		cmdline.PageLimit,
 		cmdline.PageOffset,
