@@ -59,24 +59,24 @@ func main() {
 	usage := title + `
 
 Usage:
-	lrcli search [-v] [-l <limit>] [-p <page>] [-g <groupsize>] [-i] <space> [<phrase>...]
-	lrcli monitor
-	lrcli sql <sql>...
-	lrcli index stats
-	lrcli index check
-	lrcli index pgsize <size>
-	lrcli index optimize
-	lrcli index rebuild
-	lrcli index forcestemmer
-	lrcli resetmigration <version>
-	lrcli env
+    lrcli search [-v] [-l <limit>] [-p <page>] [-g <groupsize>] [-i] <space> [<phrase>...]
+    lrcli monitor
+    lrcli sql <sql>...
+    lrcli index stats
+    lrcli index check
+    lrcli index pgsize <size>
+    lrcli index optimize
+    lrcli index rebuild
+    lrcli index forcestemmer
+    lrcli resetmigration <version>
+    lrcli env
 
 Options:
     -v             Verbose
     -l <limit>     Search result page limit [default: 10]
-	-p <page>      Search result page [default: 0]
-	-i             Interactive search
-	-g <groupsize> Force shard group size, do not discover
+    -p <page>      Search result page [default: 0]
+    -i             Interactive search
+    -g <groupsize> Force shard group size, do not discover
 `
 
 	args, err := docopt.ParseDoc(usage)
