@@ -9,7 +9,7 @@ struct MatchData {
     int offset;
 };
 
-static void firstmatch(
+static void firstMatch(
     const Fts5ExtensionApi *pApi,   // API offered by current FTS version
     Fts5Context *pFts,              // First arg to pass to pApi functions
     sqlite3_context *pCtx,          // Context for returning result/error
@@ -90,7 +90,7 @@ static int tokenRangeCallback(
     }
 }
 
-static void gettokens(
+static void getTokens(
     const Fts5ExtensionApi *pApi,   // API offered by current FTS version
     Fts5Context *pFts,              // First arg to pass to pApi functions
     sqlite3_context *pCtx,          // Context for returning result/error
@@ -127,6 +127,27 @@ static void gettokens(
     sqlite3_result_text(pCtx, snippet, snippetLength, free);
 }
 
+static void tokenCount(
+    const Fts5ExtensionApi *pApi,   // API offered by current FTS version
+    Fts5Context *pFts,              // First arg to pass to pApi functions
+    sqlite3_context *pCtx,          // Context for returning result/error
+    int nVal,                       // Number of values in apVal[] array
+    sqlite3_value **apVal           // Array of trailing arguments
+) {
+    if (nVal != 1) {
+        sqlite3_result_error_code(pCtx, SQLITE_ERROR);
+        return;
+    }
+    int column = sqlite3_value_int(apVal[0]);
+    int tokens = 0;
+    int result = pApi->xColumnSize(pFts, column, &tokens);
+    if (result != SQLITE_OK) {
+        sqlite3_result_error_code(pCtx, result);
+        return;
+    }
+    sqlite3_result_int(pCtx, tokens);
+}
+
 static fts5_api *fts5APIFromDB(sqlite3 *db){
     fts5_api *pRet = 0;
     sqlite3_stmt *pStmt = 0;
@@ -147,7 +168,7 @@ int initAuxiliaryFunctions(sqlite3* db) {
 
     int result = fts->xCreateFunction(
         // firstmatch(fts)
-        fts, "firstmatch", (void*) 0, firstmatch, (void*) 0
+        fts, "firstmatch", (void*) 0, firstMatch, (void*) 0
     );
 
     if (result != SQLITE_OK) {
@@ -156,8 +177,17 @@ int initAuxiliaryFunctions(sqlite3* db) {
 
     result = fts->xCreateFunction(
         // gettokens(fts, text, starttoken, count)
-        fts, "gettokens", (void*) 0, gettokens, (void*) 0
+        fts, "gettokens", (void*) 0, getTokens, (void*) 0
     );
+
+    result = fts->xCreateFunction(
+        // tokens(fts)
+        fts, "tokens", (void*) 0, tokenCount, (void*) 0
+    );
+
+    if (result != SQLITE_OK) {
+        return result;
+    }
 
     return result;
 }

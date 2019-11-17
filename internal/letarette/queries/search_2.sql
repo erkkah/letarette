@@ -4,6 +4,7 @@ matches as (
         rowid,
         firstmatch(fts, 0) as matchColumn,
         firstmatch(fts, 1) as matchOffset,
+        tokens(fts, firstmatch(fts, 0)) as numTokens,
         rank as r
     from
         fts
@@ -26,7 +27,8 @@ select
             max(matchOffset-1, 0), 10),
         X'0A', " "
     )
-    || "…" as snippet
+    || substr("…", 1, (numTokens > 10))
+    as snippet
 from
     matches
     join docs on docs.id = matches.rowid

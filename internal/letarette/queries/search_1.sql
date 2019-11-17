@@ -4,6 +4,7 @@ matches as (
         rowid,
         firstmatch(fts, 0) as matchColumn,
         firstmatch(fts, 1) as matchOffset,
+        tokens(fts, firstmatch(fts, 0)) as numTokens,
         rank as r
     from
         fts
@@ -14,7 +15,6 @@ matches as (
 stats as (
     select count(*) as cnt from matches
 )
-
 select
     space, r as rank, cnt as total, joined.docID as id,
     substr("…", 1, (matchOffset > 1)) ||
@@ -27,10 +27,11 @@ select
             max(matchOffset-1, 0), 10),
         X'0A', " "
     )
-    || "…" as snippet
+    || substr("…", 1, (numTokens > 10))
+    as snippet
 from (
     select
-        space, matchColumn, matchOffset, r, stats.cnt, docs.docID, docs.id
+        space, matchColumn, matchOffset, numTokens, r, stats.cnt, docs.docID, docs.id
     from
         matches
         left join docs on docs.id = matches.rowid
