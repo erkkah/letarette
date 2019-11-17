@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/nats-io/nats.go"
 
@@ -32,7 +33,7 @@ func main() {
 	letarette.ExposeMetrics(cfg.MetricsPort)
 
 	logger.Info.Printf("Connecting to nats server at %q\n", cfg.Nats.URL)
-	conn, err := nats.Connect(cfg.Nats.URL)
+	conn, err := nats.Connect(cfg.Nats.URL, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
 	if err != nil {
 		logger.Error.Printf("Failed to connect to nats server")
 		os.Exit(1)

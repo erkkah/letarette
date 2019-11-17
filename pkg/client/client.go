@@ -26,7 +26,7 @@ func WithShardgroupSize(groupSize int32) Option {
 
 // NewSearchClient - SearchClient constructor
 func NewSearchClient(url string, options ...Option) (SearchClient, error) {
-	nc, err := nats.Connect(url)
+	nc, err := nats.Connect(url, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
 	if err != nil {
 		return nil, err
 	}

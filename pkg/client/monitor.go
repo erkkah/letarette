@@ -1,6 +1,8 @@
 package client
 
 import (
+	"time"
+
 	"github.com/erkkah/letarette/pkg/protocol"
 	"github.com/nats-io/nats.go"
 )
@@ -15,7 +17,7 @@ type MonitorListener func(protocol.IndexStatus)
 
 // NewMonitor - Monitor constructor
 func NewMonitor(url string, listener MonitorListener, options ...Option) (Monitor, error) {
-	nc, err := nats.Connect(url)
+	nc, err := nats.Connect(url, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
 	if err != nil {
 		return nil, err
 	}

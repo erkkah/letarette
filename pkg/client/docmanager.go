@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/erkkah/letarette/pkg/protocol"
 	"github.com/nats-io/nats.go"
@@ -26,7 +27,7 @@ type manager state
 
 // StartDocumentManager creates a DocumentManager and connects to Nats daemon
 func StartDocumentManager(url string, options ...Option) (DocumentManager, error) {
-	nc, err := nats.Connect(url)
+	nc, err := nats.Connect(url, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
 	if err != nil {
 		return nil, err
 	}
