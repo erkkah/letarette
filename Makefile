@@ -1,7 +1,7 @@
-all: tinysrv worker lrcli client
+all: tinysrv letarette lrcli client
 
-worker: generate snowball
-	go build -v -tags "fts5" ./cmd/worker
+letarette: generate snowball
+	go build -v -tags "fts5" -o letarette ./cmd/worker
 
 tinysrv: client
 	go build -v ./cmd/tinysrv
