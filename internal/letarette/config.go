@@ -27,7 +27,7 @@ type Config struct {
 		DocumentRefetchInterval time.Duration `default:"1s"`
 		MaxDocumentWait         time.Duration `default:"20s"`
 		CycleWait               time.Duration `default:"100ms"`
-		EmptyCycleWait          time.Duration `default:"10s"`
+		EmptyCycleWait          time.Duration `default:"4s"`
 		MaxOutstanding          uint16        `default:"25"`
 		Disable                 bool          `default:"false"`
 	}
