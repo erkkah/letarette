@@ -38,6 +38,7 @@ import (
 
 	"github.com/erkkah/letarette/internal/auxiliary"
 	"github.com/erkkah/letarette/internal/snowball"
+	"github.com/erkkah/letarette/internal/spellfix"
 	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
 )
@@ -282,12 +283,18 @@ func registerCustomDriver(cfg Config) {
 						Separators:       cfg.Stemmer.Separators,
 						MinTokenLength:   2,
 					})
-
 					if err != nil {
 						return err
 					}
+
 					logger.Debug.Printf("Initializing aux functions")
 					err = auxiliary.Init(conn)
+					if err != nil {
+						return err
+					}
+
+					logger.Debug.Printf("Initializing spellfix")
+					err = spellfix.Init(conn)
 					if err != nil {
 						return err
 					}

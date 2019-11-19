@@ -242,3 +242,61 @@ func SetIndexPageSize(dbo Database, pageSize int) error {
 	_, err := sql.Exec(`insert into fts(fts, rank) values("pgsz", ?)`, pageSize)
 	return err
 }
+
+// UpdateSpellfix updates the spelling table with the top terms
+// from the fts.
+func UpdateSpellfix(dbo Database, limit int) error {
+	db := dbo.(*database)
+	sql := db.getRawDB()
+	ctx := context.Background()
+	conn, err := sql.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+
+	_, err = tx.ExecContext(
+		ctx,
+		`create virtual table temp.stats using fts5vocab(main, 'fts', 'row');`,
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(
+		ctx,
+		`delete from speling`,
+	)
+
+	_, err = tx.ExecContext(
+		ctx,
+		`
+		insert into speling(word, rank)
+		select term, cnt from temp.stats
+		where length(term) > 3
+		order by cnt desc
+		limit ?
+		`,
+		limit,
+	)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	tx = nil
+	return nil
+}
