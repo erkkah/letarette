@@ -62,6 +62,10 @@ var cmdline struct {
 	Optimize     bool
 	ForceStemmer bool `docopt:"forcestemmer"`
 
+	Spelling      bool
+	Update        bool
+	SpellingLimit int `docopt:"<limit>"`
+
 	ResetMigration bool `docopt:"resetmigration"`
 	Version        int  `docopt:"<version>"`
 
@@ -82,6 +86,7 @@ Usage:
     lrcli index optimize
     lrcli index rebuild
     lrcli index forcestemmer
+    lrcli spelling update <limit>
     lrcli resetmigration <version>
     lrcli env
 
@@ -155,6 +160,8 @@ Options:
 			}
 			forceIndexStemmerState(settings, db)
 		}
+	} else if cmdline.Spelling {
+		updateSpelling(cfg)
 	} else if cmdline.ResetMigration {
 		resetMigration(cfg, cmdline.Version)
 	} else if cmdline.SQL {
@@ -391,5 +398,24 @@ func sql(db letarette.Database, statement string) {
 	fmt.Printf("Executed in %vs\n", duration)
 	for _, v := range result {
 		fmt.Println(v)
+	}
+}
+
+func updateSpelling(cfg letarette.Config) {
+	s := getSpinner("Updating spelling ", "OK\n")
+	s.Start()
+	defer s.Stop()
+
+	db, err := letarette.OpenDatabase(cfg)
+	defer db.Close()
+
+	if err != nil {
+		logger.Error.Printf("Failed to open db: %v", err)
+		return
+	}
+
+	err = letarette.UpdateSpellfix(db, cmdline.SpellingLimit)
+	if err != nil {
+		logger.Error.Printf("Failed to update spelling: %v", err)
 	}
 }
