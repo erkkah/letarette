@@ -126,18 +126,27 @@ type SearchRequest struct {
 	Spaces []string
 	// Query string in letarette syntax
 	Query string
-	// Maximum number of hits returned in one page.
+	// Maximum number of hits returned in one page
 	PageLimit uint16
 	// Zero-indexed page of hits to retrieve
 	PageOffset uint16
+	// When true, spelling mistakes are "fixed"
+	// and the resulting query is automatically performed.
+	// In either case, spell-fixed queries are returned
+	// in the SearchResult Respelt field.
+	Autocorrect bool
 }
 
-// SearchResult is a collection of search hits.
-// When Capped is true, the search was truncated at Config.Search.Cap.
-// Capped results are only locally sorted by rank.
+// SearchResult is a collection of search hits
 type SearchResult struct {
-	Hits      []SearchHit
-	Capped    bool
+	Hits []SearchHit
+	// When true, the search was truncated
+	// Capped results are only locally sorted by rank
+	Capped bool
+	// When not empty, the original query had no matches,
+	// and this is a respelt version of the query
+	Respelt string
+	// The total number of hits to the given query
 	TotalHits int
 }
 

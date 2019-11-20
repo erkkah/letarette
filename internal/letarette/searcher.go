@@ -17,6 +17,7 @@ package letarette
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mattn/go-sqlite3"
@@ -48,6 +49,29 @@ func (s *searcher) Close() {
 const minPagesize = 1
 const maxPagesize = 500
 
+func (s *searcher) spellSearch(
+	ctx context.Context, phrases []Phrase, query protocol.SearchRequest,
+) (protocol.SearchResult, error) {
+	result, err := s.db.search(ctx, phrases, query.Spaces, query.PageLimit, query.PageOffset)
+	if err != nil || result.TotalHits != 0 {
+		return result, err
+	}
+	phrases, changed, err := s.db.fixPhraseSpelling(ctx, phrases)
+	if err != nil || !changed {
+		return result, err
+	}
+	terms := []string{}
+	for _, phrase := range phrases {
+		terms = append(terms, phrase.String())
+	}
+	result.Respelt = strings.Join(terms, " ")
+	if !query.Autocorrect {
+		return result, nil
+	}
+	result, err = s.db.search(ctx, phrases, query.Spaces, query.PageLimit, query.PageOffset)
+	return result, err
+}
+
 func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchRequest) (protocol.SearchResponse, error) {
 	var err error
 	var status protocol.SearchStatusCode
@@ -68,7 +92,7 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 		if cached {
 			status = protocol.SearchStatusCacheHit
 		} else {
-			result, err = s.db.search(ctx, phrases, query.Spaces, query.PageLimit, query.PageOffset)
+			result, err = s.spellSearch(ctx, phrases, query)
 			if err == nil {
 				status = protocol.SearchStatusIndexHit
 				s.cache.Put(cacheKey, query.Spaces, query.PageLimit, query.PageOffset, result)
