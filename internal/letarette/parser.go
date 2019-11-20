@@ -116,17 +116,21 @@ func ParseQuery(query string) []Phrase {
 	return result
 }
 
-var singleChars = regexp.MustCompile(`\b\w\b`)
+var singleChars = regexp.MustCompile(`\PL\pL\PL`)
+var singleCharStart = regexp.MustCompile(`^\pL\PL`)
+var singleCharEnd = regexp.MustCompile(`\PL\pL$`)
 var whiteSpaces = regexp.MustCompile(`\s+`)
 
 func reducePhrase(phrase string) string {
 	reduced := strings.TrimSuffix(strings.TrimPrefix(phrase, `"`), `"`)
 
 	// Cut single character phrase at once
-	if len(phrase) == 1 {
+	if len(reduced) == 1 {
 		return ""
 	}
 	reduced = singleChars.ReplaceAllString(reduced, " ")
+	reduced = singleCharStart.ReplaceAllString(reduced, " ")
+	reduced = singleCharEnd.ReplaceAllString(reduced, " ")
 	reduced = whiteSpaces.ReplaceAllString(reduced, " ")
 	if reduced == " " {
 		return ""
