@@ -192,12 +192,13 @@ func TestToString(t *testing.T) {
 }
 
 func TestReducePhraseList(t *testing.T) {
-	phrases := letarette.ParseQuery(`a a "b b" - angle "grinder u"*t`)
-	gta.Assert(t, len(phrases) == 6)
+	phrases := letarette.ParseQuery(`rökare a a "b b" - angle "grinder u"*t`)
+	gta.Assert(t, len(phrases) == 7)
 	phrases = letarette.ReducePhraseList(phrases)
-	gta.Assert(t, len(phrases) == 2)
-	gta.Assert(t, phrases[0].Text == `"angle"`)
-	gta.Assert(t, phrases[1].Text == `"grinder "`)
+	gta.Assert(t, len(phrases) == 3)
+	gta.Assert(t, phrases[0].Text == `"rökare"`)
+	gta.Assert(t, phrases[1].Text == `"angle"`)
+	gta.Assert(t, phrases[2].Text == `"grinder "`)
 }
 
 func TestCanonicalizePhraseList(t *testing.T) {
@@ -206,4 +207,10 @@ func TestCanonicalizePhraseList(t *testing.T) {
 	listA = letarette.CanonicalizePhraseList(listA)
 	listB = letarette.CanonicalizePhraseList(listB)
 	gta.DeepEqual(t, listA, listB)
+}
+
+func TestUnicodeCharacters(t *testing.T) {
+	phrases := letarette.ParseQuery("rökare")
+	gta.Assert(t, len(phrases) == 1)
+	gta.Assert(t, phrases[0].Text == `"rökare"`)
 }
