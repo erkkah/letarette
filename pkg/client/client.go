@@ -84,19 +84,26 @@ func (client *searchClient) Close() {
 	client.conn.Close()
 }
 
-func (client *searchClient) getNumShards() int32 {
+func (client *searchClient) getNumShards() (int32, error) {
+	start := time.Now()
 	for {
 		numShards := atomic.LoadInt32(&client.volatileNumShards)
 		if numShards == 0 {
+			if time.Now().After(start.Add(time.Second * 5)) {
+				return 0, fmt.Errorf("Timeout waiting for cluster")
+			}
 			time.Sleep(time.Millisecond * 100)
 		} else {
-			return numShards
+			return numShards, nil
 		}
 	}
 }
 
 func (client *searchClient) Search(q string, spaces []string, pageLimit int, pageOffset int) (res protocol.SearchResponse, err error) {
-	numShards := client.getNumShards()
+	numShards, err := client.getNumShards()
+	if err != nil {
+		return
+	}
 	shardedLimit := pageLimit / int(numShards)
 	if shardedLimit < 1 {
 		shardedLimit = 1
