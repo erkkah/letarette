@@ -53,6 +53,34 @@ func phrasesToMatchString(phrases []Phrase) string {
 	return matchString
 }
 
+var queryCache = map[int]string{}
+
+func loadSearchQuery(strategy int) (string, error) {
+	if loaded, found := queryCache[strategy]; found {
+		return loaded, nil
+	}
+
+	queryAsset := fmt.Sprintf("queries/search_%d.sql", strategy)
+	query, err := Asset(queryAsset)
+	if err != nil {
+		return "", err
+	}
+	// Strip comments to avoid name binding getting caught on the url
+	// in the license header (!)
+	lines := strings.Split(string(query), "\n")
+	uncommented := []string{}
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "--") {
+			continue
+		}
+		uncommented = append(uncommented, trimmed)
+	}
+	result := strings.Join(uncommented, "\n")
+	queryCache[strategy] = result
+	return result, nil
+}
+
 func (db *database) search(ctx context.Context, phrases []Phrase, spaces []string, pageLimit uint16, pageOffset uint16) (protocol.SearchResult, error) {
 	if len(phrases) == 0 {
 		return protocol.SearchResult{}, fmt.Errorf("Empty search phrase list")
@@ -60,8 +88,7 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 
 	matchString := phrasesToMatchString(phrases)
 
-	queryAsset := fmt.Sprintf("queries/search_%d.sql", db.searchStrategy)
-	query, err := Asset(queryAsset)
+	query, err := loadSearchQuery(db.searchStrategy)
 	if err != nil {
 		return protocol.SearchResult{}, fmt.Errorf("Search strategy %d not found", db.searchStrategy)
 	}
@@ -78,7 +105,7 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 	for i, v := range spaces {
 		spaceArgs[i] = v
 	}
-	spacedQuery, spacedArgs, err := sqlx.In(string(query), spaceArgs...)
+	spacedQuery, spacedArgs, err := sqlx.In(query, spaceArgs...)
 	if err != nil {
 		return result, fmt.Errorf("Failed to expand 'in' values: %w", err)
 	}
