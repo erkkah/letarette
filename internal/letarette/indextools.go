@@ -243,12 +243,58 @@ func SetIndexPageSize(dbo Database, pageSize int) error {
 	return err
 }
 
+// GetSpellfixLag returns how many words in the main index that are not yet in the spelling index.
+func GetSpellfixLag(ctx context.Context, dbo Database, minCount int) (int, error) {
+	db := dbo.(*database)
+	rawdb := db.getRawDB()
+	conn, err := rawdb.Conn(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+
+	_, err = conn.ExecContext(
+		ctx,
+		`create virtual table if not exists temp.stats using fts5vocab(main, 'fts', 'row');`,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	row := conn.QueryRowContext(
+		ctx,
+		`
+		with
+		allwords as(
+			select count(term) as wordcount
+			from temp.stats
+			where length(term) > 3
+			and cnt >= ?
+		),
+		spellwords as (
+			select count(*) as cnt from speling
+		)
+		select (select wordcount from allwords) - (select cnt from spellwords) as lag
+		`,
+		minCount,
+	)
+
+	var lag int
+	err = row.Scan(&lag)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return lag, nil
+}
+
 // UpdateSpellfix updates the spelling table with the top terms
 // from the fts.
-func UpdateSpellfix(dbo Database, limit int) error {
+func UpdateSpellfix(ctx context.Context, dbo Database, minCount int) error {
 	db := dbo.(*database)
 	sql := db.getRawDB()
-	ctx := context.Background()
 	conn, err := sql.Conn(ctx)
 	if err != nil {
 		return err
@@ -267,7 +313,7 @@ func UpdateSpellfix(dbo Database, limit int) error {
 
 	_, err = tx.ExecContext(
 		ctx,
-		`create virtual table temp.stats using fts5vocab(main, 'fts', 'row');`,
+		`create virtual table if not exists temp.stats using fts5vocab(main, 'fts', 'row');`,
 	)
 	if err != nil {
 		return err
@@ -284,10 +330,10 @@ func UpdateSpellfix(dbo Database, limit int) error {
 		insert into speling(word, rank)
 		select term, cnt from temp.stats
 		where length(term) > 3
+		and cnt >= ?
 		order by cnt desc
-		limit ?
 		`,
-		limit,
+		minCount,
 	)
 	if err != nil {
 		return err

@@ -45,6 +45,10 @@ type Config struct {
 		MaxOutstanding          uint16        `default:"25"`
 		Disable                 bool          `default:"false"`
 	}
+	Spelling struct {
+		MinWordFrequency int `default:"5" desc:"Minimum occurences of a word to be used for spelling"`
+		MaxLag           int `default:"100" desc:"Max number of words that the spelling index is allows to lag behind the main index"`
+	}
 	Stemmer struct {
 		Languages        []string `split_words:"true" required:"true" default:"english"`
 		RemoveDiacritics bool     `split_words:"true" default:"true"`

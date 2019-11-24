@@ -16,6 +16,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -64,7 +65,7 @@ var cmdline struct {
 
 	Spelling      bool
 	Update        bool
-	SpellingLimit int `docopt:"<limit>"`
+	SpellingLimit int `docopt:"<mincount>"`
 
 	ResetMigration bool `docopt:"resetmigration"`
 	Version        int  `docopt:"<version>"`
@@ -86,7 +87,7 @@ Usage:
     lrcli index optimize
     lrcli index rebuild
     lrcli index forcestemmer
-    lrcli spelling update <limit>
+    lrcli spelling update <mincount>
     lrcli resetmigration <version>
     lrcli env
 
@@ -402,7 +403,7 @@ func sql(db letarette.Database, statement string) {
 }
 
 func updateSpelling(cfg letarette.Config) {
-	s := getSpinner("Updating spelling ", "OK\n")
+	s := getSpinner("Updating spelling", "OK\n")
 	s.Start()
 	defer s.Stop()
 
@@ -414,7 +415,8 @@ func updateSpelling(cfg letarette.Config) {
 		return
 	}
 
-	err = letarette.UpdateSpellfix(db, cmdline.SpellingLimit)
+	ctx := context.Background()
+	err = letarette.UpdateSpellfix(ctx, db, cmdline.SpellingLimit)
 	if err != nil {
 		logger.Error.Printf("Failed to update spelling: %v", err)
 	}

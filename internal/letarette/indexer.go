@@ -149,6 +149,7 @@ func (idx *indexer) main(atExit func()) {
 
 		if totalInterests == 0 {
 			cycleThrottle = time.After(idx.cfg.Index.EmptyCycleWait)
+			idx.doHousekeeping()
 		}
 		select {
 		case <-idx.context.Done():
@@ -339,4 +340,32 @@ func (idx *indexer) requestDocuments(space string, wanted []Interest) error {
 
 	err := idx.conn.Publish(topic, request)
 	return err
+}
+
+var lastHousekeeping time.Time
+var housekeepingInterval = time.Minute * 5
+
+func (idx *indexer) doHousekeeping() {
+	if time.Since(lastHousekeeping) < housekeepingInterval {
+		return
+	}
+	lastHousekeeping = time.Now()
+
+	lag, err := GetSpellfixLag(idx.context, idx.db, idx.cfg.Spelling.MinWordFrequency)
+	if err != nil {
+		logger.Error.Printf("Failed to get spelling index lag: %v", err)
+		return
+	}
+	if lag < idx.cfg.Spelling.MaxLag {
+		return
+	}
+	start := time.Now()
+	logger.Info.Printf("Housekeeping: Updating spelling index")
+	err = UpdateSpellfix(idx.context, idx.db, idx.cfg.Spelling.MinWordFrequency)
+	if err != nil {
+		logger.Error.Printf("Housekeeping: Failed to update spelling index: %v", err)
+		return
+	}
+	duration := time.Since(start)
+	logger.Info.Printf("Housekeeping: Done updating spelling index in %v seconds", duration.Seconds())
 }
