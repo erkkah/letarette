@@ -341,7 +341,11 @@ func searchPhrase(phrase string, client client.SearchClient) {
 	}
 
 	fmt.Printf("Query executed in %v seconds with status %q\n", res.Duration, res.Status.String())
-	fmt.Printf("Returning %v of %v total hits, capped: %v\n\n", len(res.Result.Hits), res.Result.TotalHits, res.Result.Capped)
+	fmt.Printf("Returning %v of %v total hits, capped: %v\n", len(res.Result.Hits), res.Result.TotalHits, res.Result.Capped)
+	if res.Status == protocol.SearchStatusNoHit {
+		fmt.Printf("Did you mean %s?\n", res.Result.Respelt)
+	}
+	fmt.Println()
 	for _, doc := range res.Result.Hits {
 		fmt.Printf("[%v] %s\n", doc.ID, doc.Snippet)
 	}

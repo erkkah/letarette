@@ -31,6 +31,9 @@ func phrasesToMatchString(phrases []Phrase) string {
 
 	for _, v := range phrases {
 		phraseExpr := v.Text
+		if !strings.HasPrefix(v.Text, `"`) {
+			phraseExpr = fmt.Sprintf("%q", v.Text)
+		}
 		if v.Wildcard {
 			phraseExpr += "*"
 		}

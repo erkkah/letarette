@@ -146,6 +146,8 @@ type SearchResult struct {
 	// When not empty, the original query had no matches,
 	// and this is a respelt version of the query
 	Respelt string
+	// The summed Levenshtein distance for all respelt terms
+	RespeltDistance float32
 	// The total number of hits to the given query
 	TotalHits int
 }

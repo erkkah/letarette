@@ -20,48 +20,51 @@ import (
 	"strings"
 )
 
-func (db *database) spellFixTerm(ctx context.Context, term string) (string, bool, error) {
+func (db *database) spellFixTerm(ctx context.Context, term string) (string, float32, bool, error) {
 	var exists bool
 	err := db.rdb.GetContext(ctx, &exists, `select exists(select rowid from fts where fts match ? limit 1)`, term)
 	if err != nil {
-		return "", false, err
+		return "", 0, false, err
 	}
 	if exists {
-		return term, false, nil
+		return term, 0, false, nil
 	}
 
 	fixed := struct {
-		Word  string
-		Score int
+		Word     string
+		Distance float32
+		Score    int
 	}{}
 	unquotedTerm := strings.TrimSuffix(strings.TrimPrefix(term, `"`), `"`)
-	err = db.rdb.GetContext(ctx, &fixed, `select word, score from speling where word match ? limit 1`, unquotedTerm)
+	err = db.rdb.GetContext(ctx, &fixed, `select word, distance, score from speling where word match ? limit 1`, unquotedTerm)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return term, false, nil
+			return term, 0, false, nil
 		}
-		return "", false, err
+		return "", 0, false, err
 	}
-	// ??? Use score?
-	return fixed.Word, true, nil
+
+	return fixed.Word, fixed.Distance, true, nil
 }
 
-func (db *database) fixPhraseSpelling(ctx context.Context, phrases []Phrase) ([]Phrase, bool, error) {
+func (db *database) fixPhraseSpelling(ctx context.Context, phrases []Phrase) ([]Phrase, float32, bool, error) {
 	clone := append(phrases[:0:0], phrases...)
+	distances := float32(0.0)
 	fixed := false
 	for index, phrase := range phrases {
 		if strings.Contains(phrase.Text, " ") {
 			// Skip multi-term phrases
 			continue
 		}
-		if fixedPhrase, phraseFixed, err := db.spellFixTerm(ctx, phrase.Text); err == nil {
+		if fixedPhrase, fixedDistance, phraseFixed, err := db.spellFixTerm(ctx, phrase.Text); err == nil {
 			if phraseFixed {
 				clone[index].Text = fixedPhrase
 				fixed = true
 			}
+			distances += fixedDistance
 		} else {
-			return []Phrase{}, false, err
+			return []Phrase{}, 0, false, err
 		}
 	}
-	return clone, fixed, nil
+	return clone, distances, fixed, nil
 }

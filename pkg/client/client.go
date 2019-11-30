@@ -173,6 +173,13 @@ func mergeResponses(responses []protocol.SearchResponse) protocol.SearchResponse
 		merged.Result.Capped = merged.Result.Capped || response.Result.Capped
 		merged.Result.TotalHits += response.Result.TotalHits
 		merged.Result.Hits = append(merged.Result.Hits, response.Result.Hits...)
+
+		// Keep the respelt version with the lowest distance
+		if merged.Result.Respelt == "" ||
+			(response.Result.RespeltDistance > 0 && merged.Result.RespeltDistance > response.Result.RespeltDistance) {
+			merged.Result.Respelt = response.Result.Respelt
+			merged.Result.RespeltDistance = response.Result.RespeltDistance
+		}
 	}
 	sort.SliceStable(merged.Result.Hits, func(a, b int) bool {
 		return merged.Result.Hits[a].Rank < merged.Result.Hits[b].Rank

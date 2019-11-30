@@ -56,7 +56,7 @@ func (s *searcher) spellSearch(
 	if err != nil || result.TotalHits != 0 {
 		return result, err
 	}
-	phrases, changed, err := s.db.fixPhraseSpelling(ctx, phrases)
+	phrases, distance, changed, err := s.db.fixPhraseSpelling(ctx, phrases)
 	if err != nil || !changed {
 		return result, err
 	}
@@ -65,6 +65,7 @@ func (s *searcher) spellSearch(
 		terms = append(terms, phrase.String())
 	}
 	result.Respelt = strings.Join(terms, " ")
+	result.RespeltDistance = distance
 	if !query.Autocorrect {
 		return result, nil
 	}

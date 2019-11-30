@@ -67,7 +67,11 @@ func (p Phrase) String() string {
 	if p.Wildcard {
 		suffix = "*"
 	}
-	return prefix + p.Text + suffix
+	phraseText := p.Text
+	if strings.Contains(phraseText, " ") && !strings.HasPrefix(phraseText, `"`) {
+		phraseText = fmt.Sprintf("%q", phraseText)
+	}
+	return prefix + phraseText + suffix
 }
 
 // ParseQuery tokenizes a query string and returns a list
@@ -93,9 +97,10 @@ func ParseQuery(query string) []Phrase {
 		text := s.TokenText()
 		switch tok {
 		case scanner.Ident:
-			text = fmt.Sprintf("%q", text)
+			//text = fmt.Sprintf("%q", text)
 			fallthrough
 		case scanner.String:
+			text = unquote(text)
 			result = append(result, Phrase{
 				Text:    text,
 				Exclude: excludeNext,
@@ -121,8 +126,12 @@ var singleCharStart = regexp.MustCompile(`^\pL\PL`)
 var singleCharEnd = regexp.MustCompile(`\PL\pL$`)
 var whiteSpaces = regexp.MustCompile(`\s+`)
 
+func unquote(phrase string) string {
+	return strings.TrimSuffix(strings.TrimPrefix(phrase, `"`), `"`)
+}
+
 func reducePhrase(phrase string) string {
-	reduced := strings.TrimSuffix(strings.TrimPrefix(phrase, `"`), `"`)
+	reduced := unquote(phrase)
 
 	// Cut single character phrase at once
 	if len(reduced) == 1 {
@@ -132,10 +141,11 @@ func reducePhrase(phrase string) string {
 	reduced = singleCharStart.ReplaceAllString(reduced, " ")
 	reduced = singleCharEnd.ReplaceAllString(reduced, " ")
 	reduced = whiteSpaces.ReplaceAllString(reduced, " ")
+	reduced = strings.TrimSpace(reduced)
 	if reduced == " " {
 		return ""
 	}
-	return `"` + reduced + `"`
+	return reduced
 }
 
 // ReducePhraseList removes one character phrases
