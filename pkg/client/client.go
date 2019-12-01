@@ -38,6 +38,14 @@ func WithShardgroupSize(groupSize int32) Option {
 	}
 }
 
+// WithTimeout sets search request timeout
+func WithTimeout(timeout time.Duration) Option {
+	return func(st *state) {
+		sc := st.local.(*searchClient)
+		sc.timeout = timeout
+	}
+}
+
 // NewSearchClient - SearchClient constructor
 func NewSearchClient(url string, options ...Option) (SearchClient, error) {
 	nc, err := nats.Connect(url, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
@@ -53,6 +61,7 @@ func NewSearchClient(url string, options ...Option) (SearchClient, error) {
 			onError: func(error) {},
 		},
 		volatileNumShards: 0,
+		timeout:           time.Second * 2,
 	}
 
 	client.local = client
@@ -74,6 +83,7 @@ type searchClient struct {
 	state
 	volatileNumShards int32
 	monitor           Monitor
+	timeout           time.Duration
 }
 
 func (client *searchClient) Close() {
@@ -139,7 +149,7 @@ func (client *searchClient) Search(q string, spaces []string, pageLimit int, pag
 	if err != nil {
 		return
 	}
-	timeout := time.After(time.Second * 2)
+	timeout := time.After(client.timeout)
 	var responses []protocol.SearchResponse
 
 waitLoop:

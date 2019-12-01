@@ -15,6 +15,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -24,11 +25,11 @@ import (
 
 // IndexRequestHandler processes index update requests from the letarette cluster
 // and returns index updates.
-type IndexRequestHandler func(req protocol.IndexUpdateRequest) (protocol.IndexUpdate, error)
+type IndexRequestHandler func(ctx context.Context, req protocol.IndexUpdateRequest) (protocol.IndexUpdate, error)
 
 // DocumentRequestHandler processes document requests from the letarette cluster
 // and returns document updates.
-type DocumentRequestHandler func(req protocol.DocumentRequest) (protocol.DocumentUpdate, error)
+type DocumentRequestHandler func(ctx context.Context, req protocol.DocumentRequest) (protocol.DocumentUpdate, error)
 
 // DocumentManager connects to the letarette cluster and processes indexing requests
 type DocumentManager interface {
@@ -37,7 +38,11 @@ type DocumentManager interface {
 	StartDocumentRequestHandler(handler DocumentRequestHandler)
 }
 
-type manager state
+type manager struct {
+	state
+	ctx    context.Context
+	cancel context.CancelFunc
+}
 
 // StartDocumentManager creates a DocumentManager and connects to Nats daemon
 func StartDocumentManager(url string, options ...Option) (DocumentManager, error) {
@@ -47,24 +52,31 @@ func StartDocumentManager(url string, options ...Option) (DocumentManager, error
 	}
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 
+	ctx, cancel := context.WithCancel(context.Background())
 	mgr := &manager{
-		conn:    ec,
-		topic:   "leta",
-		onError: func(error) {},
+		state: state{
+			conn:    ec,
+			topic:   "leta",
+			onError: func(error) {},
+		},
+		ctx:    ctx,
+		cancel: cancel,
 	}
 
-	(*state)(mgr).apply(options)
+	mgr.local = mgr
+	mgr.state.apply(options)
 
 	return mgr, nil
 }
 
 func (m *manager) Close() {
+	m.cancel()
 	m.conn.Close()
 }
 
 func (m *manager) StartIndexRequestHandler(handler IndexRequestHandler) {
 	m.conn.Subscribe(m.topic+".index.request", func(sub, reply string, req *protocol.IndexUpdateRequest) {
-		update, err := handler(*req)
+		update, err := handler(m.ctx, *req)
 		if err != nil {
 			m.onError(err)
 			return
@@ -78,7 +90,7 @@ func (m *manager) StartIndexRequestHandler(handler IndexRequestHandler) {
 
 func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) {
 	m.conn.Subscribe(m.topic+".document.request", func(req *protocol.DocumentRequest) {
-		update, err := handler(*req)
+		update, err := handler(m.ctx, *req)
 		if err != nil {
 			m.onError(err)
 			return

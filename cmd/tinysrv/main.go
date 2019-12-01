@@ -16,6 +16,7 @@ package main
 
 import (
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -238,7 +239,7 @@ var lastUpdate = time.Now()
 var deleteFreq = 0 * time.Second
 var lastDelete = time.Now()
 
-func handleIndexRequest(req protocol.IndexUpdateRequest) (protocol.IndexUpdate, error) {
+func handleIndexRequest(ctx context.Context, req protocol.IndexUpdateRequest) (protocol.IndexUpdate, error) {
 	if req.Space != space {
 		return protocol.IndexUpdate{}, fmt.Errorf("Space %v not in db", req.Space)
 	}
@@ -320,7 +321,7 @@ func deadDocument(id protocol.DocumentID) protocol.Document {
 	}
 }
 
-func handleDocumentRequest(req protocol.DocumentRequest) (protocol.DocumentUpdate, error) {
+func handleDocumentRequest(ctx context.Context, req protocol.DocumentRequest) (protocol.DocumentUpdate, error) {
 	if req.Space != space {
 		return protocol.DocumentUpdate{}, fmt.Errorf("Space %v not in db", req.Space)
 	}
