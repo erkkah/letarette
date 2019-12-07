@@ -30,7 +30,7 @@ jobs:
     - name: Cache go modules
       uses: actions/cache@v1
       with:
-        path: ${{ format('{0}/pkg/mod', $GOPATH || format('{0}/go', $HOME)) }}
+        path: ${{ format('{0}/pkg/mod', env.GOPATH || format('{0}/go', env.HOME)) }}
         key: ${{ runner.OS }}-build-${{ hashFiles('go.sum') }}
         
     - name: Install go-bindata
