@@ -72,12 +72,12 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - uses: actions/download-artifacts@1
+      - uses: actions/download-artifact@1
         with:
           name: letarette-macos-latest
           path: macos/letarette
 
-      - uses: actions/download-artifacts@1
+      - uses: actions/download-artifact@1
         with:
           name: letarette-ubuntu-latest
           path: linux/letarette
