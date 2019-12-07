@@ -37,11 +37,20 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
         restore-keys: ${{ runner.os }}-go-
 
-    - name: Cache go build cache
+    - name: Cache go build cache (ubuntu)
+      if: startsWith(matrix.os, 'ubuntu')
       uses: actions/cache@v1
       with:
         path: ~/.cache/go-build
-        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+        key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
+        restore-keys: ${{ runner.os }}-gocache-
+
+    - name: Cache go build cache (macos)
+      if: startsWith(matrix.os, 'ubuntu')
+      uses: actions/cache@v1
+      with:
+        path: ~/Library/Caches/go-build
+        key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
         restore-keys: ${{ runner.os }}-gocache-
 
     - name: Install go-bindata
