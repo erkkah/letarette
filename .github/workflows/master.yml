@@ -44,7 +44,7 @@ jobs:
     - name: Save artifacts
       uses: actions/upload-artifact@v1
       with:
-        name: ${{ join('letarette-', matrix.os) }}
+        name: ${{ format('letarette-{0}', matrix.os) }}
         path: letarette
 
   release:
