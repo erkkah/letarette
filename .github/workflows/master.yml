@@ -27,6 +27,11 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v1
 
+    - name: Print environment
+      run: echo $DEBUG
+      env:
+        DEBUG: ${{ toJson(env) }}
+
     - name: Cache go modules
       uses: actions/cache@v1
       with:
