@@ -5,6 +5,8 @@ on:
     branches:
       - master
       - releasescript
+    tags:
+      - v*
 
 jobs:
 
@@ -28,12 +30,8 @@ jobs:
     - name: Cache go modules
       uses: actions/cache@v1
       with:
-        path: ${GOPATH:-$HOME/go}/pkg/mod
+        path: ${{ format('{0}/pkg/mod', $GOPATH || format('{0}/go', $HOME)) }}
         key: ${{ runner.OS }}-build-${{ hashFiles('go.sum') }}
-        restore-keys: |
-          ${{ runner.OS }}-build-${{ env.cache-name }}-
-          ${{ runner.OS }}-build-
-          ${{ runner.OS }}-
         
     - name: Install go-bindata
       run: go get -u github.com/go-bindata/go-bindata/...
