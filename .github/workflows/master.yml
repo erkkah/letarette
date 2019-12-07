@@ -49,7 +49,7 @@ jobs:
 
   release:
     needs: build
-    runs_on: ubuntu-latest
+    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'v')
     env:
       ARCHIVE: ${{ format('letarette-{0}.zip', github.ref) }}
