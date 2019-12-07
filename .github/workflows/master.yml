@@ -22,18 +22,18 @@ jobs:
         go-version: 1.13
       id: go
 
-    - name: Cache node modules
+    - name: Check out code
+      uses: actions/checkout@v1
+
+    - name: Cache go modules
       uses: actions/cache@v1
       with:
-        path: $GOPATH
+        path: ${GOPATH:-$HOME/go}/pkg/mod
         key: ${{ runner.OS }}-build-${{ hashFiles('go.sum') }}
         restore-keys: |
           ${{ runner.OS }}-build-${{ env.cache-name }}-
           ${{ runner.OS }}-build-
           ${{ runner.OS }}-
-
-    - name: Check out code
-      uses: actions/checkout@v1
         
     - name: Install go-bindata
       run: go get -u github.com/go-bindata/go-bindata/...
