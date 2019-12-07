@@ -1,0 +1,91 @@
+name: Master build
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    steps:
+
+    - name: Set up Go 1.13
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13
+      id: go
+
+    - name: Check out code
+      uses: actions/checkout@v1
+        
+    - name: Install go-bindata
+      run: go get -u github.com/go-bindata/go-bindata/...
+
+    - name: Install sqlite3 libs (ubuntu)
+      run: sudo apt-get install -y libsqlite3-dev
+      if: startsWith(matrix.os, 'ubuntu')
+
+    - name: Install sqlite3 libs (macos)
+      run: brew install sqlite3
+      if: startsWith(matrix.os, 'macos')
+
+    - name: Build
+      run: make
+    
+    - name: Test
+      run: make test
+    
+    - name: Save artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: ${{ join('letarette-', matrix.os) }}
+        path: letarette
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'v')
+    env:
+      ARCHIVE: ${{ join('letarette-', github.ref, '.zip') }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/download-artifacts@1
+        with:
+          name: letarette-macos-latest
+          path: macos/letarette
+
+      - uses: actions/download-artifacts@1
+        with:
+          name: letarette-ubuntu-latest
+          path: linux/letarette
+
+      - name: Pack release
+        id: pack-release
+        run: zip -r $ARCHIVE linux macos
+
+      - name: Create release
+        id: create-release
+        uses: actions/create-release@1
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Changes in this Release
+            - First Change
+            - Second Change
+          draft: true
+          prerelease: true
+      
+      - name: Upload release assets
+        uses: actions/upload-release-asset@1.0.1
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: $ARCHIVE
+          asset_name: $ARCHIVE
+          asset_content_type: application/zip

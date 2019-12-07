@@ -1,5 +1,10 @@
-name: Build
-on: [push]
+name: Branch build
+
+on:
+  push:
+    branches-ignore:
+      - master
+
 jobs:
 
   build:
@@ -7,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-latest]
     steps:
 
     - name: Set up Go 1.13
@@ -16,7 +21,7 @@ jobs:
         go-version: 1.13
       id: go
 
-    - name: Check out code into the Go module directory
+    - name: Check out code
       uses: actions/checkout@v1
         
     - name: Install go-bindata
@@ -29,10 +34,6 @@ jobs:
     - name: Install sqlite3 libs (macos)
       run: brew install sqlite3
       if: startsWith(matrix.os, 'macos')
-
-    - name: Install sqlite3 libs (win)
-      run: choco install sqlite --params "/NoTools"
-      if: startsWith(matrix.os, 'windows')
 
     - name: Build
       run: make
