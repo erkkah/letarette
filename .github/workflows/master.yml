@@ -27,11 +27,8 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v1
 
-    - name: Print environment
-      run: echo $DEBUG
-      env:
-        DEBUG: ${{ toJson(github) }}
-        
+    - name: Print go environment
+      run: go env        
 
     - name: Cache go modules
       uses: actions/cache@v1
@@ -39,6 +36,13 @@ jobs:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
         restore-keys: ${{ runner.os }}-go-
+
+    - name: Cache go build cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+        restore-keys: ${{ runner.os }}-gocache-
 
     - name: Install go-bindata
       run: go get -u github.com/go-bindata/go-bindata/...
@@ -89,7 +93,7 @@ jobs:
 
       - name: Create release
         id: create-release
-        uses: actions/create-release@1
+        uses: actions/create-release@1.0.0
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
