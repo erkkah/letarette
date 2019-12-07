@@ -17,7 +17,7 @@ SNOWBALL := internal/snowball/snowball
 snowball: $(SNOWBALL)/libstemmer.o
 
 $(SNOWBALL)/libstemmer.o: $(SNOWBALL)/README
-	$(MAKE) -C $(SNOWBALL)
+	$(MAKE) -C $(SNOWBALL) libstemmer.o
 
 $(SNOWBALL)/README:
 	git submodule init && git submodule update --recursive
