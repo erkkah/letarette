@@ -30,13 +30,14 @@ jobs:
     - name: Print environment
       run: echo $DEBUG
       env:
-        DEBUG: ${{ toJson(env) }}
+        DEBUG: ${{ toJson(github) }}
+        
 
     - name: Cache go modules
       uses: actions/cache@v1
       with:
-        path: ${{ format('{0}/pkg/mod', env.GOPATH || format('{0}/go', env.HOME)) }}
-        key: ${{ runner.OS }}-build-${{ hashFiles('go.sum') }}
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         
     - name: Install go-bindata
       run: go get -u github.com/go-bindata/go-bindata/...
@@ -62,6 +63,7 @@ jobs:
         path: letarette
 
   release:
+    name: Release
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'v')
