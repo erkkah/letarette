@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - releasescript
 
 jobs:
 
@@ -14,6 +15,12 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest]
     steps:
+
+    - name: Debug
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+        JOB_CONTEXT: ${{ toJson(job) }}
+      run: echo "$GITHUB_CONTEXT, $JOB_CONTEXT"
 
     - name: Set up Go 1.13
       uses: actions/setup-go@v1
