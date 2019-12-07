@@ -7,7 +7,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     steps:
 
     - name: Set up Go 1.13
@@ -22,13 +22,17 @@ jobs:
     - name: Install go-bindata
       run: go get -u github.com/go-bindata/go-bindata/...
 
-    - name: Install sqlite3
+    - name: Install sqlite3 libs (ubuntu)
       run: sudo apt-get install -y libsqlite3-dev
       if: startsWith(matrix.os, 'ubuntu')
 
-    - name: Install sqlite3
+    - name: Install sqlite3 libs (macos)
       run: brew install sqlite3
       if: startsWith(matrix.os, 'macos')
+
+    - name: Install sqlite3 libs (win)
+      run: choco install sqlite --params "/NoTools"
+      if: startsWith(matrix.os, 'windows')
 
     - name: Build
       run: make
