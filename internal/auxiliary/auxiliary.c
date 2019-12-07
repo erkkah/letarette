@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "aux.h"
+#include "auxiliary.h"
 #include <string.h>
 #include <stdlib.h>
 

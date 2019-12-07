@@ -18,7 +18,7 @@ package auxiliary
 // #cgo darwin CFLAGS: -I/usr/local/opt/sqlite/include
 // #cgo LDFLAGS: -lsqlite3
 // #cgo darwin LDFLAGS: -L/usr/local/opt/sqlite/lib
-// #include "aux.h"
+// #include "auxiliary.h"
 import "C"
 import (
 	"fmt"
