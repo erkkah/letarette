@@ -49,9 +49,10 @@ jobs:
 
   release:
     needs: build
+    runs_on: ubuntu-latest
     if: startsWith(github.ref, 'v')
     env:
-      ARCHIVE: ${{ join('letarette-', github.ref, '.zip') }}
+      ARCHIVE: ${{ format('letarette-{0}.zip', github.ref) }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
