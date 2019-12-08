@@ -135,7 +135,7 @@ jobs:
 
       - name: Load release notes
         id: release-notes
-        run: echo "::set-output name=body::$(cat CHANGELOG.md)"
+        run: echo "::set-output name=body::$(cat changelog/CHANGELOG.md)"
 
       - name: Create release
         id: create_release
