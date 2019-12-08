@@ -15,8 +15,10 @@ github.com/snowballstem/snowball:internal/snowball/snowball/COPYING
 TARGET=licenses
 mkdir -p $TARGET
 NOTICE=$TARGET/NOTICE
+cp LICENSE $TARGET
 
 echo "
+Letarette is licensed under the Apache v2.0 License.
 Letarette uses the following fine packages:
 ---
 " > $NOTICE

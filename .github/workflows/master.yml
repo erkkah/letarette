@@ -69,7 +69,18 @@ jobs:
     
     - name: Test
       run: make test
-    
+
+    - name: Collect licenses
+      if: startsWith(matrix.os, 'ubuntu')
+      run: ./licenses.sh
+
+    - name: Save license info
+      if: startsWith(matrix.os, 'ubuntu')
+      uses: actions/upload-artifact@v1
+      with:
+        name: licenses
+        path: licenses
+
     - name: Save artifacts
       uses: actions/upload-artifact@v1
       with:
@@ -98,6 +109,11 @@ jobs:
           name: letarette-ubuntu-latest
           path: linux/letarette
 
+      - uses: actions/download-artifact@v1.0.0
+        with:
+          name: licenses
+          path: licenses
+  
       - name: Collect licenses
         run: ./licenses.sh
 
@@ -105,7 +121,7 @@ jobs:
         id: pack-release
         env:
           ARCHIVE: ${{ format('letarette-{0}.zip', env.TAG) }}
-        run: zip -r $ARCHIVE linux macos LICENSE licenses README.md
+        run: zip -r $ARCHIVE linux macos licenses
 
       - name: Create release
         id: create_release
