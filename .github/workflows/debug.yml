@@ -23,7 +23,7 @@ jobs:
 
       - name: Create release
         id: create_release
-        uses: actions/create-release@1.0.0
+        uses: actions/create-release@v1
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
@@ -35,7 +35,7 @@ jobs:
           prerelease: true
       
       - name: Upload release assets
-        uses: actions/upload-release-asset@1.0.1
+        uses: actions/upload-release-asset@v1.0.1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: $ARCHIVE
