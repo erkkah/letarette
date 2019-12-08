@@ -113,9 +113,6 @@ jobs:
         with:
           name: licenses
           path: licenses
-  
-      - name: Collect licenses
-        run: ./licenses.sh
 
       - name: Pack release
         id: pack-release
