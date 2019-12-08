@@ -105,12 +105,12 @@ jobs:
       - uses: actions/download-artifact@v1.0.0
         with:
           name: letarette-macos-latest
-          path: macos/letarette
+          path: macos
 
       - uses: actions/download-artifact@v1.0.0
         with:
           name: letarette-ubuntu-latest
-          path: linux/letarette
+          path: linux
 
       - uses: actions/download-artifact@v1.0.0
         with:
@@ -125,12 +125,9 @@ jobs:
         id: create_release
         uses: actions/create-release@v1.0.0
         with:
-          tag_name: ${{ env.TAG }}
-          release_name: Release ${{ env.TAG }}
-          body: |
-            Changes in this Release
-            - First Change
-            - Second Change
+          tag_name: ${{ github.ref }}
+          release_name: ${{ env.TAG }}
+          body: Changes in this Release...
           draft: true
           prerelease: true
       
