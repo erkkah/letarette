@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - v*
 
 jobs:
 
@@ -23,7 +25,34 @@ jobs:
 
     - name: Check out code
       uses: actions/checkout@v1
-        
+
+    - name: Cache go modules
+      uses: actions/cache@v1
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+        restore-keys: ${{ runner.os }}-go-
+
+    - name: Get GOCACHE
+      run: echo ::set-env name=GOCACHE::$(eval `go env | grep GOCACHE` && echo $GOCACHE)
+    
+    - name: Cache go build cache
+      uses: actions/cache@v1
+      with:
+        path: ${{ env.GOCACHE }}
+        key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
+        restore-keys: ${{ runner.os }}-gocache-
+    
+    - name: Get libstemmer version
+      run: git submodule status internal/snowball/snowball > snowball.status
+
+    - name: Cache libstemmer
+      uses: actions/cache@v1
+      with:
+        path: internal/snowball/snowball
+        key: ${{ runner.os }}-snowball-${{ hashFiles('snowball.status') }}
+        restore-keys: ${{ runner.os }}-snowball-
+
     - name: Install go-bindata
       run: go get -u github.com/go-bindata/go-bindata/...
 
@@ -40,7 +69,25 @@ jobs:
     
     - name: Test
       run: make test
-    
+
+    - name: Collect licenses
+      if: startsWith(matrix.os, 'ubuntu')
+      run: ./licenses.sh
+
+    - name: Save license info
+      if: startsWith(matrix.os, 'ubuntu')
+      uses: actions/upload-artifact@v1
+      with:
+        name: licenses
+        path: licenses
+
+    - name: Save change log
+      if: startsWith(matrix.os, 'ubuntu')
+      uses: actions/upload-artifact@v1
+      with:
+        name: changelog
+        path: CHANGELOG.md
+
     - name: Save artifacts
       uses: actions/upload-artifact@v1
       with:
@@ -48,45 +95,61 @@ jobs:
         path: letarette
 
   release:
+    name: Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'v')
+    if: startsWith(github.ref, 'refs/tags/v')
     env:
-      ARCHIVE: ${{ format('letarette-{0}.zip', github.ref) }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - uses: actions/download-artifacts@1
+      - name: Set TAG
+        run: echo ::set-env name=TAG::$(echo ${GITHUB_REF:10})
+
+      - name: Set ARCHIVE
+        run: echo ::set-env name=ARCHIVE::letarette-${TAG}.zip
+
+      - uses: actions/download-artifact@v1.0.0
         with:
           name: letarette-macos-latest
-          path: macos/letarette
+          path: macos
 
-      - uses: actions/download-artifacts@1
+      - uses: actions/download-artifact@v1.0.0
         with:
           name: letarette-ubuntu-latest
-          path: linux/letarette
+          path: linux
+
+      - uses: actions/download-artifact@v1.0.0
+        with:
+          name: licenses
+          path: licenses
+
+      - uses: actions/download-artifact@v1.0.0
+        with:
+          name: changelog
 
       - name: Pack release
         id: pack-release
-        run: zip -r $ARCHIVE linux macos
+        run: zip -r $ARCHIVE linux macos licenses
+
+      - name: Load change log
+        id: changelog
+        run: echo "::set-output name=body::$(cat changelog/CHANGELOG.md | sed -e 's/%/%25/g' | sed -e ':begin;$!N;s/\n/%0A/;tbegin')"
 
       - name: Create release
-        id: create-release
-        uses: actions/create-release@1
+        id: create_release
+        uses: actions/create-release@master
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: |
-            Changes in this Release
-            - First Change
-            - Second Change
+          release_name: ${{ env.TAG }}
+          body: ${{ steps.changelog.outputs.body }}
           draft: true
           prerelease: true
       
       - name: Upload release assets
-        uses: actions/upload-release-asset@1.0.1
+        uses: actions/upload-release-asset@v1.0.1
         with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: $ARCHIVE
-          asset_name: $ARCHIVE
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARCHIVE }}
+          asset_name: ${{ env.ARCHIVE }}
           asset_content_type: application/zip
