@@ -46,7 +46,7 @@ jobs:
         restore-keys: ${{ runner.os }}-gocache-
 
     - name: Cache go build cache (macos)
-      if: startsWith(matrix.os, 'ubuntu')
+      if: startsWith(matrix.os, 'macos')
       uses: actions/cache@v1
       with:
         path: ~/Library/Caches/go-build
@@ -101,7 +101,7 @@ jobs:
         run: zip -r $ARCHIVE linux macos
 
       - name: Create release
-        id: create-release
+        id: create_release
         uses: actions/create-release@1.0.0
         with:
           tag_name: ${{ github.ref }}
@@ -116,7 +116,7 @@ jobs:
       - name: Upload release assets
         uses: actions/upload-release-asset@1.0.1
         with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: $ARCHIVE
           asset_name: $ARCHIVE
           asset_content_type: application/zip
