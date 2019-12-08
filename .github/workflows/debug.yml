@@ -10,7 +10,6 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     env:
-      ARCHIVE: ${{ format('letarette-{0}.zip', jobs.setup.steps.tag.outputs.tag) }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
