@@ -6,12 +6,22 @@ on:
       - releasescript
 
 jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get tag
+        id: tag
+        run: echo ::set-output name=tag::$(echo ${GITHUB_REF:10})
+
 
   release:
     name: Release
     runs-on: ubuntu-latest
+    needs: setup
     env:
-      ARCHIVE: ${{ format('letarette-{0}.zip', github.ref) }}
+      TAG:  ${{ jobs.setup.steps.tag.outputs.tag }}
+      ARCHIVE: ${{ format('letarette-{0}.zip', jobs.setup.steps.tag.outputs.tag) }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
@@ -25,8 +35,8 @@ jobs:
         id: create_release
         uses: actions/create-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          tag_name: ${{ env.TAG }}
+          release_name: Release ${{ env.TAG }}
           body: |
             Changes in this Release
             - First Change
