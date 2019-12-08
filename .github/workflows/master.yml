@@ -133,9 +133,9 @@ jobs:
         id: pack-release
         run: zip -r $ARCHIVE linux macos licenses
 
-      - name: Load release notes
-        id: release-notes
-        run: echo "::set-output name=body::$(cat changelog/CHANGELOG.md)"
+      - name: Load change log
+        id: changelog
+        run: echo "::set-output name=body::$(cat changelog/CHANGELOG.md | sed -e 's/%/%25/g' | sed -e ':begin;$!N;s/\n/%0A/;tbegin')"
 
       - name: Create release
         id: create_release
@@ -143,7 +143,7 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: ${{ env.TAG }}
-          body: ${{ steps.release-notes.outputs.body }}
+          body: ${{ steps.changelog.outputs.body }}
           draft: true
           prerelease: true
       
