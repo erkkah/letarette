@@ -1,0 +1,43 @@
+name: Master build
+
+on:
+  push:
+    branches:
+      - releasescript
+
+jobs:
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    env:
+      ARCHIVE: ${{ format('letarette-{0}.zip', github.ref) }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Fake assets
+        run: touch linux macos
+      - name: Pack release
+        id: pack-release
+        run: zip -r $ARCHIVE linux macos
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@1.0.0
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Changes in this Release
+            - First Change
+            - Second Change
+          draft: true
+          prerelease: true
+      
+      - name: Upload release assets
+        uses: actions/upload-release-asset@1.0.1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: $ARCHIVE
+          asset_name: $ARCHIVE
+          asset_content_type: application/zip
