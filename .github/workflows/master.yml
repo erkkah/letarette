@@ -35,7 +35,7 @@ jobs:
         restore-keys: ${{ runner.os }}-go-
 
     - name: Get GOCACHE
-      run: echo ::set-env name=`go env | grep GOCACHE | sed -e "s/=/::/"`
+      run: echo ::set-env name=GOCACHE::$(eval `go env | grep GOCACHE` && echo $GOCACHE)
     
     - name: Cache go build cache
       uses: actions/cache@v1
@@ -122,13 +122,17 @@ jobs:
         id: pack-release
         run: zip -r $ARCHIVE linux macos licenses
 
+      - name: Load release notes
+        id: release-notes
+        run: echo "::set-output name=body::$(cat CHANGELOG.md)"
+
       - name: Create release
         id: create_release
-        uses: actions/create-release@v1
+        uses: actions/create-release@master
         with:
           tag_name: ${{ github.ref }}
           release_name: ${{ env.TAG }}
-          body: "Changes in this Release..."
+          body: ${{ steps.release-notes.outputs.body }}
           draft: true
           prerelease: true
       
