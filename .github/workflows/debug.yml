@@ -6,29 +6,24 @@ on:
       - releasescript
 
 jobs:
-  setup:
-    name: Setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get tag
-        id: tag
-        run: echo ::set-output name=tag::$(echo ${GITHUB_REF:10})
-
-
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: setup
     env:
-      TAG:  ${{ jobs.setup.steps.tag.outputs.tag }}
       ARCHIVE: ${{ format('letarette-{0}.zip', jobs.setup.steps.tag.outputs.tag) }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
+      - name: Setup
+        run: echo ::set-env name=TAG::$(echo ${GITHUB_REF:10})
+
       - name: Fake assets
         run: touch linux macos
+
       - name: Pack release
         id: pack-release
+        env:
+          ARCHIVE: ${{ format('letarette-{0}.zip', env.TAG) }}
         run: zip -r $ARCHIVE linux macos
 
       - name: Create release
@@ -46,6 +41,8 @@ jobs:
       
       - name: Upload release assets
         uses: actions/upload-release-asset@v1.0.1
+        env:
+          ARCHIVE: ${{ format('letarette-{0}.zip', env.TAG) }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: $ARCHIVE
