@@ -82,6 +82,13 @@ jobs:
         name: licenses
         path: licenses
 
+    - name: Save change log
+      if: startsWith(matrix.os, 'ubuntu')
+      uses: actions/upload-artifact@v1
+      with:
+        name: changelog
+        path: CHANGELOG.md
+
     - name: Save artifacts
       uses: actions/upload-artifact@v1
       with:
@@ -117,6 +124,10 @@ jobs:
         with:
           name: licenses
           path: licenses
+
+      - uses: actions/download-artifact@v1.0.0
+        with:
+          name: changelog
 
       - name: Pack release
         id: pack-release
