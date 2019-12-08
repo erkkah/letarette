@@ -98,11 +98,14 @@ jobs:
           name: letarette-ubuntu-latest
           path: linux/letarette
 
+      - name: Collect licenses
+        run: ./licenses.sh
+
       - name: Pack release
         id: pack-release
         env:
           ARCHIVE: ${{ format('letarette-{0}.zip', env.TAG) }}
-        run: zip -r $ARCHIVE linux macos
+        run: zip -r $ARCHIVE linux macos LICENSE licenses README.md
 
       - name: Create release
         id: create_release
@@ -123,6 +126,6 @@ jobs:
           ARCHIVE: ${{ format('letarette-{0}.zip', env.TAG) }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: $ARCHIVE
-          asset_name: $ARCHIVE
+          asset_path: ${{ env.ARCHIVE }}
+          asset_name: ${{ env.ARCHIVE }}
           asset_content_type: application/zip
