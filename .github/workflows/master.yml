@@ -96,8 +96,11 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Setup
+      - name: Set TAG
         run: echo ::set-env name=TAG::$(echo ${GITHUB_REF:10})
+
+      - name: Set ARCHIVE
+        run: echo ::set-env name=ARCHIVE::letarette-${TAG}.zip
 
       - uses: actions/download-artifact@v1.0.0
         with:
@@ -116,8 +119,6 @@ jobs:
 
       - name: Pack release
         id: pack-release
-        env:
-          ARCHIVE: ${{ format('letarette-{0}.zip', env.TAG) }}
         run: zip -r $ARCHIVE linux macos licenses
 
       - name: Create release
@@ -135,8 +136,6 @@ jobs:
       
       - name: Upload release assets
         uses: actions/upload-release-asset@v1.0.1
-        env:
-          ARCHIVE: ${{ format('letarette-{0}.zip', env.TAG) }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ env.ARCHIVE }}
