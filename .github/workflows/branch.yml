@@ -4,7 +4,6 @@ on:
   push:
     branches-ignore:
       - master
-      - releasescript
 
 jobs:
 
@@ -24,7 +23,34 @@ jobs:
 
     - name: Check out code
       uses: actions/checkout@v1
-        
+
+    - name: Cache go modules
+      uses: actions/cache@v1
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+        restore-keys: ${{ runner.os }}-go-
+
+    - name: Get GOCACHE
+      run: echo ::set-env name=GOCACHE::$(eval `go env | grep GOCACHE` && echo $GOCACHE)
+    
+    - name: Cache go build cache
+      uses: actions/cache@v1
+      with:
+        path: ${{ env.GOCACHE }}
+        key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
+        restore-keys: ${{ runner.os }}-gocache-
+    
+    - name: Get libstemmer version
+      run: git submodule status internal/snowball/snowball > snowball.status
+
+    - name: Cache libstemmer
+      uses: actions/cache@v1
+      with:
+        path: internal/snowball/snowball
+        key: ${{ runner.os }}-snowball-${{ hashFiles('snowball.status') }}
+        restore-keys: ${{ runner.os }}-snowball-
+
     - name: Install go-bindata
       run: go get -u github.com/go-bindata/go-bindata/...
 

@@ -3,8 +3,7 @@ name: Master build
 on:
   push:
     branches:
-      - masters
-      - releasescripts
+      - master
     tags:
       - v*
 
