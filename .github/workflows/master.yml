@@ -82,30 +82,34 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     env:
-      ARCHIVE: ${{ format('letarette-{0}.zip', github.ref) }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - uses: actions/download-artifact@1.0.0
+      - name: Setup
+        run: echo ::set-env name=TAG::$(echo ${GITHUB_REF:10})
+
+      - uses: actions/download-artifact@v1.0.0
         with:
           name: letarette-macos-latest
           path: macos/letarette
 
-      - uses: actions/download-artifact@1.0.0
+      - uses: actions/download-artifact@v1.0.0
         with:
           name: letarette-ubuntu-latest
           path: linux/letarette
 
       - name: Pack release
         id: pack-release
+        env:
+          ARCHIVE: ${{ format('letarette-{0}.zip', env.TAG) }}
         run: zip -r $ARCHIVE linux macos
 
       - name: Create release
         id: create_release
-        uses: actions/create-release@1.0.0
+        uses: actions/create-release@v1.0.0
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          tag_name: ${{ env.TAG }}
+          release_name: Release ${{ env.TAG }}
           body: |
             Changes in this Release
             - First Change
@@ -114,7 +118,9 @@ jobs:
           prerelease: true
       
       - name: Upload release assets
-        uses: actions/upload-release-asset@1.0.1
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          ARCHIVE: ${{ format('letarette-{0}.zip', env.TAG) }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: $ARCHIVE
