@@ -27,9 +27,6 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v1
 
-    - name: Print go environment
-      run: go env        
-
     - name: Cache go modules
       uses: actions/cache@v1
       with:
@@ -37,21 +34,25 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
         restore-keys: ${{ runner.os }}-go-
 
-    - name: Cache go build cache (ubuntu)
-      if: startsWith(matrix.os, 'ubuntu')
+    - name: Get GOCACHE
+      run: echo ::set-env name=`go env | grep GOCACHE | sed -e "s/=/::/"`
+    
+    - name: Cache go build cache
       uses: actions/cache@v1
       with:
-        path: ~/.cache/go-build
+        path: ${{ env.GOCACHE }}
         key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
         restore-keys: ${{ runner.os }}-gocache-
+    
+    - name: Get libstemmer version
+      run: git submodule status internal/snowball/snowball > snowball.status
 
-    - name: Cache go build cache (macos)
-      if: startsWith(matrix.os, 'macos')
+    - name: Cache libstemmer
       uses: actions/cache@v1
       with:
-        path: ~/Library/Caches/go-build
-        key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
-        restore-keys: ${{ runner.os }}-gocache-
+        path: internal/snowball/snowball
+        key: ${{ runner.os }}-snowball-${{ hashFiles('snowball.status') }}
+        restore-keys: ${{ runner.os }}-snowball-
 
     - name: Install go-bindata
       run: go get -u github.com/go-bindata/go-bindata/...
@@ -123,11 +124,11 @@ jobs:
 
       - name: Create release
         id: create_release
-        uses: actions/create-release@v1.0.0
+        uses: actions/create-release@v1
         with:
           tag_name: ${{ github.ref }}
           release_name: ${{ env.TAG }}
-          body: Changes in this Release...
+          body: "Changes in this Release..."
           draft: true
           prerelease: true
       
