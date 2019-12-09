@@ -23,6 +23,4 @@ jobs:
         run: docker build -t docker.pkg.github.com/erkkah/letarette/letarette:$TAG .
 
       - name: Push docker image
-        run: |
-          docker login docker.pkg.github.com --username erkkah
-          docker push docker.pkg.github.com/erkkah/letarette/letarette:$TAG
+        run: docker push docker.pkg.github.com/erkkah/letarette/letarette:$TAG
