@@ -1,0 +1,30 @@
+name: Docker build and push
+
+on:
+  push:
+    branches:
+      - docker
+    tags:
+      - v*
+
+jobs:
+  docker:
+    name: Build and push
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v1
+
+      - name: Set TAG
+        run: echo ::set-env name=TAG::$(echo ${GITHUB_REF:10})
+
+      - name: Build docker image
+        run: docker build -t docker.pkg.github.com/erkkah/letarette/letarette:$TAG
+
+      - name: Push docker image
+        run: |
+          docker login docker.pkg.github.com --username erkkah
+          docker push docker.pkg.github.com/erkkah/letarette/letarette:$TAG
