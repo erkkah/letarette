@@ -1,6 +1,6 @@
 FROM golang:1.13-alpine as builder
 
-RUN apk update && apk add --no-cache sqlite-dev make gcc libc-dev tzdata
+RUN apk update && apk add --no-cache sqlite-dev make gcc libc-dev tzdata git
 RUN adduser -D -g '' letarette
 
 WORKDIR /go/src/app
