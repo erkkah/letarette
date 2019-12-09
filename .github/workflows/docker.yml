@@ -2,8 +2,6 @@ name: Docker build and push
 
 on:
   push:
-    branches:
-      - docker
     tags:
       - v*
 
@@ -22,7 +20,7 @@ jobs:
         run: echo ::set-env name=TAG::$(echo ${GITHUB_REF:10})
 
       - name: Build docker image
-        run: docker build -t docker.pkg.github.com/erkkah/letarette/letarette:$TAG
+        run: docker build -t docker.pkg.github.com/erkkah/letarette/letarette:$TAG .
 
       - name: Push docker image
         run: |
