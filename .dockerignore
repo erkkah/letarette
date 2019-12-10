@@ -1,0 +1,4 @@
+*.db
+stuff
+.vscode
+Dockerfile
