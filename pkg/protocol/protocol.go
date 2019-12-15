@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package protocol describes the wire protocol between workers,
-// document managers and search clients.
+// document managers and search agents.
 // The actual NATS messages are JSON-encoded versions of the
 // types defined here.
 package protocol

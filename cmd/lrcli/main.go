@@ -308,28 +308,28 @@ func forceIndexStemmerState(state snowball.Settings, db letarette.Database) {
 }
 
 func doSearch(cfg letarette.Config) {
-	c, err := client.NewSearchClient(cfg.Nats.URL, client.WithShardgroupSize(cmdline.GroupSize))
+	a, err := client.NewSearchAgent(cfg.Nats.URL, client.WithShardgroupSize(cmdline.GroupSize))
 	if err != nil {
-		logger.Error.Printf("Failed to create search client: %v", err)
+		logger.Error.Printf("Failed to create search agent: %v", err)
 		return
 	}
-	defer c.Close()
+	defer a.Close()
 
 	if cmdline.Interactive {
 		scanner := bufio.NewScanner(os.Stdin)
 		const prompt = "search>"
 		os.Stdout.WriteString(prompt)
 		for scanner.Scan() {
-			searchPhrase(scanner.Text(), c)
+			searchPhrase(scanner.Text(), a)
 			os.Stdout.WriteString(prompt)
 		}
 	} else {
-		searchPhrase(strings.Join(cmdline.Phrases, " "), c)
+		searchPhrase(strings.Join(cmdline.Phrases, " "), a)
 	}
 }
 
-func searchPhrase(phrase string, client client.SearchClient) {
-	res, err := client.Search(
+func searchPhrase(phrase string, agent client.SearchAgent) {
+	res, err := agent.Search(
 		phrase,
 		[]string{cmdline.Space},
 		cmdline.PageLimit,
@@ -342,7 +342,7 @@ func searchPhrase(phrase string, client client.SearchClient) {
 
 	fmt.Printf("Query executed in %v seconds with status %q\n", res.Duration, res.Status.String())
 	fmt.Printf("Returning %v of %v total hits, capped: %v\n", len(res.Result.Hits), res.Result.TotalHits, res.Result.Capped)
-	if res.Status == protocol.SearchStatusNoHit {
+	if res.Status == protocol.SearchStatusNoHit && res.Result.Respelt != "" {
 		fmt.Printf("Did you mean %s?\n", res.Result.Respelt)
 	}
 	fmt.Println()

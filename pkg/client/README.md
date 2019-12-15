@@ -20,18 +20,18 @@ import (
 )
 
 func main() {
-	c, err := client.NewSearchClient("nats://localhost:4222")
+	agent, err := client.NewSearchAgent("nats://localhost:4222")
 	if err != nil {
 		fmt.Printf("NATS connection failed: %v", err)
 		return
 	}
-	defer c.Close()
+	defer agent.Close()
 
 	spaces := []string{"fruits"}
-	limit := 10
-	offset := 0
+	pageLimit := 10
+	pageOffset := 0
 
-	res, err := c.Search("apple", spaces, limit, offset)
+	res, err := agent.Search("apple", spaces, pageLimit, pageOffset)
 	if err != nil {
 		fmt.Printf("Search request failed: %v", err)
 		return
