@@ -24,8 +24,8 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// SearchClient is a letarette cluster searcher
-type SearchClient interface {
+// SearchAgent is a letarette cluster searcher
+type SearchAgent interface {
 	Close()
 	Search(q string, spaces []string, pageLimit int, pageOffset int) (protocol.SearchResponse, error)
 }
@@ -33,28 +33,28 @@ type SearchClient interface {
 // WithShardgroupSize forces shard group size instead of using discovery
 func WithShardgroupSize(groupSize int32) Option {
 	return func(st *state) {
-		sc := st.local.(*searchClient)
-		sc.volatileNumShards = groupSize
+		sa := st.local.(*searchAgent)
+		sa.volatileNumShards = groupSize
 	}
 }
 
 // WithTimeout sets search request timeout
 func WithTimeout(timeout time.Duration) Option {
 	return func(st *state) {
-		sc := st.local.(*searchClient)
-		sc.timeout = timeout
+		sa := st.local.(*searchAgent)
+		sa.timeout = timeout
 	}
 }
 
-// NewSearchClient - SearchClient constructor
-func NewSearchClient(url string, options ...Option) (SearchClient, error) {
+// NewSearchAgent - SearchAgent constructor
+func NewSearchAgent(url string, options ...Option) (SearchAgent, error) {
 	nc, err := nats.Connect(url, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
 	if err != nil {
 		return nil, err
 	}
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 
-	client := &searchClient{
+	agent := &searchAgent{
 		state: state{
 			conn:    ec,
 			topic:   "leta",
@@ -64,40 +64,40 @@ func NewSearchClient(url string, options ...Option) (SearchClient, error) {
 		timeout:           time.Second * 2,
 	}
 
-	client.local = client
-	client.state.apply(options)
+	agent.local = agent
+	agent.state.apply(options)
 
-	if client.volatileNumShards == 0 {
-		client.monitor, err = NewMonitor(url, func(status protocol.IndexStatus) {
-			atomic.SwapInt32(&client.volatileNumShards, int32(status.ShardgroupSize))
-		}, WithTopic(client.state.topic))
+	if agent.volatileNumShards == 0 {
+		agent.monitor, err = NewMonitor(url, func(status protocol.IndexStatus) {
+			atomic.SwapInt32(&agent.volatileNumShards, int32(status.ShardgroupSize))
+		}, WithTopic(agent.state.topic))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return client, nil
+	return agent, nil
 }
 
-type searchClient struct {
+type searchAgent struct {
 	state
 	volatileNumShards int32
 	monitor           Monitor
 	timeout           time.Duration
 }
 
-func (client *searchClient) Close() {
-	if client.monitor != nil {
-		client.monitor.Close()
+func (agent *searchAgent) Close() {
+	if agent.monitor != nil {
+		agent.monitor.Close()
 	}
 
-	client.conn.Close()
+	agent.conn.Close()
 }
 
-func (client *searchClient) getNumShards() (int32, error) {
+func (agent *searchAgent) getNumShards() (int32, error) {
 	start := time.Now()
 	for {
-		numShards := atomic.LoadInt32(&client.volatileNumShards)
+		numShards := atomic.LoadInt32(&agent.volatileNumShards)
 		if numShards == 0 {
 			if time.Now().After(start.Add(time.Second * 5)) {
 				return 0, fmt.Errorf("Timeout waiting for cluster")
@@ -109,8 +109,8 @@ func (client *searchClient) getNumShards() (int32, error) {
 	}
 }
 
-func (client *searchClient) Search(q string, spaces []string, pageLimit int, pageOffset int) (res protocol.SearchResponse, err error) {
-	numShards, err := client.getNumShards()
+func (agent *searchAgent) Search(q string, spaces []string, pageLimit int, pageOffset int) (res protocol.SearchResponse, err error) {
+	numShards, err := agent.getNumShards()
 	if err != nil {
 		return
 	}
@@ -125,13 +125,13 @@ func (client *searchClient) Search(q string, spaces []string, pageLimit int, pag
 		PageOffset: uint16(pageOffset),
 	}
 
-	inbox := client.conn.Conn.NewRespInbox()
+	inbox := agent.conn.Conn.NewRespInbox()
 	responseCh := make(chan protocol.SearchResponse, numShards)
 	defer func() {
 		close(responseCh)
 		responseCh = nil
 	}()
-	sub, err := client.conn.Subscribe(inbox, func(response *protocol.SearchResponse) {
+	sub, err := agent.conn.Subscribe(inbox, func(response *protocol.SearchResponse) {
 		if responseCh != nil {
 			clone := *response
 			clone.Result.Hits = append(clone.Result.Hits[:0:0], clone.Result.Hits...)
@@ -145,11 +145,11 @@ func (client *searchClient) Search(q string, spaces []string, pageLimit int, pag
 	if err != nil {
 		return
 	}
-	err = client.conn.PublishRequest(client.topic+".q", inbox, req)
+	err = agent.conn.PublishRequest(agent.topic+".q", inbox, req)
 	if err != nil {
 		return
 	}
-	timeout := time.After(client.timeout)
+	timeout := time.After(agent.timeout)
 	var responses []protocol.SearchResponse
 
 waitLoop:

@@ -42,22 +42,22 @@ The "Document Manager" is the component that provides searchable documents to th
 > For Documents to be indexable by Letarette, they must have `Title` and `Text body` fields for indexing and an `Updated` timestamp field.
 Documents should also have an `ID` field that must be unique within the document space and never be reused.
 
-### Search client
+### Search Agent
 
 Searching in Letarette is easy using the client library:
 
 ```go
-c, err := client.NewSearchClient(config.NatsURL)
+agent, err := client.NewSearchAgent(config.NatsURL)
 if err != nil {
     ...
 }
-defer c.Close()
+defer agent.Close()
 
 spaces := []string{"fruits"}
 limit := 10
 offset := 0
 
-res, err := c.Search("apple", spaces, limit, offset)
+res, err := agent.Search("apple", spaces, limit, offset)
 if err != nil {
     ...
 }
