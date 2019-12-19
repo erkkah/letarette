@@ -140,7 +140,7 @@ func (idx *indexer) main(atExit func()) {
 	logger.Info.Printf("Indexer starting")
 
 	for {
-		cycleThrottle := time.After(idx.cfg.Index.CycleWait)
+		cycleThrottle := time.After(idx.cfg.Index.Wait.Cycle)
 		totalInterests := 0
 
 		for _, space := range idx.cfg.Index.Spaces {
@@ -148,7 +148,7 @@ func (idx *indexer) main(atExit func()) {
 		}
 
 		if totalInterests == 0 {
-			cycleThrottle = time.After(idx.cfg.Index.EmptyCycleWait)
+			cycleThrottle = time.After(idx.cfg.Index.Wait.EmptyCycle)
 			idx.doHousekeeping()
 		}
 		select {
@@ -220,8 +220,8 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 
 	} else {
 		now := time.Now()
-		timeout := idx.cfg.Index.MaxDocumentWait
-		refetchInterval := idx.cfg.Index.DocumentRefetchInterval
+		timeout := idx.cfg.Index.Wait.Document
+		refetchInterval := idx.cfg.Index.Wait.DocumentRefetch
 
 		lastRequest := idx.lastDocumentRequest[space]
 		if now.After(lastRequest.Add(refetchInterval)) {
@@ -263,7 +263,7 @@ func (idx *indexer) requestNextChunk(space string) error {
 		AfterDocument: state.LastUpdatedDocID,
 		Limit:         idx.cfg.Index.ChunkSize,
 	}
-	timeout, cancel := context.WithTimeout(idx.context, idx.cfg.Index.MaxInterestWait)
+	timeout, cancel := context.WithTimeout(idx.context, idx.cfg.Index.Wait.Interest)
 
 	var update protocol.IndexUpdate
 	err = idx.conn.RequestWithContext(timeout, topic, updateRequest, &update)
@@ -351,7 +351,7 @@ func (idx *indexer) doHousekeeping() {
 	}
 	lastHousekeeping = time.Now()
 
-	lag, err := GetSpellfixLag(idx.context, idx.db, idx.cfg.Spelling.MinWordFrequency)
+	lag, err := GetSpellfixLag(idx.context, idx.db, idx.cfg.Spelling.MinFrequency)
 	if err != nil {
 		logger.Error.Printf("Failed to get spelling index lag: %v", err)
 		return
@@ -361,7 +361,7 @@ func (idx *indexer) doHousekeeping() {
 	}
 	start := time.Now()
 	logger.Info.Printf("Housekeeping: Updating spelling index")
-	err = UpdateSpellfix(idx.context, idx.db, idx.cfg.Spelling.MinWordFrequency)
+	err = UpdateSpellfix(idx.context, idx.db, idx.cfg.Spelling.MinFrequency)
 	if err != nil {
 		logger.Error.Printf("Housekeeping: Failed to update spelling index: %v", err)
 		return

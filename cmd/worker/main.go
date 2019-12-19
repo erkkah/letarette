@@ -37,7 +37,7 @@ import (
 func main() {
 	if len(os.Args) > 1 {
 		letarette.Usage()
-		fmt.Printf("\nStemmer algorithms: %v\n", strings.Join(snowball.ListStemmers(), ", "))
+		fmt.Printf("Stemmer languages: %v\n", strings.Join(snowball.ListStemmers(), ", "))
 		os.Exit(99)
 	}
 
