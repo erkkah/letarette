@@ -25,3 +25,5 @@ int initSnowballStemmer(
     const char* separators,
     int minTokenLength
 );
+
+const char** getStemmerList();

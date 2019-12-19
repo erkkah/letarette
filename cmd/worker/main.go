@@ -20,20 +20,24 @@ package main
 */
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/nats-io/nats.go"
 
 	"github.com/erkkah/letarette/internal/letarette"
+	"github.com/erkkah/letarette/internal/snowball"
 	"github.com/erkkah/letarette/pkg/logger"
 )
 
 func main() {
 	if len(os.Args) > 1 {
 		letarette.Usage()
+		fmt.Printf("\nStemmer algorithms: %v\n", strings.Join(snowball.ListStemmers(), ", "))
 		os.Exit(99)
 	}
 
