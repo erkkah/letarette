@@ -125,7 +125,9 @@ func validateIndexDurations(cfg Config) bool {
 		cfg.Index.Wait.DocumentRefetch < cfg.Index.Wait.Document)
 }
 
-var usageFormat = "{{$t:=\"\t\"}}" + charma.CircleChars("Letarette") + `
+var usageFormat = fmt.Sprintf("{{$t:=\"\t\"}}%s\n%s (%s)\n",
+	charma.CircleChars("Letarette"), Tag, Revision,
+) + `
 Configuration environment variables:
 
 VARIABLE{{$t}}TYPE{{$t}}DEFAULT
