@@ -50,10 +50,24 @@ func main() {
 
 	letarette.ExposeMetrics(cfg.MetricsPort)
 
-	logger.Info.Printf("Connecting to nats server at %q\n", cfg.Nats.URL)
-	conn, err := nats.Connect(cfg.Nats.URL, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
+	logger.Info.Printf("Connecting to nats server at %q\n", cfg.Nats.URLS)
+
+	options := []nats.Option{
+		nats.MaxReconnects(-1),
+		nats.ReconnectWait(time.Millisecond * 500),
+	}
+	if cfg.Nats.SeedFile != "" {
+		option, err := nats.NkeyOptionFromSeed(cfg.Nats.SeedFile)
+		if err != nil {
+			logger.Error.Printf("Failed to load nats seed file: %v", err)
+			os.Exit(1)
+		}
+		options = append(options, option)
+	}
+	URLS := strings.Join(cfg.Nats.URLS, ",")
+	conn, err := nats.Connect(URLS, options...)
 	if err != nil {
-		logger.Error.Printf("Failed to connect to nats server")
+		logger.Error.Printf("Failed to connect to nats server: %v", err)
 		os.Exit(1)
 	}
 	defer conn.Close()

@@ -46,16 +46,9 @@ type manager struct {
 
 // StartDocumentManager creates a DocumentManager and connects to Nats daemon
 func StartDocumentManager(url string, options ...Option) (DocumentManager, error) {
-	nc, err := nats.Connect(url, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
-	if err != nil {
-		return nil, err
-	}
-	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	mgr := &manager{
 		state: state{
-			conn:    ec,
 			topic:   "leta",
 			onError: func(error) {},
 		},
@@ -65,6 +58,29 @@ func StartDocumentManager(url string, options ...Option) (DocumentManager, error
 
 	mgr.local = mgr
 	mgr.state.apply(options)
+
+	natsOptions := []nats.Option{
+		nats.MaxReconnects(-1),
+		nats.ReconnectWait(time.Millisecond * 500),
+	}
+
+	if mgr.state.seedFile != "" {
+		option, err := nats.NkeyOptionFromSeed(mgr.state.seedFile)
+		if err != nil {
+			return nil, err
+		}
+		natsOptions = append(natsOptions, option)
+	}
+
+	nc, err := nats.Connect(url, natsOptions...)
+	if err != nil {
+		return nil, err
+	}
+	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
+	if err != nil {
+		return nil, err
+	}
+	mgr.state.conn = ec
 
 	return mgr, nil
 }

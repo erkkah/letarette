@@ -30,7 +30,8 @@ import (
 // Config holds the main configuration
 type Config struct {
 	Nats struct {
-		URL         string `default:"nats://localhost:4222"`
+		URLS        []string `default:"nats://localhost:4222"`
+		SeedFile    string
 		Topic       string `default:"leta"`
 		SearchGroup string `ignored:"true"`
 	}

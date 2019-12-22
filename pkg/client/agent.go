@@ -48,15 +48,8 @@ func WithTimeout(timeout time.Duration) Option {
 
 // NewSearchAgent - SearchAgent constructor
 func NewSearchAgent(url string, options ...Option) (SearchAgent, error) {
-	nc, err := nats.Connect(url, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
-	if err != nil {
-		return nil, err
-	}
-	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
-
 	agent := &searchAgent{
 		state: state{
-			conn:    ec,
 			topic:   "leta",
 			onError: func(error) {},
 		},
@@ -67,10 +60,38 @@ func NewSearchAgent(url string, options ...Option) (SearchAgent, error) {
 	agent.local = agent
 	agent.state.apply(options)
 
+	natsOptions := []nats.Option{
+		nats.MaxReconnects(-1),
+		nats.ReconnectWait(time.Millisecond * 500),
+	}
+
+	if agent.state.seedFile != "" {
+		option, err := nats.NkeyOptionFromSeed(agent.state.seedFile)
+		if err != nil {
+			return nil, err
+		}
+		natsOptions = append(natsOptions, option)
+	}
+
+	nc, err := nats.Connect(url, natsOptions...)
+	if err != nil {
+		return nil, err
+	}
+	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
+	if err != nil {
+		return nil, err
+	}
+	agent.state.conn = ec
+
 	if agent.volatileNumShards == 0 {
-		agent.monitor, err = NewMonitor(url, func(status protocol.IndexStatus) {
-			atomic.SwapInt32(&agent.volatileNumShards, int32(status.ShardgroupSize))
-		}, WithTopic(agent.state.topic))
+		agent.monitor, err = NewMonitor(
+			url,
+			func(status protocol.IndexStatus) {
+				atomic.SwapInt32(&agent.volatileNumShards, int32(status.ShardgroupSize))
+			},
+			WithTopic(agent.state.topic),
+			WithSeedFile(agent.state.seedFile),
+		)
 		if err != nil {
 			return nil, err
 		}
