@@ -57,15 +57,16 @@ func StartDocumentManager(url string, options ...Option) (DocumentManager, error
 	}
 
 	mgr.local = mgr
-	mgr.state.apply(options)
+	mgr.apply(options)
 
 	natsOptions := []nats.Option{
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(time.Millisecond * 500),
+		nats.RootCAs(mgr.rootCAs...),
 	}
 
-	if mgr.state.seedFile != "" {
-		option, err := nats.NkeyOptionFromSeed(mgr.state.seedFile)
+	if mgr.seedFile != "" {
+		option, err := nats.NkeyOptionFromSeed(mgr.seedFile)
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +81,7 @@ func StartDocumentManager(url string, options ...Option) (DocumentManager, error
 	if err != nil {
 		return nil, err
 	}
-	mgr.state.conn = ec
+	mgr.conn = ec
 
 	return mgr, nil
 }

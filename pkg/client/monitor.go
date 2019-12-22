@@ -39,15 +39,16 @@ func NewMonitor(url string, listener MonitorListener, options ...Option) (Monito
 		listener: listener,
 	}
 
-	client.state.apply(options)
+	client.apply(options)
 
 	natsOptions := []nats.Option{
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(time.Millisecond * 500),
+		nats.RootCAs(client.rootCAs...),
 	}
 
-	if client.state.seedFile != "" {
-		option, err := nats.NkeyOptionFromSeed(client.state.seedFile)
+	if client.seedFile != "" {
+		option, err := nats.NkeyOptionFromSeed(client.seedFile)
 		if err != nil {
 			return nil, err
 		}
@@ -63,7 +64,7 @@ func NewMonitor(url string, listener MonitorListener, options ...Option) (Monito
 	if err != nil {
 		return nil, err
 	}
-	client.state.conn = ec
+	client.conn = ec
 
 	_, err = client.conn.Subscribe(client.topic+".status", func(status *protocol.IndexStatus) {
 		client.listener(*status)

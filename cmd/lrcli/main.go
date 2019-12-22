@@ -312,6 +312,7 @@ func doSearch(cfg letarette.Config) {
 		strings.Join(cfg.Nats.URLS, ","),
 		client.WithSeedFile(cfg.Nats.SeedFile),
 		client.WithShardgroupSize(cmdline.GroupSize),
+		client.WithRootCAs(cfg.Nats.RootCAs...),
 	)
 	if err != nil {
 		logger.Error.Printf("Failed to create search agent: %v", err)
@@ -364,6 +365,7 @@ func doMonitor(cfg letarette.Config) {
 		strings.Join(cfg.Nats.URLS, ","),
 		listener,
 		client.WithSeedFile(cfg.Nats.SeedFile),
+		client.WithRootCAs(cfg.Nats.RootCAs...),
 	)
 	if err != nil {
 		logger.Error.Printf("Failed to create monitor: %v", err)
