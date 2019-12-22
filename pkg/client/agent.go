@@ -58,15 +58,16 @@ func NewSearchAgent(url string, options ...Option) (SearchAgent, error) {
 	}
 
 	agent.local = agent
-	agent.state.apply(options)
+	agent.apply(options)
 
 	natsOptions := []nats.Option{
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(time.Millisecond * 500),
+		nats.RootCAs(agent.rootCAs...),
 	}
 
-	if agent.state.seedFile != "" {
-		option, err := nats.NkeyOptionFromSeed(agent.state.seedFile)
+	if agent.seedFile != "" {
+		option, err := nats.NkeyOptionFromSeed(agent.seedFile)
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +82,7 @@ func NewSearchAgent(url string, options ...Option) (SearchAgent, error) {
 	if err != nil {
 		return nil, err
 	}
-	agent.state.conn = ec
+	agent.conn = ec
 
 	if agent.volatileNumShards == 0 {
 		agent.monitor, err = NewMonitor(
@@ -89,8 +90,9 @@ func NewSearchAgent(url string, options ...Option) (SearchAgent, error) {
 			func(status protocol.IndexStatus) {
 				atomic.SwapInt32(&agent.volatileNumShards, int32(status.ShardgroupSize))
 			},
-			WithTopic(agent.state.topic),
-			WithSeedFile(agent.state.seedFile),
+			WithTopic(agent.topic),
+			WithSeedFile(agent.seedFile),
+			WithRootCAs(agent.rootCAs...),
 		)
 		if err != nil {
 			return nil, err

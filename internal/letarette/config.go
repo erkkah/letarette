@@ -32,6 +32,7 @@ type Config struct {
 	Nats struct {
 		URLS        []string `default:"nats://localhost:4222"`
 		SeedFile    string
+		RootCAs     []string
 		Topic       string `default:"leta"`
 		SearchGroup string `ignored:"true"`
 	}

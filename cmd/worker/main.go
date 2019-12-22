@@ -56,6 +56,7 @@ func main() {
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(time.Millisecond * 500),
 	}
+
 	if cfg.Nats.SeedFile != "" {
 		option, err := nats.NkeyOptionFromSeed(cfg.Nats.SeedFile)
 		if err != nil {
@@ -63,6 +64,10 @@ func main() {
 			os.Exit(1)
 		}
 		options = append(options, option)
+	}
+
+	if len(cfg.Nats.RootCAs) > 0 {
+		options = append(options, nats.RootCAs(cfg.Nats.RootCAs...))
 	}
 	URLS := strings.Join(cfg.Nats.URLS, ",")
 	conn, err := nats.Connect(URLS, options...)
