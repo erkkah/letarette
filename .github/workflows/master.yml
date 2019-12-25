@@ -2,10 +2,8 @@ name: Master build
 
 on:
   push:
-    branches-ignore:
-      - '!master'
-    tags:
-      - v*
+    branches:
+      - master
 
 jobs:
 
