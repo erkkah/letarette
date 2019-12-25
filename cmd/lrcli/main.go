@@ -23,6 +23,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"text/tabwriter"
 	"text/template"
 	"time"
 
@@ -260,7 +261,8 @@ func printIndexStats(db letarette.Database) {
 	}
 
 	s.Stop()
-	tmpl.Execute(os.Stdout, &stats)
+	writer := tabwriter.NewWriter(os.Stdout, 0, 4, 0, ' ', 0)
+	tmpl.Execute(writer, &stats)
 }
 
 func optimizeIndex(db letarette.Database) {
