@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/erkkah/letarette/pkg/protocol"
-	"github.com/nats-io/nats.go"
 )
 
 // SearchAgent is a letarette cluster searcher
@@ -60,28 +59,11 @@ func NewSearchAgent(url string, options ...Option) (SearchAgent, error) {
 	agent.local = agent
 	agent.apply(options)
 
-	natsOptions := []nats.Option{
-		nats.MaxReconnects(-1),
-		nats.ReconnectWait(time.Millisecond * 500),
-		nats.RootCAs(agent.rootCAs...),
-	}
-
-	if agent.seedFile != "" {
-		option, err := nats.NkeyOptionFromSeed(agent.seedFile)
-		if err != nil {
-			return nil, err
-		}
-		natsOptions = append(natsOptions, option)
-	}
-
-	nc, err := nats.Connect(url, natsOptions...)
+	ec, err := connect(url, agent.state)
 	if err != nil {
 		return nil, err
 	}
-	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
-	if err != nil {
-		return nil, err
-	}
+
 	agent.conn = ec
 
 	if agent.volatileNumShards == 0 {
