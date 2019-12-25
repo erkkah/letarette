@@ -58,8 +58,14 @@ func WithSeedFile(seedFile string) Option {
 // WithRootCAs specifies a set of root CA files for server verification
 func WithRootCAs(rootCAFiles ...string) Option {
 	return func(o *state) {
-		if len(rootCAFiles) > 0 {
-			o.rootCAs = rootCAFiles
+		filteredCerts := []string{}
+		for _, cert := range rootCAFiles {
+			if len(cert) > 0 {
+				filteredCerts = append(filteredCerts, cert)
+			}
+		}
+		if len(filteredCerts) > 0 {
+			o.rootCAs = filteredCerts
 		}
 	}
 }

@@ -15,10 +15,7 @@
 package client
 
 import (
-	"time"
-
 	"github.com/erkkah/letarette/pkg/protocol"
-	"github.com/nats-io/nats.go"
 )
 
 // Monitor listens to status broadcasts from a letarette cluster
@@ -41,29 +38,11 @@ func NewMonitor(url string, listener MonitorListener, options ...Option) (Monito
 
 	client.apply(options)
 
-	natsOptions := []nats.Option{
-		nats.MaxReconnects(-1),
-		nats.ReconnectWait(time.Millisecond * 500),
-		nats.RootCAs(client.rootCAs...),
-	}
-
-	if client.seedFile != "" {
-		option, err := nats.NkeyOptionFromSeed(client.seedFile)
-		if err != nil {
-			return nil, err
-		}
-		natsOptions = append(natsOptions, option)
-	}
-
-	nc, err := nats.Connect(url, natsOptions...)
+	ec, err := connect(url, client.state)
 	if err != nil {
 		return nil, err
 	}
 
-	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
-	if err != nil {
-		return nil, err
-	}
 	client.conn = ec
 
 	_, err = client.conn.Subscribe(client.topic+".status", func(status *protocol.IndexStatus) {

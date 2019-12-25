@@ -17,7 +17,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/erkkah/letarette/pkg/protocol"
 	"github.com/nats-io/nats.go"
@@ -59,28 +58,11 @@ func StartDocumentManager(url string, options ...Option) (DocumentManager, error
 	mgr.local = mgr
 	mgr.apply(options)
 
-	natsOptions := []nats.Option{
-		nats.MaxReconnects(-1),
-		nats.ReconnectWait(time.Millisecond * 500),
-		nats.RootCAs(mgr.rootCAs...),
-	}
-
-	if mgr.seedFile != "" {
-		option, err := nats.NkeyOptionFromSeed(mgr.seedFile)
-		if err != nil {
-			return nil, err
-		}
-		natsOptions = append(natsOptions, option)
-	}
-
-	nc, err := nats.Connect(url, natsOptions...)
+	ec, err := connect(url, mgr.state)
 	if err != nil {
 		return nil, err
 	}
-	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
-	if err != nil {
-		return nil, err
-	}
+
 	mgr.conn = ec
 
 	return mgr, nil
