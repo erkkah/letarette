@@ -235,3 +235,7 @@ int initSnowballStemmer(
 
     return result;
 }
+
+const char** getStemmerList() {
+    return sb_stemmer_list();
+}

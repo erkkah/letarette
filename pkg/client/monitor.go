@@ -31,27 +31,44 @@ type MonitorListener func(protocol.IndexStatus)
 
 // NewMonitor - Monitor constructor
 func NewMonitor(url string, listener MonitorListener, options ...Option) (Monitor, error) {
-	nc, err := nats.Connect(url, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
-	if err != nil {
-		return nil, err
-	}
-	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
-
 	client := &monitor{
 		state: state{
-			conn:    ec,
 			topic:   "leta",
 			onError: func(error) {},
 		},
 		listener: listener,
 	}
 
-	client.state.apply(options)
+	client.apply(options)
+
+	natsOptions := []nats.Option{
+		nats.MaxReconnects(-1),
+		nats.ReconnectWait(time.Millisecond * 500),
+		nats.RootCAs(client.rootCAs...),
+	}
+
+	if client.seedFile != "" {
+		option, err := nats.NkeyOptionFromSeed(client.seedFile)
+		if err != nil {
+			return nil, err
+		}
+		natsOptions = append(natsOptions, option)
+	}
+
+	nc, err := nats.Connect(url, natsOptions...)
+	if err != nil {
+		return nil, err
+	}
+
+	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
+	if err != nil {
+		return nil, err
+	}
+	client.conn = ec
 
 	_, err = client.conn.Subscribe(client.topic+".status", func(status *protocol.IndexStatus) {
 		client.listener(*status)
 	})
-
 	if err != nil {
 		return nil, err
 	}

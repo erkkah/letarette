@@ -16,9 +16,13 @@ package letarette
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
+
+	"github.com/erkkah/letarette/pkg/charma"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -26,7 +30,9 @@ import (
 // Config holds the main configuration
 type Config struct {
 	Nats struct {
-		URL         string `default:"nats://localhost:4222"`
+		URLS        []string `default:"nats://localhost:4222"`
+		SeedFile    string
+		RootCAs     []string
 		Topic       string `default:"leta"`
 		SearchGroup string `ignored:"true"`
 	}
@@ -35,19 +41,21 @@ type Config struct {
 		ToolConnection bool   `ignored:"true"`
 	}
 	Index struct {
-		Spaces                  []string      `required:"true" default:"docs"`
-		ChunkSize               uint16        `default:"250"`
-		MaxInterestWait         time.Duration `default:"5s"`
-		DocumentRefetchInterval time.Duration `default:"1s"`
-		MaxDocumentWait         time.Duration `default:"20s"`
-		CycleWait               time.Duration `default:"100ms"`
-		EmptyCycleWait          time.Duration `default:"4s"`
-		MaxOutstanding          uint16        `default:"25"`
-		Disable                 bool          `default:"false"`
+		Spaces         []string `required:"true" default:"docs"`
+		ChunkSize      uint16   `default:"250"`
+		MaxOutstanding uint16   `split_words:"true" default:"25"`
+		Wait           struct {
+			Interest        time.Duration `default:"5s"`
+			DocumentRefetch time.Duration `default:"1s"`
+			Document        time.Duration `default:"20s"`
+			Cycle           time.Duration `default:"100ms"`
+			EmptyCycle      time.Duration `default:"4s"`
+		}
+		Disable bool `default:"false"`
 	}
 	Spelling struct {
-		MinWordFrequency int `default:"5" desc:"Minimum occurences of a word to be used for spelling"`
-		MaxLag           int `default:"100" desc:"Max number of words that the spelling index is allows to lag behind the main index"`
+		MinFrequency int `split_words:"true" default:"5"`
+		MaxLag       int `split_words:"true" default:"100"`
 	}
 	Stemmer struct {
 		Languages        []string `split_words:"true" required:"true" default:"english"`
@@ -61,12 +69,12 @@ type Config struct {
 		CacheTimeout   time.Duration `split_words:"true" default:"1m"`
 		CacheMaxsizeMB uint64        `split_words:"true" default:"250"`
 		Disable        bool          `default:"false"`
-		Strategy       int           `default:"1"`
+		Strategy       int           `default:"1" desc:"internal"`
 	}
 	Shardgroup      string `default:"1/1"`
 	ShardgroupSize  uint16 `ignored:"true"`
 	ShardgroupIndex uint16 `ignored:"true"`
-	MetricsPort     uint16 `split_words:"true" default:"8000"`
+	MetricsPort     uint16 `split_words:"true" default:"8000" desc:"internal"`
 }
 
 const prefix = "LETARETTE"
@@ -112,17 +120,30 @@ func LoadConfig() (cfg Config, err error) {
 }
 
 func validateIndexDurations(cfg Config) bool {
-	return (cfg.Index.MaxInterestWait > time.Millisecond*20 &&
-		cfg.Index.CycleWait > time.Millisecond &&
-		cfg.Index.CycleWait < cfg.Index.EmptyCycleWait &&
-		cfg.Index.DocumentRefetchInterval > time.Millisecond*20 &&
-		cfg.Index.DocumentRefetchInterval < cfg.Index.MaxDocumentWait)
+	return (cfg.Index.Wait.Interest > time.Millisecond*20 &&
+		cfg.Index.Wait.Cycle > time.Millisecond &&
+		cfg.Index.Wait.Cycle < cfg.Index.Wait.EmptyCycle &&
+		cfg.Index.Wait.DocumentRefetch > time.Millisecond*20 &&
+		cfg.Index.Wait.DocumentRefetch < cfg.Index.Wait.Document)
 }
+
+var usageFormat = fmt.Sprintf("{{$t:=\"\t\"}}%s\n%s (%s)\n",
+	charma.CircleChars("Letarette"), Tag, Revision,
+) + `
+Configuration environment variables:
+
+VARIABLE{{$t}}TYPE{{$t}}DEFAULT
+========{{$t}}===={{$t}}=======
+LOG_LEVEL{{$t}}String{{$t}}INFO
+{{range .}}{{if usage_description . | eq "internal" | not}}{{usage_key .}}{{$t}}{{usage_type .}}{{$t}}{{usage_default .}}
+{{end}}{{end}}
+`
 
 // Usage prints usage help to stdout
 func Usage() {
 	var cfg Config
-	envconfig.Usage(prefix, &cfg)
+	tabs := tabwriter.NewWriter(os.Stdout, 1, 0, 4, ' ', 0)
+	envconfig.Usagef(prefix, &cfg, tabs, usageFormat)
 }
 
 func parseShardGroupString(shardGroup string) (group, size int, err error) {

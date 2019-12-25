@@ -40,6 +40,18 @@ type Settings struct {
 	MinTokenLength   int
 }
 
+// ListStemmers returns a list of all built-in Snowball
+// stemmer algorithms.
+func ListStemmers() []string {
+	var cStemmers = C.getStemmerList()
+	var stemmerArray = (*[100](*C.char))(unsafe.Pointer(cStemmers))
+	var stemmers = []string{}
+	for i := 0; stemmerArray[i] != nil; i++ {
+		stemmers = append(stemmers, C.GoString(stemmerArray[i]))
+	}
+	return stemmers
+}
+
 // Init registers the snowball stemmer with the connection and configures
 // it for the list of languages.
 // If a language cannot be found, initialization fails.

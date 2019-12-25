@@ -17,10 +17,12 @@ package client
 import "github.com/nats-io/nats.go"
 
 type state struct {
-	conn    *nats.EncodedConn
-	topic   string
-	onError func(error)
-	local   interface{}
+	conn     *nats.EncodedConn
+	seedFile string
+	rootCAs  []string
+	topic    string
+	onError  func(error)
+	local    interface{}
 }
 
 func (s *state) apply(options []Option) {
@@ -43,5 +45,21 @@ func WithTopic(topic string) Option {
 func WithErrorHandler(handler func(error)) Option {
 	return func(o *state) {
 		o.onError = handler
+	}
+}
+
+// WithSeedFile specifies a seed file for Nkey authentication
+func WithSeedFile(seedFile string) Option {
+	return func(o *state) {
+		o.seedFile = seedFile
+	}
+}
+
+// WithRootCAs specifies a set of root CA files for server verification
+func WithRootCAs(rootCAFiles ...string) Option {
+	return func(o *state) {
+		if len(rootCAFiles) > 0 {
+			o.rootCAs = rootCAFiles
+		}
 	}
 }

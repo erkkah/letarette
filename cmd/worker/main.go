@@ -20,20 +20,24 @@ package main
 */
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/nats-io/nats.go"
 
 	"github.com/erkkah/letarette/internal/letarette"
+	"github.com/erkkah/letarette/internal/snowball"
 	"github.com/erkkah/letarette/pkg/logger"
 )
 
 func main() {
 	if len(os.Args) > 1 {
 		letarette.Usage()
+		fmt.Printf("Stemmer languages: %v\n", strings.Join(snowball.ListStemmers(), ", "))
 		os.Exit(99)
 	}
 
@@ -46,10 +50,29 @@ func main() {
 
 	letarette.ExposeMetrics(cfg.MetricsPort)
 
-	logger.Info.Printf("Connecting to nats server at %q\n", cfg.Nats.URL)
-	conn, err := nats.Connect(cfg.Nats.URL, nats.MaxReconnects(-1), nats.ReconnectWait(time.Millisecond*500))
+	logger.Info.Printf("Connecting to nats server at %q\n", cfg.Nats.URLS)
+
+	options := []nats.Option{
+		nats.MaxReconnects(-1),
+		nats.ReconnectWait(time.Millisecond * 500),
+	}
+
+	if cfg.Nats.SeedFile != "" {
+		option, err := nats.NkeyOptionFromSeed(cfg.Nats.SeedFile)
+		if err != nil {
+			logger.Error.Printf("Failed to load nats seed file: %v", err)
+			os.Exit(1)
+		}
+		options = append(options, option)
+	}
+
+	if len(cfg.Nats.RootCAs) > 0 {
+		options = append(options, nats.RootCAs(cfg.Nats.RootCAs...))
+	}
+	URLS := strings.Join(cfg.Nats.URLS, ",")
+	conn, err := nats.Connect(URLS, options...)
 	if err != nil {
-		logger.Error.Printf("Failed to connect to nats server")
+		logger.Error.Printf("Failed to connect to nats server: %v", err)
 		os.Exit(1)
 	}
 	defer conn.Close()
