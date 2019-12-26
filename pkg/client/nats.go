@@ -15,12 +15,13 @@
 package client
 
 import (
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
 )
 
-func connect(URLs string, opts state) (*nats.EncodedConn, error) {
+func connect(URLs []string, opts state) (*nats.EncodedConn, error) {
 	natsOptions := []nats.Option{
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(time.Millisecond * 500),
@@ -38,7 +39,7 @@ func connect(URLs string, opts state) (*nats.EncodedConn, error) {
 		natsOptions = append(natsOptions, option)
 	}
 
-	nc, err := nats.Connect(URLs, natsOptions...)
+	nc, err := nats.Connect(strings.Join(URLs, ","), natsOptions...)
 	if err != nil {
 		return nil, err
 	}

@@ -27,7 +27,7 @@ type Monitor interface {
 type MonitorListener func(protocol.IndexStatus)
 
 // NewMonitor - Monitor constructor
-func NewMonitor(url string, listener MonitorListener, options ...Option) (Monitor, error) {
+func NewMonitor(URLs []string, listener MonitorListener, options ...Option) (Monitor, error) {
 	client := &monitor{
 		state: state{
 			topic:   "leta",
@@ -38,7 +38,7 @@ func NewMonitor(url string, listener MonitorListener, options ...Option) (Monito
 
 	client.apply(options)
 
-	ec, err := connect(url, client.state)
+	ec, err := connect(URLs, client.state)
 	if err != nil {
 		return nil, err
 	}
