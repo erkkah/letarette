@@ -44,7 +44,7 @@ type manager struct {
 }
 
 // StartDocumentManager creates a DocumentManager and connects to Nats daemon
-func StartDocumentManager(url string, options ...Option) (DocumentManager, error) {
+func StartDocumentManager(URLs []string, options ...Option) (DocumentManager, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	mgr := &manager{
 		state: state{
@@ -58,7 +58,7 @@ func StartDocumentManager(url string, options ...Option) (DocumentManager, error
 	mgr.local = mgr
 	mgr.apply(options)
 
-	ec, err := connect(url, mgr.state)
+	ec, err := connect(URLs, mgr.state)
 	if err != nil {
 		return nil, err
 	}

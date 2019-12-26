@@ -46,7 +46,7 @@ func WithTimeout(timeout time.Duration) Option {
 }
 
 // NewSearchAgent - SearchAgent constructor
-func NewSearchAgent(url string, options ...Option) (SearchAgent, error) {
+func NewSearchAgent(URLs []string, options ...Option) (SearchAgent, error) {
 	agent := &searchAgent{
 		state: state{
 			topic:   "leta",
@@ -59,7 +59,7 @@ func NewSearchAgent(url string, options ...Option) (SearchAgent, error) {
 	agent.local = agent
 	agent.apply(options)
 
-	ec, err := connect(url, agent.state)
+	ec, err := connect(URLs, agent.state)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func NewSearchAgent(url string, options ...Option) (SearchAgent, error) {
 
 	if agent.volatileNumShards == 0 {
 		agent.monitor, err = NewMonitor(
-			url,
+			URLs,
 			func(status protocol.IndexStatus) {
 				atomic.SwapInt32(&agent.volatileNumShards, int32(status.ShardgroupSize))
 			},
