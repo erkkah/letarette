@@ -77,7 +77,7 @@ func StartStatusMonitor(nc *nats.Conn, db Database, cfg Config) (StatusMonitor, 
 	}
 
 	go func() {
-		checkpoint := time.After(time.Millisecond * 100)
+		checkpoint := time.After(time.Second * 5)
 		for {
 			select {
 			case status := <-self.updates:
@@ -157,7 +157,7 @@ func (m *monitor) checkpoint() {
 	for workerIndex = 0; workerIndex < m.cfg.ShardgroupSize; workerIndex++ {
 		workers := workersPerShard[workerIndex]
 		if len(workers) < 1 {
-			missingWorkers = append(missingWorkers, fmt.Sprintf("%v", workerIndex))
+			missingWorkers = append(missingWorkers, fmt.Sprintf("%v", workerIndex+1))
 		}
 	}
 	if len(missingWorkers) > 0 {
