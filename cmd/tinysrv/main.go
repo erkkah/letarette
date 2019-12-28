@@ -418,7 +418,7 @@ Options:
 	ehandler := func(err error) {
 		log.Printf("%v\n", err)
 	}
-	mgr, err := client.StartDocumentManager(config.NatsURL, client.WithErrorHandler(ehandler))
+	mgr, err := client.StartDocumentManager([]string{config.NatsURL}, client.WithErrorHandler(ehandler))
 	if err != nil {
 		log.Panicf("Failed to start document manager: %v", err)
 	}
