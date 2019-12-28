@@ -21,6 +21,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -50,7 +51,7 @@ func main() {
 
 	letarette.ExposeMetrics(cfg.MetricsPort)
 
-	logger.Info.Printf("Connecting to nats server at %q\n", cfg.Nats.URLS)
+	logger.Info.Printf("Connecting to nats server at %q\n", cleanURLs(cfg.Nats.URLS))
 
 	options := []nats.Option{
 		nats.MaxReconnects(-1),
@@ -139,4 +140,19 @@ func main() {
 			indexer.Close()
 		}
 	}
+}
+
+func cleanURLs(URLs []string) []string {
+	result := make([]string, len(URLs))
+
+	for i, URL := range URLs {
+		parsed, err := url.Parse(URL)
+		if err != nil {
+			result[i] = URL
+		} else {
+			parsed.User = nil
+			result[i] = parsed.String()
+		}
+	}
+	return result
 }

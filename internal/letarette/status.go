@@ -45,6 +45,8 @@ func StartStatusMonitor(nc *nats.Conn, db Database, cfg Config) (StatusMonitor, 
 		return nil, fmt.Errorf("Failed to read index ID: %w", err)
 	}
 
+	logger.Info.Printf("Index@%v", indexID)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	self := &monitor{
 		ctx:            ctx,
