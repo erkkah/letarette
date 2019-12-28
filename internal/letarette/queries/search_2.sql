@@ -52,4 +52,5 @@ from
 where
     docs.alive
     and space in (?)
-order by matches.r asc limit :limit offset :offset;
+order by matches.r asc
+limit :limit offset :offset
