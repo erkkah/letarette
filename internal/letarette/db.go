@@ -400,7 +400,7 @@ func preloadDB(dbPath string) error {
 
 	go func() {
 		defer file.Close()
-		logger.Info.Printf("Pre-loading database")
+		logger.Info.Printf("Pre-loading database start")
 		for pos := int64(0); pos < fileSize; pos += pageSize {
 			_, err = file.ReadAt(buf, pos)
 			if err != nil {
@@ -408,7 +408,7 @@ func preloadDB(dbPath string) error {
 				break
 			}
 		}
-		logger.Info.Printf("Done pre-loading database")
+		logger.Info.Printf("Pre-loading database done")
 	}()
 
 	return nil
