@@ -311,10 +311,11 @@ func forceIndexStemmerState(state snowball.Settings, db letarette.Database) {
 
 func doSearch(cfg letarette.Config) {
 	a, err := client.NewSearchAgent(
-		strings.Join(cfg.Nats.URLS, ","),
+		cfg.Nats.URLS,
 		client.WithSeedFile(cfg.Nats.SeedFile),
 		client.WithShardgroupSize(cmdline.GroupSize),
 		client.WithRootCAs(cfg.Nats.RootCAs...),
+		client.WithTimeout(10*time.Second),
 	)
 	if err != nil {
 		logger.Error.Printf("Failed to create search agent: %v", err)
@@ -364,7 +365,7 @@ func doMonitor(cfg letarette.Config) {
 		fmt.Printf("%v\n", status)
 	}
 	m, err := client.NewMonitor(
-		strings.Join(cfg.Nats.URLS, ","),
+		cfg.Nats.URLS,
 		listener,
 		client.WithSeedFile(cfg.Nats.SeedFile),
 		client.WithRootCAs(cfg.Nats.RootCAs...),
