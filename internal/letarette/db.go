@@ -261,6 +261,13 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 		if err != nil {
 			return fmt.Errorf("Failed to store index id: %w", err)
 		}
+
+		// Set default fts5 page size to 16k
+		const pageSize = 16384
+		_, err = db.Exec(`insert into fts(fts, rank) values("pgsz", ?)`, pageSize)
+		if err != nil {
+			return fmt.Errorf("Failed to set default page size: %w", err)
+		}
 	}
 
 	return nil
@@ -300,7 +307,13 @@ func registerCustomDriver(cfg Config) {
 					}
 
 					logger.Debug.Printf("Setting up pragmas")
-					_, err = conn.Exec("pragma threads=4;pragma temp_store=2;", []drv.Value{})
+					pragmas := []string{
+						"pragma threads=4",
+						"pragma temp_store=2",
+						fmt.Sprintf("pragma cache_size=-%d", cfg.Db.CacheSizeMB*1024),
+						fmt.Sprintf("pragma mmap_size=%d", cfg.Db.MMapSizeMB*1024*1024),
+					}
+					_, err = conn.Exec(strings.Join(pragmas, ";"), []drv.Value{})
 					if err != nil {
 						return err
 					}
@@ -361,5 +374,42 @@ func openDatabase(dbPath string, spaces []string) (rdb *sqlx.DB, wdb *sqlx.DB, e
 	}
 
 	err = initDB(wdb, writeSqliteURL, spaces)
+	if err != nil {
+		return
+	}
+
+	err = preloadDB(dbPath)
 	return
+}
+
+// preloadDB reads one byte from each page of the database
+// file to force it into the system cache.
+func preloadDB(dbPath string) error {
+	fileInfo, err := os.Stat(dbPath)
+	if err != nil {
+		return err
+	}
+	file, err := os.Open(dbPath)
+	if err != nil {
+		return err
+	}
+
+	fileSize := fileInfo.Size()
+	pageSize := int64(os.Getpagesize())
+	buf := make([]byte, 1)
+
+	go func() {
+		defer file.Close()
+		logger.Info.Printf("Pre-loading database")
+		for pos := int64(0); pos < fileSize; pos += pageSize {
+			_, err = file.ReadAt(buf, pos)
+			if err != nil {
+				logger.Error.Printf("Pre-loading db failed: %v", err)
+				break
+			}
+		}
+		logger.Info.Printf("Done pre-loading database")
+	}()
+
+	return nil
 }

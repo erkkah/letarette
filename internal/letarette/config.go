@@ -38,6 +38,8 @@ type Config struct {
 	}
 	Db struct {
 		Path           string `default:"letarette.db"`
+		CacheSizeMB    uint32 `default:"1024" desc:"internal"` // default 1G cache
+		MMapSizeMB     uint32 `default:"0" desc:"internal"`    // no mmap by default
 		ToolConnection bool   `ignored:"true"`
 	}
 	Index struct {
@@ -49,7 +51,7 @@ type Config struct {
 			DocumentRefetch time.Duration `default:"1s"`
 			Document        time.Duration `default:"20s"`
 			Cycle           time.Duration `default:"100ms"`
-			EmptyCycle      time.Duration `default:"4s"`
+			EmptyCycle      time.Duration `default:"5s"`
 		}
 		Disable bool `default:"false"`
 	}
@@ -64,9 +66,9 @@ type Config struct {
 		Separators       string
 	}
 	Search struct {
-		Timeout        time.Duration `default:"500ms"`
-		Cap            int           `default:"25000"`
-		CacheTimeout   time.Duration `split_words:"true" default:"1m"`
+		Timeout        time.Duration `default:"4s"`
+		Cap            int           `default:"10000"`
+		CacheTimeout   time.Duration `split_words:"true" default:"10m"`
 		CacheMaxsizeMB uint64        `split_words:"true" default:"250"`
 		Disable        bool          `default:"false"`
 		Strategy       int           `default:"1" desc:"internal"`
