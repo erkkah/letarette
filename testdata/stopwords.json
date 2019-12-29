@@ -1,0 +1,23 @@
+{
+    "Iterations": 250,
+    "Spaces": [
+        "wp"
+    ],
+    "Queries": [
+        "the",
+        "of",
+        "and",
+        "in",
+        "to",
+        "was",
+        "is",
+        "for",
+        "as",
+        "on",
+        "by",
+        "with",
+        "it",
+        "that",
+        "from"
+    ]
+}

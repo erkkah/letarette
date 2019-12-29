@@ -152,6 +152,9 @@ func (cache *Cache) Get(query string, spaces []string, limit uint16, offset uint
 
 // Put stores search results in the cache
 func (cache *Cache) Put(query string, spaces []string, limit uint16, offset uint16, res protocol.SearchResult) {
+	if cache.timeout == 0 {
+		return
+	}
 	clonedHits := append(res.Hits[:0:0], res.Hits...)
 
 	entry := cacheEntry{
