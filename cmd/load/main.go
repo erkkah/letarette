@@ -265,8 +265,8 @@ func report(results []testResult, clients int, total time.Duration) {
 	total95 := results[int(float32(len(results))*0.95)].Duration
 	total99 := results[int(float32(len(results))*0.99)].Duration
 
-	fmt.Printf("Test set run on %v concurrent agents in %.2fs\n", clients, total.Seconds())
-	fmt.Printf("\nSuccess ratio: %.1f%%\n", 100*float32(successful)/float32(len(results)))
+	fmt.Printf("Testset run on %v concurrent agents in %.2fs\n", clients, total.Seconds())
+	fmt.Printf("\nSuccess ratio: %.4f%%\n", 100*float32(successful)/float32(len(results)))
 
 	fmt.Printf("\nQuery processing times:\n")
 	fmt.Printf("Mean:\t%v\nMedian:\t%v\n", durationMean, durationMedian)
