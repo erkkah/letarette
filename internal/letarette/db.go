@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/jmoiron/sqlx"
 	sqlite3 "github.com/mattn/go-sqlite3"
 
@@ -415,6 +417,12 @@ func preloadDB(dbPath string) error {
 	fileSize := fileInfo.Size()
 	pageSize := int64(os.Getpagesize())
 	buf := make([]byte, 1)
+
+	fd := file.Fd()
+	err = unix.Fadvise(int(fd), 0, fileSize, unix.FADV_RANDOM)
+	if err != nil {
+		logger.Warning.Printf("Failed to advice about file usage: %v", err)
+	}
 
 	go func() {
 		defer file.Close()
