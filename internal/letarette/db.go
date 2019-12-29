@@ -339,9 +339,26 @@ func getDatabaseURL(dbPath string, mode connectionMode) (string, error) {
 	escapedPath := strings.Replace(abspath, " ", "%20", -1)
 
 	if mode == readOnly {
-		return fmt.Sprintf("file:%s?_journal=WAL&_query_only=true&_foreign_keys=true&_timeout=500&cache=shared", escapedPath), nil
+		args := []string{
+			"_journal=WAL",
+			"_foreign_keys=true",
+			"_timeout=500",
+			"cache=private",
+			"mode=ro",
+			"_query_only=true",
+			"_mutex=no",
+		}
+		return fmt.Sprintf("file:%s?%s", escapedPath, strings.Join(args, "&")), nil
 	}
-	return fmt.Sprintf("file:%s?_journal=WAL&_foreign_keys=true&_timeout=500&cache=private&_sync=1&_rt=true", escapedPath), nil
+	args := []string{
+		"_journal=WAL",
+		"_foreign_keys=true",
+		"_timeout=500",
+		"cache=private",
+		"_sync=1",
+		"_rt=true",
+	}
+	return fmt.Sprintf("file:%s?%s", escapedPath, strings.Join(args, "&")), nil
 }
 
 func openMigrationConnection(dbPath string) (db *sqlx.DB, err error) {
@@ -372,6 +389,8 @@ func openDatabase(dbPath string, spaces []string) (rdb *sqlx.DB, wdb *sqlx.DB, e
 	if err != nil {
 		return
 	}
+	rdb.SetMaxOpenConns(0)
+	rdb.SetMaxIdleConns(8)
 
 	err = initDB(wdb, writeSqliteURL, spaces)
 	if err != nil {

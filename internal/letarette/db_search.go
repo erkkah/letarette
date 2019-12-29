@@ -21,7 +21,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
@@ -127,7 +126,7 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 	args = append(args, spacedArgs...)
 	args = append(args, namedArgs[2:]...)
 
-	logger.Debug.Printf("Search query: [%s], args: %v", namedQuery, args)
+	//logger.Debug.Printf("Search query: [%s], args: %v", namedQuery, args)
 	err = db.rdb.SelectContext(ctx, &hits, namedQuery, args...)
 	if err != nil {
 		return result, err
