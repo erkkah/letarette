@@ -141,18 +141,39 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 		cache,
 	}
 
+	type searchWork struct {
+		req   protocol.SearchRequest
+		reply string
+	}
+
+	workChannel := make(chan searchWork, 10)
+
+	// ??? Hard-coded worker pool
+	const numWorkers = 4
+
+	for i := 0; i < numWorkers; i++ {
+		go func() {
+			for work := range workChannel {
+				// Handle query
+				ctx, cancel := context.WithTimeout(context.Background(), cfg.Search.Timeout)
+				response, err := self.parseAndExecute(ctx, work.req)
+				cancel()
+				if err != nil {
+					logger.Error.Printf("Failed to execute query: %v", err)
+				}
+				// Reply
+				ec.Publish(work.reply, response)
+			}
+		}()
+	}
+
 	subscription, err := ec.QueueSubscribe(
 		cfg.Nats.Topic+".q", cfg.Nats.SearchGroup,
 		func(sub, reply string, query *protocol.SearchRequest) {
-			// Handle query
-			ctx, cancel := context.WithTimeout(context.Background(), cfg.Search.Timeout)
-			response, err := self.parseAndExecute(ctx, *query)
-			cancel()
-			if err != nil {
-				logger.Error.Printf("Failed to execute query: %v", err)
+			workChannel <- searchWork{
+				req:   *query,
+				reply: reply,
 			}
-			// Reply
-			ec.Publish(reply, response)
 		})
 
 	if err != nil {
@@ -160,9 +181,9 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 	}
 
 	go func() {
-		// for ever:
 		logger.Info.Printf("Searcher starting")
 		<-closer
+		close(workChannel)
 		subscription.Unsubscribe()
 		logger.Info.Printf("Searcher exiting")
 		closer <- true
