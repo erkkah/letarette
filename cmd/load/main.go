@@ -233,10 +233,14 @@ func report(results []testResult, clients int, total time.Duration) {
 
 	var durationMean float32
 	var totalMean float64
+	var successful = 0
 
 	for _, res := range results {
 		durationMean += res.Duration
 		totalMean += res.End.Sub(res.Start).Seconds()
+		if res.Err == nil {
+			successful++
+		}
 	}
 	durationMean /= float32(len(results))
 	totalMean /= float64(len(results))
@@ -261,7 +265,8 @@ func report(results []testResult, clients int, total time.Duration) {
 	total95 := results[int(float32(len(results))*0.95)].Duration
 	total99 := results[int(float32(len(results))*0.99)].Duration
 
-	fmt.Printf("Test set processed by %v agents in %.2fs\n", clients, total.Seconds())
+	fmt.Printf("Test set run on %v concurrent agents in %.2fs\n", clients, total.Seconds())
+	fmt.Printf("\nSuccess ratio: %.1f%%\n", 100*float32(successful)/float32(len(results)))
 
 	fmt.Printf("\nQuery processing times:\n")
 	fmt.Printf("Mean:\t%v\nMedian:\t%v\n", durationMean, durationMedian)

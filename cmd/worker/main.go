@@ -16,7 +16,7 @@ package main
 
 /*
 	Letarette main application, the "worker".
-	Communicates via "NATS" message bus, maintains an index and responds to queries.
+	Communicates via "NATS" message bus, maintains the index and responds to queries.
 */
 
 import (
