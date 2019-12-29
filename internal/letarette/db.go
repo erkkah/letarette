@@ -338,25 +338,24 @@ func getDatabaseURL(dbPath string, mode connectionMode) (string, error) {
 	}
 	escapedPath := strings.Replace(abspath, " ", "%20", -1)
 
-	if mode == readOnly {
-		args := []string{
-			"_journal=WAL",
-			"_foreign_keys=true",
-			"_timeout=500",
-			"cache=private",
-			"mode=ro",
-			"_query_only=true",
-			"_mutex=no",
-		}
-		return fmt.Sprintf("file:%s?%s", escapedPath, strings.Join(args, "&")), nil
-	}
 	args := []string{
 		"_journal=WAL",
 		"_foreign_keys=true",
 		"_timeout=500",
 		"cache=private",
-		"_sync=1",
-		"_rt=true",
+	}
+
+	if mode == readOnly {
+		args = append(args, []string{
+			"mode=ro",
+			"_query_only=true",
+			"_mutex=no",
+		}...)
+	} else {
+		args = append(args, []string{
+			"_sync=1",
+			"_rt=true",
+		}...)
 	}
 	return fmt.Sprintf("file:%s?%s", escapedPath, strings.Join(args, "&")), nil
 }
