@@ -85,7 +85,7 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 
 	var result protocol.SearchResult
 
-	if len(phrases) > 0 {
+	if len(query.Spaces) > 0 && len(phrases) > 0 {
 		cacheKey := fmt.Sprintf("%s", CanonicalizePhraseList(phrases))
 		var cached bool
 		result, cached = s.cache.Get(cacheKey, query.Spaces, query.PageLimit, query.PageOffset)

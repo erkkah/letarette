@@ -1,0 +1,14 @@
+{
+    "Iterations": 250,
+    "Spaces": [
+        "wp"
+    ],
+    "Queries": [
+        "london city",
+        "london -city",
+        "speedway mud*",
+        "holding pattern",
+        "candy cane",
+        "\"stranger than fiction\""
+    ]
+}
