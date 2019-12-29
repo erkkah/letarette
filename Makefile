@@ -1,4 +1,4 @@
-all: tinysrv letarette lrcli client
+all: letarette lrcli load
 
 LDFLAGS := $(shell ./stamp.sh github.com/erkkah/letarette/internal/letarette)
 
@@ -7,6 +7,9 @@ letarette: generate snowball
 
 tinysrv: client
 	go build -v ./cmd/tinysrv
+
+load: client
+	go build -v ./cmd/load
 
 lrcli: client snowball
 	go build -ldflags="$(LDFLAGS)" -v -tags "fts5,dbstats" ./cmd/lrcli
