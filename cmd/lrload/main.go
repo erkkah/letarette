@@ -54,9 +54,9 @@ func main() {
 	usage := `Letarette load generator
 
 Usage:
-    load agent [-n <natsURL>]
-    load list [-n <natsURL>]
-    load run [-n <natsURL>] [-o <file>] [-l <limit>] <testset.json>
+    lrload agent [-n <natsURL>]
+    lrload list [-n <natsURL>]
+    lrload run [-n <natsURL>] [-o <file>] [-l <limit>] <testset.json>
 
 Options:
     -n <natsURL> NATS server URL [default: localhost]
@@ -96,7 +96,9 @@ Options:
 			return
 		}
 
-		runTestSet(testSet)
+		if err = runTestSet(testSet); err != nil {
+			logger.Error.Printf("Failed to run: %v", err)
+		}
 	} else {
 		docopt.PrintHelpAndExit(nil, usage)
 	}
@@ -223,6 +225,10 @@ func runTestSet(set testSet) error {
 		return err
 	}
 	numAgents := len(agents)
+
+	if cmdline.Limit < 1 || numAgents < 1 {
+		return fmt.Errorf("No agents available")
+	}
 
 	if numAgents > cmdline.Limit {
 		numAgents = cmdline.Limit
