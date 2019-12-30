@@ -11,6 +11,7 @@ require (
 	github.com/nats-io/nats-server/v2 v2.1.0 // indirect
 	github.com/nats-io/nats.go v1.9.1
 	github.com/zserge/metric v0.1.0
+	golang.org/x/sys v0.0.0-20190726091711-fc99dfbffb4e
 	gotest.tools v2.2.0+incompatible
 )
 
