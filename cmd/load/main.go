@@ -7,7 +7,6 @@ import (
 	"os"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/docopt/docopt-go"
@@ -26,6 +25,11 @@ type testSet struct {
 	Offset     int
 }
 
+type testRequest struct {
+	testSet
+	Filter []uint64
+}
+
 type testResult struct {
 	Start    time.Time
 	End      time.Time
@@ -36,12 +40,14 @@ type testResult struct {
 
 var cmdline struct {
 	Agent bool
+	List  bool
 	Run   bool
 
 	TestSet string `docopt:"<testset.json>"`
 
 	NATSURL string `docopt:"-n"`
 	Output  string `docopt:"-o"`
+	Limit   int    `docopt:"-l"`
 }
 
 func main() {
@@ -49,11 +55,13 @@ func main() {
 
 Usage:
     load agent [-n <natsURL>]
-    load run [-n <natsURL>] [-o <file>] <testset.json>
+    load list [-n <natsURL>]
+    load run [-n <natsURL>] [-o <file>] [-l <limit>] <testset.json>
 
 Options:
     -n <natsURL> NATS server URL [default: localhost]
     -o <file>    Write raw CSV data to <file>
+    -l <limit>   Limit the run to <limit> agents
 `
 
 	args, err := docopt.ParseDoc(usage)
@@ -76,6 +84,11 @@ Options:
 		}
 		logger.Info.Printf("Agent waiting for load requests")
 		select {}
+	} else if cmdline.List {
+		err := listAgents()
+		if err != nil {
+			logger.Error.Printf("Failed to list agents: %v", err)
+		}
 	} else if cmdline.Run {
 		testSet, err := loadTestSet(cmdline.TestSet)
 		if err != nil {
@@ -108,6 +121,22 @@ func NATSConnect() (*nats.EncodedConn, error) {
 	return ec, nil
 }
 
+func listAgents() error {
+	ec, err := NATSConnect()
+	if err != nil {
+		return err
+	}
+
+	agents, err := getAgents(ec)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%v agents responding: %v\n", len(agents), agents)
+
+	return nil
+}
+
 func startAgent() error {
 	agent, err := client.NewSearchAgent([]string{cmdline.NATSURL}, client.WithTimeout(time.Second*10))
 	if err != nil {
@@ -119,15 +148,27 @@ func startAgent() error {
 		return err
 	}
 
+	clientID, _ := ec.Conn.GetClientID()
+
 	_, err = ec.Subscribe("leta.load.ping", func(interface{}) {
-		clientID, _ := ec.Conn.GetClientID()
+
 		ec.Publish("leta.load.pong", &clientID)
 	})
 	if err != nil {
 		return err
 	}
 
-	_, err = ec.Subscribe("leta.load.request", func(set *testSet) {
+	_, err = ec.Subscribe("leta.load.request", func(set *testRequest) {
+		found := false
+		for _, id := range set.Filter {
+			if id == clientID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return
+		}
 		logger.Info.Printf("Running load request")
 		results := make([]testResult, set.Iterations)
 		for i := 0; i < set.Iterations; i++ {
@@ -151,19 +192,14 @@ func startAgent() error {
 	return nil
 }
 
-func runTestSet(set testSet) error {
-	ec, err := NATSConnect()
-	if err != nil {
-		return err
-	}
+func getAgents(ec *nats.EncodedConn) ([]uint64, error) {
+	agents := []uint64{}
 
-	var agents int32
-	pingSub, err := ec.Subscribe("leta.load.pong", func(agent *int64) {
-		logger.Debug.Printf("Got response from agent %v", *agent)
-		atomic.AddInt32(&agents, 1)
+	pingSub, err := ec.Subscribe("leta.load.pong", func(agent *uint64) {
+		agents = append(agents, *agent)
 	})
 	if err != nil {
-		return err
+		return agents, err
 	}
 
 	ec.Publish("leta.load.ping", nil)
@@ -173,18 +209,38 @@ func runTestSet(set testSet) error {
 		pingSub.Unsubscribe()
 	}
 
+	return agents, nil
+}
+
+func runTestSet(set testSet) error {
+	ec, err := NATSConnect()
+	if err != nil {
+		return err
+	}
+
+	agents, err := getAgents(ec)
+	if err != nil {
+		return err
+	}
+	numAgents := len(agents)
+
+	if numAgents > cmdline.Limit {
+		numAgents = cmdline.Limit
+		agents = agents[:numAgents]
+	}
+
 	rand.Seed(time.Now().Unix())
 
 	var wg sync.WaitGroup
-	wg.Add(int(agents) + 1)
+	wg.Add(numAgents + 1)
 
 	resultChannel := make(chan []testResult, 10)
-	results := make([]testResult, 0, int(agents))
+	results := make([]testResult, 0, numAgents)
 	go func() {
 		for result := range resultChannel {
 			results = append(results, result...)
 			logger.Debug.Printf("Adding result")
-			if len(results) == int(agents)*set.Iterations {
+			if len(results) == numAgents*set.Iterations {
 				logger.Debug.Printf("All done")
 				wg.Done()
 				break
@@ -199,17 +255,17 @@ func runTestSet(set testSet) error {
 	if err != nil {
 		return err
 	}
-	responseSub.AutoUnsubscribe(int(agents))
+	responseSub.AutoUnsubscribe(numAgents)
 
 	start := time.Now()
-	ec.Publish("leta.load.request", &set)
+	ec.Publish("leta.load.request", &testRequest{set, agents})
 
 	logger.Debug.Printf("Waiting...")
 	wg.Wait()
 	end := time.Now()
 
 	logger.Debug.Printf("Reporting...")
-	report(results, int(agents), end.Sub(start))
+	report(results, numAgents, end.Sub(start))
 	return nil
 }
 
