@@ -27,7 +27,7 @@ type testSet struct {
 
 type testRequest struct {
 	testSet
-	Filter []uint64
+	Filter []string
 }
 
 type testResult struct {
@@ -151,10 +151,12 @@ func startAgent() error {
 	}
 
 	clientID, _ := ec.Conn.GetClientID()
+	stringID := fmt.Sprintf("%v", clientID)
+	logger.Debug.Printf("ID: %v", clientID)
 
 	_, err = ec.Subscribe("leta.load.ping", func(interface{}) {
 
-		ec.Publish("leta.load.pong", &clientID)
+		ec.Publish("leta.load.pong", &stringID)
 	})
 	if err != nil {
 		return err
@@ -163,7 +165,7 @@ func startAgent() error {
 	_, err = ec.Subscribe("leta.load.request", func(set *testRequest) {
 		found := false
 		for _, id := range set.Filter {
-			if id == clientID {
+			if id == stringID {
 				found = true
 				break
 			}
@@ -194,10 +196,10 @@ func startAgent() error {
 	return nil
 }
 
-func getAgents(ec *nats.EncodedConn) ([]uint64, error) {
-	agents := []uint64{}
+func getAgents(ec *nats.EncodedConn) ([]string, error) {
+	agents := []string{}
 
-	pingSub, err := ec.Subscribe("leta.load.pong", func(agent *uint64) {
+	pingSub, err := ec.Subscribe("leta.load.pong", func(agent *string) {
 		agents = append(agents, *agent)
 	})
 	if err != nil {
@@ -226,11 +228,11 @@ func runTestSet(set testSet) error {
 	}
 	numAgents := len(agents)
 
-	if cmdline.Limit < 1 || numAgents < 1 {
+	if cmdline.Limit < 0 || numAgents < 1 {
 		return fmt.Errorf("No agents available")
 	}
 
-	if numAgents > cmdline.Limit {
+	if cmdline.Limit != 0 && numAgents > cmdline.Limit {
 		numAgents = cmdline.Limit
 		agents = agents[:numAgents]
 	}
