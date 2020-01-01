@@ -1,9 +1,9 @@
-name: Master build
+name: Develop branch build
 
 on:
   push:
     branches:
-      - master
+      - develop
 
 jobs:
 
@@ -91,63 +91,3 @@ jobs:
       with:
         name: ${{ format('letarette-{0}', matrix.os) }}
         path: letarette
-
-  release:
-    name: Release
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    steps:
-      - name: Set TAG
-        run: echo ::set-env name=TAG::$(echo ${GITHUB_REF:10})
-
-      - name: Set ARCHIVE
-        run: echo ::set-env name=ARCHIVE::letarette-${TAG}.zip
-
-      - uses: actions/download-artifact@v1.0.0
-        with:
-          name: letarette-macos-latest
-          path: macos
-
-      - uses: actions/download-artifact@v1.0.0
-        with:
-          name: letarette-ubuntu-latest
-          path: linux
-
-      - uses: actions/download-artifact@v1.0.0
-        with:
-          name: licenses
-          path: licenses
-
-      - uses: actions/download-artifact@v1.0.0
-        with:
-          name: changelog
-
-      - name: Pack release
-        id: pack-release
-        run: zip -r $ARCHIVE linux macos licenses
-
-      - name: Load change log
-        id: changelog
-        run: echo "::set-output name=body::$(cat changelog/CHANGELOG.md | sed -e 's/%/%25/g' | sed -e ':begin;$!N;s/\n/%0A/;tbegin')"
-
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@master
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ env.TAG }}
-          body: ${{ steps.changelog.outputs.body }}
-          draft: true
-          prerelease: true
-      
-      - name: Upload release assets
-        uses: actions/upload-release-asset@v1.0.1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.ARCHIVE }}
-          asset_name: ${{ env.ARCHIVE }}
-          asset_content_type: application/zip
