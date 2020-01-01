@@ -1,11 +1,9 @@
 # Changelog
 
-## Unreleased
+## [0.1.0]
+### First public release
+_2020-01-01_
+- Starting off the new decade with making Letarette public
 
-## [0.0.1]
-### Added
-- Some cool stuff
 
-
-[0.0.2]: https://github.com/erkkah/letarette/compare/v0.0.1...v0.0.2
-[0.0.1]: https://github.com/erkkah/letarette/releases/tag/v0.0.1
+[0.1.0]: https://github.com/erkkah/letarette/releases/tag/v0.1.0
