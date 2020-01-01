@@ -29,8 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/jmoiron/sqlx"
 	sqlite3 "github.com/mattn/go-sqlite3"
 
@@ -101,6 +99,10 @@ func OpenDatabase(cfg Config) (Database, error) {
 	rdb, wdb, err := openDatabase(cfg.Db.Path, spaces)
 	if err != nil {
 		return nil, err
+	}
+
+	if !cfg.Db.ToolConnection {
+		err = preloadDB(cfg.Db.Path)
 	}
 
 	newDB := &database{rdb, wdb, cfg.Search.Cap, cfg.Search.Strategy}
@@ -398,7 +400,6 @@ func openDatabase(dbPath string, spaces []string) (rdb *sqlx.DB, wdb *sqlx.DB, e
 		return
 	}
 
-	err = preloadDB(dbPath)
 	return
 }
 
@@ -419,7 +420,7 @@ func preloadDB(dbPath string) error {
 	buf := make([]byte, 1)
 
 	fd := file.Fd()
-	err = unix.Fadvise(int(fd), 0, fileSize, unix.FADV_RANDOM)
+	err = fadvice(fd, fileSize)
 	if err != nil {
 		logger.Warning.Printf("Failed to advice about file usage: %v", err)
 	}
