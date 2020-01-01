@@ -42,13 +42,13 @@ jobs:
         restore-keys: ${{ runner.os }}-gocache-
     
     - name: Get libstemmer version
-      run: git submodule status internal/snowball/snowball > /tmp/snowball.status
+      run: git submodule status internal/snowball/snowball > snowball.status
 
     - name: Cache libstemmer
       uses: actions/cache@v1
       with:
         path: internal/snowball/snowball
-        key: ${{ runner.os }}-snowball-${{ hashFiles('/tmp/snowball.status') }}
+        key: ${{ runner.os }}-snowball-${{ hashFiles('snowball.status') }}
         restore-keys: ${{ runner.os }}-snowball-
 
     - name: Install go-bindata
@@ -61,6 +61,9 @@ jobs:
     - name: Install sqlite3 libs (macos)
       run: brew install sqlite3
       if: startsWith(matrix.os, 'macos')
+
+    - name: Clean before build
+      run: git clean -f
 
     - name: Build
       run: make
