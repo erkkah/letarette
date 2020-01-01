@@ -124,10 +124,11 @@ jobs:
       - uses: actions/download-artifact@v1.0.0
         with:
           name: changelog
+          path: .
 
       - name: Pack release
         id: pack-release
-        run: zip -r $ARCHIVE linux macos licenses
+        run: zip -r $ARCHIVE linux macos licenses CHANGELOG.md
 
       - name: Load change log
         id: changelog
