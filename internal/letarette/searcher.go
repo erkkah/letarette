@@ -17,6 +17,7 @@ package letarette
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -146,10 +147,9 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 		reply string
 	}
 
-	workChannel := make(chan searchWork, 10)
-
-	// ??? Hard-coded worker pool
-	const numWorkers = 4
+	// ??? Worker pool = 4 * GOMAXPROCS
+	numWorkers := 4 * runtime.GOMAXPROCS(-1)
+	workChannel := make(chan searchWork, numWorkers)
 
 	for i := 0; i < numWorkers; i++ {
 		go func() {
