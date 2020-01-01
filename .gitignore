@@ -5,3 +5,4 @@ vendor
 *.db-shm
 *.db-wal
 licenses
+snowball.status
