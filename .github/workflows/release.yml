@@ -130,9 +130,9 @@ jobs:
         id: pack-release
         run: zip -r $ARCHIVE linux macos licenses CHANGELOG.md
 
-      - name: Load change log
+      - name: Load changelog
         id: changelog
-        run: echo "::set-output name=body::$(cat changelog/CHANGELOG.md | sed -e 's/%/%25/g' | sed -e ':begin;$!N;s/\n/%0A/;tbegin')"
+        run: echo "::set-output name=body::$(cat CHANGELOG.md | sed -e 's/%/%25/g' | sed -e ':begin;$!N;s/\n/%0A/;tbegin')"
 
       - name: Create release
         id: create_release
