@@ -1,12 +1,9 @@
-name: Master build
+name: Release build
 
 on:
   push:
-    branches:
-      - master
-  create:
     tags:
-      - v*
+      - 'v*'
 
 jobs:
 
@@ -99,7 +96,6 @@ jobs:
     name: Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
