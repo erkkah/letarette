@@ -148,6 +148,7 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 	}
 
 	// ??? Worker pool = 4 * GOMAXPROCS
+	// I/O vs CPU
 	numWorkers := 4 * runtime.GOMAXPROCS(-1)
 	workChannel := make(chan searchWork, numWorkers)
 
