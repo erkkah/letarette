@@ -85,12 +85,15 @@ jobs:
       with:
         name: changelog
         path: CHANGELOG.md
+    
+    - name: Pack binaries
+      run: tar czf binaries.tgz letarette lrcli lrload
 
     - name: Save artifacts
       uses: actions/upload-artifact@v1
       with:
         name: ${{ format('letarette-{0}', matrix.os) }}
-        path: letarette
+        path: binaries.tgz
 
   release:
     name: Release
@@ -125,6 +128,9 @@ jobs:
         with:
           name: changelog
           path: .
+
+      - name: Unpack binaries
+        run: for os in linux macos; do (cd $os && tar xzf binaries.tgz && rm binaries.tgz); done
 
       - name: Pack release
         id: pack-release
