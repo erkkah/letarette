@@ -42,13 +42,13 @@ jobs:
         restore-keys: ${{ runner.os }}-gocache-
     
     - name: Get libstemmer version
-      run: git submodule status internal/snowball/snowball > snowball.status
+      run: git submodule status internal/snowball/snowball > /tmp/snowball.status
 
     - name: Cache libstemmer
       uses: actions/cache@v1
       with:
         path: internal/snowball/snowball
-        key: ${{ runner.os }}-snowball-${{ hashFiles('snowball.status') }}
+        key: ${{ runner.os }}-snowball-${{ hashFiles('/tmp/snowball.status') }}
         restore-keys: ${{ runner.os }}-snowball-
 
     - name: Install go-bindata
@@ -104,7 +104,7 @@ jobs:
         run: echo ::set-env name=TAG::$(echo ${GITHUB_REF:10})
 
       - name: Set ARCHIVE
-        run: echo ::set-env name=ARCHIVE::letarette-${TAG}.zip
+        run: echo ::set-env name=ARCHIVE::letarette-${TAG}.tgz
 
       - uses: actions/download-artifact@v1.0.0
         with:
@@ -128,7 +128,7 @@ jobs:
 
       - name: Pack release
         id: pack-release
-        run: zip -r $ARCHIVE linux macos licenses CHANGELOG.md
+        run: tar czf $ARCHIVE linux macos licenses CHANGELOG.md
 
       - name: Load changelog
         id: changelog
@@ -150,4 +150,4 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ env.ARCHIVE }}
           asset_name: ${{ env.ARCHIVE }}
-          asset_content_type: application/zip
+          asset_content_type: application/tar+gzip
