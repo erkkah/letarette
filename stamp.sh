@@ -1,3 +1,5 @@
+#!/bin/bash
+
 package=${1:?Expected package argument}
 
 if output=$(git status --porcelain) && [ -z "$output" ]; then
