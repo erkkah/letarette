@@ -51,6 +51,7 @@ func main() {
 
 	letarette.ExposeMetrics(cfg.MetricsPort)
 
+	logger.Info.Printf("Starting Letarette %s (%s)", letarette.Tag, letarette.Revision)
 	logger.Info.Printf("Connecting to nats server at %q\n", cleanURLs(cfg.Nats.URLS))
 
 	options := []nats.Option{
