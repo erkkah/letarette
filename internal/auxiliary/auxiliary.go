@@ -28,6 +28,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
+// Init registers auxiliary functions to the given connection
 func Init(conn *sqlite3.SQLiteConn) error {
 	db := dbFromConnection(conn)
 	result := C.initAuxiliaryFunctions(db)
