@@ -104,6 +104,9 @@ func OpenDatabase(cfg Config) (Database, error) {
 	if !cfg.Db.ToolConnection {
 		err = preloadDB(cfg.Db.Path)
 	}
+	if err != nil {
+		return nil, err
+	}
 
 	newDB := &database{rdb, wdb, cfg.Search.Cap, cfg.Search.Strategy}
 	return newDB, nil
