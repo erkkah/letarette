@@ -1,3 +1,5 @@
+[![GoDoc](https://godoc.org/github.com/erkkah/letarette/pkg/client?status.svg)](https://godoc.org/github.com/erkkah/letarette/pkg/client)
+
 ## Letarette client library for Golang
 
 [Letarette docs](https://letarette.io/docs)

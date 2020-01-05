@@ -1,3 +1,7 @@
+
+[![GitHub release](https://img.shields.io/github/release/erkkah/letarette.svg)](https://github.com/erkkah/letarette/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/erkkah/letarette)](https://goreportcard.com/report/github.com/erkkah/letarette)
+
 # Letarette - a full-text search thingy
 
 Letarette provides full-text search capabilities to your project with very little setup. You can start out small with a single local index, and if you need, grow to a fully redundant installation with a sharded index.
