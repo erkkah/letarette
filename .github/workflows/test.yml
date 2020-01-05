@@ -43,6 +43,9 @@ jobs:
         key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
         restore-keys: ${{ runner.os }}-gocache-
     
+    - name: Init submodule
+      run: git submodule init
+    
     - name: Get libstemmer version
       run: git submodule status internal/snowball/snowball > snowball.status
 
