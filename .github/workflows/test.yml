@@ -1,20 +1,15 @@
-name: Branch build
+name: Test builds
 
 on:
   push:
-    branches-ignore:
-      - master
-      - develop
+    branches:
       - 'test-*'
 
 jobs:
 
   build:
     name: Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
 
     - name: Set up Go 1.13
