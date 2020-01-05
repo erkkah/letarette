@@ -72,6 +72,7 @@ jobs:
       run: make test
 
     - name: Test-build Docker image
+      if: startsWith(matrix.os, 'ubuntu')
       run: docker build .
 
     - name: Collect licenses
