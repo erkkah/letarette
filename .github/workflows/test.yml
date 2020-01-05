@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [ubuntu-latest]
 
     steps:
 
@@ -63,6 +63,9 @@ jobs:
     - name: Install sqlite3 libs (macos)
       run: brew install sqlite3
       if: startsWith(matrix.os, 'macos')
+
+    - name: Git status check
+      run: git status --porcelain
 
     - name: Build
       run: make
