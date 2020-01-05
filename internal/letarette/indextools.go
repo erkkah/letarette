@@ -323,6 +323,9 @@ func UpdateSpellfix(ctx context.Context, dbo Database, minCount int) error {
 		ctx,
 		`delete from speling`,
 	)
+	if err != nil {
+		return err
+	}
 
 	_, err = tx.ExecContext(
 		ctx,
