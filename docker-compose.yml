@@ -1,0 +1,12 @@
+version: '3'
+services:
+    natsserver:
+        image: nats:2-scratch
+    letarette:
+        build: .
+        volumes: 
+            - dbvolume:/db
+        depends_on:
+            - natsserver
+volumes:
+    dbvolume: {}
