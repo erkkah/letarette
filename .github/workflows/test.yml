@@ -67,9 +67,6 @@ jobs:
       run: brew install sqlite3
       if: startsWith(matrix.os, 'macos')
 
-    - name: Git status check
-      run: git status --porcelain
-
     - name: Build
       run: make
     

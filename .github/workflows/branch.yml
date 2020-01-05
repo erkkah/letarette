@@ -42,7 +42,10 @@ jobs:
         path: ${{ env.GOCACHE }}
         key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
         restore-keys: ${{ runner.os }}-gocache-
-    
+
+    - name: Init submodule
+      run: git submodule init && git submodule update --recursive
+
     - name: Get libstemmer version
       run: git submodule status internal/snowball/snowball > snowball.status
 

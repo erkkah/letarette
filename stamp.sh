@@ -6,7 +6,6 @@ if output=$(git status --porcelain) && [ -z "$output" ]; then
     # clean
     echo clean repo >&2
     sha=$(git rev-parse HEAD)
-    echo sha:$sha >&2
     rev=${sha:0:7}
     echo rev:$rev >&2
 else
