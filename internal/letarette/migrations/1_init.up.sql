@@ -40,7 +40,8 @@ create table if not exists spaces(
 create table if not exists interest(
     spaceID integer not null,
     docID text not null,
-    state integer not null, updatedNanos integer not null default 0,
+    state integer not null,
+    updatedNanos integer not null default 0,
     unique(spaceID, docID)
     foreign key (spaceID) references spaces(spaceID)
 );
