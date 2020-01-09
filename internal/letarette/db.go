@@ -37,6 +37,7 @@ import (
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 
 	"github.com/erkkah/letarette/internal/auxiliary"
+	"github.com/erkkah/letarette/internal/compress"
 	"github.com/erkkah/letarette/internal/snowball"
 	"github.com/erkkah/letarette/internal/spellfix"
 	"github.com/erkkah/letarette/pkg/logger"
@@ -86,6 +87,7 @@ type database struct {
 	wdb            *sqlx.DB
 	resultCap      int
 	searchStrategy int
+	compress       bool
 }
 
 // OpenDatabase connects to a new or existing database and
@@ -105,7 +107,7 @@ func OpenDatabase(cfg Config) (Database, error) {
 		err = preloadDB(cfg.Db.Path)
 	}
 
-	newDB := &database{rdb, wdb, cfg.Search.Cap, cfg.Search.Strategy}
+	newDB := &database{rdb, wdb, cfg.Search.Cap, cfg.Search.Strategy, cfg.Index.Compress}
 	return newDB, nil
 }
 
@@ -306,6 +308,12 @@ func registerCustomDriver(cfg Config) {
 
 					logger.Debug.Printf("Initializing spellfix")
 					err = spellfix.Init(conn)
+					if err != nil {
+						return err
+					}
+
+					logger.Debug.Printf("Initializing compress")
+					err = compress.Init(conn)
 					if err != nil {
 						return err
 					}
