@@ -53,7 +53,8 @@ type Config struct {
 			Cycle           time.Duration `default:"100ms"`
 			EmptyCycle      time.Duration `default:"5s"`
 		}
-		Disable bool `default:"false"`
+		Disable  bool `default:"false"`
+		Compress bool `default:"false"`
 	}
 	Spelling struct {
 		MinFrequency int `split_words:"true" default:"5"`

@@ -55,9 +55,12 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 		}
 	}()
 
-	docsStatement, err := tx.PrepareContext(ctx, `replace into docs (spaceID, docID, updatedNanos, title, txt, alive) values (?, ?, ?, ?, ?, ?)`)
+	docsStatement, err := tx.PrepareContext(ctx,
+		`replace into docs (spaceID, docID, updatedNanos, title, txt, alive)
+			values (:spaceID, :docID, :updated, :title, case :compress when 0 then :txt else compress(:txt) end, :alive)
+		`)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to prepare doc update statement: %w", err)
 	}
 
 	interestStatement, err := tx.PrepareContext(ctx, `update interest set state=? where spaceID=? and docID=?`)
@@ -73,7 +76,16 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 		if doc.Alive {
 			title = doc.Title
 		}
-		res, err := docsStatement.ExecContext(ctx, spaceID, doc.ID, doc.Updated.UnixNano(), title, txt, doc.Alive)
+		res, err := docsStatement.ExecContext(
+			ctx,
+			sql.Named("spaceID", spaceID),
+			sql.Named("docID", doc.ID),
+			sql.Named("updated", doc.Updated.UnixNano()),
+			sql.Named("title", title),
+			sql.Named("txt", txt),
+			sql.Named("alive", doc.Alive),
+			sql.Named("compress", db.compress),
+		)
 
 		if err != nil {
 			return fmt.Errorf("Failed to update doc: %w", err)

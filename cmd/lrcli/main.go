@@ -59,6 +59,7 @@ var cmdline struct {
 	Stats        bool
 	Check        bool
 	Pgsize       bool
+	Compress     bool
 	Size         int `docopt:"<size>"`
 	Rebuild      bool
 	Optimize     bool
@@ -85,6 +86,7 @@ Usage:
     lrcli index stats
     lrcli index check
     lrcli index pgsize <size>
+    lrcli index compress
     lrcli index optimize
     lrcli index rebuild
     lrcli index forcestemmer
@@ -145,6 +147,8 @@ Options:
 				logger.Warning.Printf("Index and config stemmer settings mismatch. Re-build index or force changes.")
 			}
 			checkIndex(db)
+		case cmdline.Compress:
+			compressIndex(db)
 		case cmdline.Pgsize:
 			setIndexPageSize(db, cmdline.Size)
 		case cmdline.Stats:
@@ -417,6 +421,18 @@ func sql(db letarette.Database, statement string) {
 	fmt.Printf("Executed in %vs\n", duration)
 	for _, v := range result {
 		fmt.Println(v)
+	}
+}
+
+func compressIndex(db letarette.Database) {
+	s := getSpinner("Compressing index", "OK\n")
+	s.Start()
+	defer s.Stop()
+
+	ctx := context.Background()
+	err := letarette.CompressIndex(ctx, db)
+	if err != nil {
+		logger.Error.Printf("Failed to compress index: %v", err)
 	}
 }
 

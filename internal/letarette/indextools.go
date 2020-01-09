@@ -243,6 +243,41 @@ func SetIndexPageSize(dbo Database, pageSize int) error {
 	return err
 }
 
+// CompressIndex compresses the txt column
+func CompressIndex(ctx context.Context, dbo Database) error {
+	db := dbo.(*database)
+	sql := db.getRawDB()
+
+	conn, err := sql.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if tx != nil {
+			tx.Rollback()
+		}
+	}()
+
+	_, err = tx.ExecContext(ctx, `update docs set txt=compress(txt) where not iscompressed(txt)`)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	tx = nil
+	return nil
+}
+
 // GetSpellfixLag returns how many words in the main index that are not yet in the spelling index.
 func GetSpellfixLag(ctx context.Context, dbo Database, minCount int) (int, error) {
 	db := dbo.(*database)
