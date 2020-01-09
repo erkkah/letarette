@@ -1,18 +1,24 @@
 all: letarette lrcli lrload
 
-LDFLAGS := $(shell ./stamp.sh github.com/erkkah/letarette/internal/letarette)
+STAMP := $(shell ./stamp.sh github.com/erkkah/letarette/internal/letarette)
+
+ifdef STATIC
+LDFLAGS := -linkmode external -extldflags -static
+endif
+
+export CGO_CFLAGS := -DSQLITE_OMIT_LOAD_EXTENSION
 
 letarette: generate snowball
-	go build -ldflags="$(LDFLAGS)" -v -tags "fts5" -o letarette ./cmd/worker
-
-tinysrv: client
-	go build -v ./cmd/tinysrv
-
-lrload: client
-	go build -v ./cmd/lrload
+	go build -ldflags="$(STAMP) $(LDFLAGS)" -v -tags "fts5,sqlite_omit_load_extension" -o letarette ./cmd/worker
 
 lrcli: client snowball
-	go build -ldflags="$(LDFLAGS)" -v -tags "fts5,dbstats" ./cmd/lrcli
+	go build -ldflags="$(STAMP) $(LDFLAGS)" -v -tags "fts5,dbstats,sqlite_omit_load_extension" ./cmd/lrcli
+
+tinysrv: client
+	go build -ldflags="$(LDFLAGS)" -v ./cmd/tinysrv
+
+lrload: client
+	go build -ldflags="$(LDFLAGS)" -v ./cmd/lrload
 
 client:
 	go build -v ./pkg/client
