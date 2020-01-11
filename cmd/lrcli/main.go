@@ -40,8 +40,6 @@ import (
 )
 
 var cmdline struct {
-	Verbose bool `docopt:"-v"`
-
 	Search      bool
 	Space       string   `docopt:"<space>"`
 	Phrases     []string `docopt:"<phrase>"`
@@ -56,6 +54,7 @@ var cmdline struct {
 	Statement []string `docopt:"<sql>"`
 
 	Index        bool
+	Database     string `docopt:"-d"`
 	Stats        bool
 	Check        bool
 	Pgsize       bool
@@ -80,24 +79,24 @@ func main() {
 	usage := title + `
 
 Usage:
-    lrcli search [-v] [-l <limit>] [-p <page>] [-g <groupsize>] [-i] <space> [<phrase>...]
+    lrcli search [-l <limit>] [-p <page>] [-g <groupsize>] [-i] <space> [<phrase>...]
     lrcli monitor
-    lrcli sql <sql>...
-    lrcli index stats
-    lrcli index check
-    lrcli index pgsize <size>
-    lrcli index compress
-    lrcli index optimize
-    lrcli index rebuild
-    lrcli index forcestemmer
-    lrcli spelling update <mincount>
-    lrcli resetmigration <version>
+    lrcli sql [-d <db>] <sql>...
+    lrcli index [-d <db>] stats
+    lrcli index [-d <db>] check
+    lrcli index [-d <db>] pgsize <size>
+    lrcli index [-d <db>] compress
+    lrcli index [-d <db>] optimize
+    lrcli index [-d <db>] rebuild
+    lrcli index [-d <db>] forcestemmer
+    lrcli spelling [-d <db>] update <mincount>
+    lrcli resetmigration [-d <db>] <version>
     lrcli env
 
 Options:
-    -v             Verbose
     -l <limit>     Search result page limit [default: 10]
     -p <page>      Search result page [default: 0]
+    -d <db>        Override default or environment DB path
     -i             Interactive search
     -g <groupsize> Force shard group size, do not discover
 `
@@ -126,8 +125,14 @@ Options:
 	} else if cmdline.Search {
 		doSearch(cfg)
 	} else if cmdline.Index {
+		if cmdline.Database != "" {
+			cfg.Db.Path = cmdline.Database
+		}
 		db, err := letarette.OpenDatabase(cfg)
 		defer func() {
+			if db == nil {
+				return
+			}
 			logger.Debug.Printf("Closing db...")
 			err := db.Close()
 			if err != nil {
@@ -289,6 +294,11 @@ func optimizeIndex(db letarette.Database) {
 			break
 		}
 	}
+	optimizer.Close()
+	err = letarette.VacuumIndex(db)
+	if err != nil {
+		logger.Error.Printf("Failed to vacuum after optimize: %w", err)
+	}
 }
 
 func rebuildIndex(db letarette.Database) {
@@ -297,9 +307,27 @@ func rebuildIndex(db letarette.Database) {
 	defer s.Stop()
 
 	err := letarette.RebuildIndex(db)
+	if err == nil {
+		err = letarette.VacuumIndex(db)
+	}
 	if err != nil {
 		logger.Error.Printf("Failed to rebuild index: %v", err)
 		return
+	}
+}
+
+func compressIndex(db letarette.Database) {
+	s := getSpinner("Compressing index", "OK\n")
+	s.Start()
+	defer s.Stop()
+
+	ctx := context.Background()
+	err := letarette.CompressIndex(ctx, db)
+	if err == nil {
+		err = letarette.VacuumIndex(db)
+	}
+	if err != nil {
+		logger.Error.Printf("Failed to compress index: %v", err)
 	}
 }
 
@@ -421,18 +449,6 @@ func sql(db letarette.Database, statement string) {
 	fmt.Printf("Executed in %vs\n", duration)
 	for _, v := range result {
 		fmt.Println(v)
-	}
-}
-
-func compressIndex(db letarette.Database) {
-	s := getSpinner("Compressing index", "OK\n")
-	s.Start()
-	defer s.Stop()
-
-	ctx := context.Background()
-	err := letarette.CompressIndex(ctx, db)
-	if err != nil {
-		logger.Error.Printf("Failed to compress index: %v", err)
 	}
 }
 
