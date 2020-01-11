@@ -6,7 +6,7 @@ ifdef STATIC
 LDFLAGS := -linkmode external -extldflags -static
 endif
 
-export CGO_CFLAGS := -DSQLITE_OMIT_LOAD_EXTENSION
+export CGO_CFLAGS := -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_OMIT_SHARED_CACHE -DSQLITE_USE_ALLOCA
 
 letarette: generate snowball
 	go build -ldflags="$(STAMP) $(LDFLAGS)" -v -tags "fts5,sqlite_omit_load_extension" -o letarette ./cmd/worker
