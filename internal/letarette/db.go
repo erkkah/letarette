@@ -88,6 +88,9 @@ type database struct {
 	resultCap      int
 	searchStrategy int
 	compress       bool
+
+	addDocumentStatement    *sqlx.Stmt
+	updateInterestStatement *sqlx.Stmt
 }
 
 // OpenDatabase connects to a new or existing database and
@@ -105,9 +108,32 @@ func OpenDatabase(cfg Config) (Database, error) {
 
 	if !cfg.Db.ToolConnection {
 		err = preloadDB(cfg.Db.Path)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	newDB := &database{rdb, wdb, cfg.Search.Cap, cfg.Search.Strategy, cfg.Index.Compress}
+	addDocumentStatement, err := wdb.Preparex(addDocumentSQL)
+	if err != nil {
+		if err != nil {
+			return nil, fmt.Errorf("Failed to prepare doc update statement: %w", err)
+		}
+	}
+
+	updateInterestStatement, err := wdb.Preparex(updateInterestSQL)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to prepare interest update statement: %w", err)
+	}
+
+	newDB := &database{
+		rdb:                     rdb,
+		wdb:                     wdb,
+		resultCap:               cfg.Search.Cap,
+		searchStrategy:          cfg.Search.Strategy,
+		compress:                cfg.Index.Compress,
+		addDocumentStatement:    addDocumentStatement,
+		updateInterestStatement: updateInterestStatement,
+	}
 	return newDB, nil
 }
 
@@ -322,9 +348,11 @@ func registerCustomDriver(cfg Config) {
 					pragmas := []string{
 						"pragma threads=4",
 						"pragma temp_store=2",
+						"pragma wal_autocheckpoint=4000",
 						fmt.Sprintf("pragma cache_size=-%d", cfg.Db.CacheSizeMB*1024),
 						fmt.Sprintf("pragma mmap_size=%d", cfg.Db.MMapSizeMB*1024*1024),
 					}
+
 					_, err = conn.Exec(strings.Join(pragmas, ";"), []drv.Value{})
 					if err != nil {
 						return err
@@ -355,13 +383,13 @@ func getDatabaseURL(dbPath string, mode connectionMode) (string, error) {
 		"_foreign_keys=true",
 		"_timeout=500",
 		"cache=private",
+		"_mutex=no",
 	}
 
 	if mode == readOnly {
 		args = append(args, []string{
 			"mode=ro",
 			"_query_only=true",
-			"_mutex=no",
 		}...)
 	} else {
 		args = append(args, []string{
