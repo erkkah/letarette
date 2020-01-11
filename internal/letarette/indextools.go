@@ -150,6 +150,17 @@ func RebuildIndex(dbo Database) error {
 	return nil
 }
 
+// VacuumIndex runs vacuum on the database to reclaim space
+func VacuumIndex(dbo Database) error {
+	db := dbo.(*database)
+	sql := db.getRawDB()
+	_, err := sql.Exec(`vacuum`)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // IndexOptimizer is used to run step-wise index optimization.
 // The instance must be closed by calling Close() to return
 // the database connection to the pool.
