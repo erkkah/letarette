@@ -38,6 +38,15 @@ func (db *database) getDocumentCount(ctx context.Context) (uint64, error) {
 	return count, err
 }
 
+var addDocumentSQL = `
+replace into docs (spaceID, docID, updatedNanos, title, txt, alive)
+values (:spaceID, :docID, :updated, :title, case :compress when 0 then :txt else compress(:txt) end, :alive)
+`
+
+var updateInterestSQL = `
+update interest set state=? where spaceID=? and docID=?
+`
+
 func (db *database) addDocumentUpdates(ctx context.Context, space string, docs []protocol.Document) error {
 	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {
@@ -55,18 +64,9 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 		}
 	}()
 
-	docsStatement, err := tx.PrepareContext(ctx,
-		`replace into docs (spaceID, docID, updatedNanos, title, txt, alive)
-			values (:spaceID, :docID, :updated, :title, case :compress when 0 then :txt else compress(:txt) end, :alive)
-		`)
-	if err != nil {
-		return fmt.Errorf("Failed to prepare doc update statement: %w", err)
-	}
+	docsStatement := tx.StmtxContext(ctx, db.addDocumentStatement)
+	interestStatement := tx.StmtxContext(ctx, db.updateInterestStatement)
 
-	interestStatement, err := tx.PrepareContext(ctx, `update interest set state=? where spaceID=? and docID=?`)
-	if err != nil {
-		return err
-	}
 	for _, doc := range docs {
 		txt := ""
 		if doc.Alive {
