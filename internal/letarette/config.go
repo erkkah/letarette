@@ -44,14 +44,15 @@ type Config struct {
 	}
 	Index struct {
 		Spaces         []string `required:"true" default:"docs"`
-		ChunkSize      uint16   `default:"250"`
-		MaxOutstanding uint16   `split_words:"true" default:"25"`
+		ListSize       uint16   `default:"250"`
+		ReqSize        uint16   `default:"25"`
+		MaxOutstanding uint16   `split_words:"true" default:"2"`
 		Wait           struct {
-			Interest        time.Duration `default:"5s"`
-			DocumentRefetch time.Duration `default:"1s"`
-			Document        time.Duration `default:"20s"`
-			Cycle           time.Duration `default:"100ms"`
-			EmptyCycle      time.Duration `default:"5s"`
+			Cycle      time.Duration `default:"5ms"`
+			EmptyCycle time.Duration `default:"5s"`
+			Interest   time.Duration `default:"5s"`
+			Document   time.Duration `default:"20s"`
+			Refetch    time.Duration `default:"1s"`
 		}
 		Disable  bool `default:"false"`
 		Compress bool `default:"false"`
@@ -78,6 +79,13 @@ type Config struct {
 	ShardgroupSize  uint16 `ignored:"true"`
 	ShardgroupIndex uint16 `ignored:"true"`
 	MetricsPort     uint16 `split_words:"true" default:"8000" desc:"internal"`
+	Profile         struct {
+		HTTP  int    `desc:"internal"`
+		CPU   string `desc:"internal"`
+		Mem   string `desc:"internal"`
+		Block string `desc:"internal"`
+		Mutex string `desc:"internal"`
+	}
 }
 
 const prefix = "LETARETTE"
@@ -124,10 +132,9 @@ func LoadConfig() (cfg Config, err error) {
 
 func validateIndexDurations(cfg Config) bool {
 	return (cfg.Index.Wait.Interest > time.Millisecond*20 &&
-		cfg.Index.Wait.Cycle > time.Millisecond &&
 		cfg.Index.Wait.Cycle < cfg.Index.Wait.EmptyCycle &&
-		cfg.Index.Wait.DocumentRefetch > time.Millisecond*20 &&
-		cfg.Index.Wait.DocumentRefetch < cfg.Index.Wait.Document)
+		cfg.Index.Wait.Refetch > time.Millisecond*20 &&
+		cfg.Index.Wait.Refetch < cfg.Index.Wait.Document)
 }
 
 var usageFormat = fmt.Sprintf("{{$t:=\"\t\"}}%s\n%s (%s)\n",
