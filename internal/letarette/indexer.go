@@ -241,6 +241,9 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 			if now.After(state.createdAtTime().Add(timeout)) {
 				logger.Warning.Printf("Waited too long for documents, moving on")
 				err = idx.db.fakeServeRequested(idx.context, space)
+				if err != nil {
+					logger.Error.Printf("Failed to fake request served: %v", err)
+				}
 			}
 
 			logger.Warning.Printf("Timeout waiting for documents, re-requesting")

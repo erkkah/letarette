@@ -119,6 +119,9 @@ func OpenDatabase(cfg Config) (Database, error) {
 			return nil, fmt.Errorf("Failed to prepare doc update statement: %w", err)
 		}
 	}
+	if err != nil {
+		return nil, err
+	}
 
 	updateInterestStatement, err := wdb.Preparex(updateInterestSQL)
 	if err != nil {
