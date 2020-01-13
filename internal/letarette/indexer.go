@@ -51,6 +51,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		cfg:                 cfg,
 		conn:                ec,
 		db:                  db.(*database),
+		updateReceived:      make(chan struct{}, 10),
 	}
 
 	for _, space := range cfg.Index.Spaces {
@@ -65,6 +66,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 	go func() {
 		self.waiter.Add(1)
 		for update := range updates {
+			self.updateReceived <- struct{}{}
 			err := self.db.addDocumentUpdates(mainContext, update.Space, update.Documents)
 			if err != nil {
 				logger.Error.Printf("Failed to add document update: %v", err)
@@ -124,6 +126,8 @@ type indexer struct {
 	context context.Context
 	waiter  sync.WaitGroup
 
+	updateReceived chan struct{}
+
 	lastDocumentRequest map[string]time.Time
 
 	cfg  Config
@@ -155,8 +159,10 @@ func (idx *indexer) main(atExit func()) {
 		case <-idx.context.Done():
 			atExit()
 			return
+		case <-idx.updateReceived:
+			// Trigger cycle if we got an update
 		case <-cycleThrottle:
-			// Loop will never be faster than cfg.CycleWait
+			// Trigger cycle after timeout
 		}
 	}
 
@@ -175,7 +181,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 	numRequested := 0
 	numServed := 0
 	pendingDocs := []Interest{}
-	maxOutstanding := int(idx.cfg.Index.MaxOutstanding)
+	maxRequestedDocuments := int(idx.cfg.Index.MaxOutstanding) * int(idx.cfg.Index.ReqSize)
 
 	for _, interest := range interests {
 		switch interest.State {
@@ -189,7 +195,8 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 		}
 	}
 
-	docsToRequest := min(numPending, maxOutstanding-numRequested)
+	docsToRequest := min(numPending, maxRequestedDocuments-numRequested)
+	docsToRequest = min(docsToRequest, int(idx.cfg.Index.ReqSize))
 	if docsToRequest > 0 {
 		logger.Debug.Printf("Requesting %v docs\n", docsToRequest)
 		metrics.docRequests.Add(float64(docsToRequest))
@@ -221,7 +228,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 	} else {
 		now := time.Now()
 		timeout := idx.cfg.Index.Wait.Document
-		refetchInterval := idx.cfg.Index.Wait.DocumentRefetch
+		refetchInterval := idx.cfg.Index.Wait.Refetch
 
 		lastRequest := idx.lastDocumentRequest[space]
 		if now.After(lastRequest.Add(refetchInterval)) {
@@ -261,7 +268,7 @@ func (idx *indexer) requestNextChunk(space string) error {
 		Space:         space,
 		FromTime:      state.lastUpdatedTime(),
 		AfterDocument: state.LastUpdatedDocID,
-		Limit:         idx.cfg.Index.ChunkSize,
+		Limit:         idx.cfg.Index.ListSize,
 	}
 	timeout, cancel := context.WithTimeout(idx.context, idx.cfg.Index.Wait.Interest)
 
@@ -297,6 +304,8 @@ func (idx *indexer) requestNextChunk(space string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to set interest list: %w", err)
 	}
+
+	idx.updateReceived <- struct{}{}
 
 	return nil
 }
