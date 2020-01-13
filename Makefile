@@ -8,11 +8,13 @@ endif
 
 export CGO_CFLAGS := -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_OMIT_SHARED_CACHE -DSQLITE_USE_ALLOCA
 
+SQLITE_TAGS := fts5,sqlite_omit_load_extension
+
 letarette: generate snowball
-	go build -ldflags="$(STAMP) $(LDFLAGS)" -v -tags "fts5,sqlite_omit_load_extension" -o letarette ./cmd/worker
+	go build -ldflags="$(STAMP) $(LDFLAGS)" -v -tags "$(SQLITE_TAGS)" -o letarette ./cmd/worker
 
 lrcli: client snowball
-	go build -ldflags="$(STAMP) $(LDFLAGS)" -v -tags "fts5,dbstats,sqlite_omit_load_extension" ./cmd/lrcli
+	go build -ldflags="$(STAMP) $(LDFLAGS)" -v -tags "$(SQLITE_TAGS),dbstats" ./cmd/lrcli
 
 tinysrv: client
 	go build -ldflags="$(LDFLAGS)" -v ./cmd/tinysrv
@@ -34,7 +36,7 @@ $(SNOWBALL)/README:
 	git submodule init && git submodule update --recursive
 
 test:
-	go test -tags "fts5" ./internal/letarette ./pkg/*
+	go test -tags "$(SQLITE_TAGS)" ./internal/letarette ./pkg/*
 
 generate:
 	go generate internal/letarette/db.go
