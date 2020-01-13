@@ -49,9 +49,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	letarette.ExposeMetrics(cfg.MetricsPort)
-
 	logger.Info.Printf("Starting Letarette %s (%s)", letarette.Tag, letarette.Revision)
+
+	letarette.ExposeMetrics(cfg.MetricsPort)
+	profiler, err := letarette.StartProfiler(cfg)
+	if err != nil {
+		logger.Error.Printf("Failed to start profiler: %v", err)
+		os.Exit(1)
+	}
+	defer profiler.Close()
+
 	logger.Info.Printf("Connecting to nats server at %q\n", cleanURLs(cfg.Nats.URLS))
 
 	options := []nats.Option{
