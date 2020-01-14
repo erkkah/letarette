@@ -27,7 +27,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/briandowns/spinner"
 	"github.com/docopt/docopt-go"
 
 	"github.com/erkkah/letarette/internal/letarette"
@@ -37,6 +36,7 @@ import (
 	"github.com/erkkah/letarette/pkg/client"
 	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
+	"github.com/erkkah/letarette/pkg/spinner"
 )
 
 var cmdline struct {
@@ -200,15 +200,16 @@ Options:
 }
 
 func checkIndex(db letarette.Database) {
-	s := getSpinner("Checking index ", "OK\n")
-	s.Start()
-	defer s.Stop()
+	s := spinner.New(os.Stdout)
+	s.Start("Checking index ")
 
 	err := letarette.CheckIndex(db)
 	if err != nil {
-		logger.Error.Printf("Index check failed: %v", err)
+		s.Stop(fmt.Sprintf("Index check failed: %v\n", err))
 		return
 	}
+
+	s.Stop("OK\n")
 }
 
 func setIndexPageSize(db letarette.Database, pageSize int) {
@@ -245,8 +246,8 @@ Top terms:
 `
 
 func printIndexStats(db letarette.Database) {
-	s := getSpinner("Crunching numbers ", "")
-	s.Start()
+	s := spinner.New(os.Stdout)
+	s.Start("Crunching numbers ")
 	defer s.Stop()
 
 	var err error
@@ -275,19 +276,18 @@ func printIndexStats(db letarette.Database) {
 }
 
 func optimizeIndex(db letarette.Database) {
-	s := getSpinner("Optimizing index ", "OK\n")
-	s.Start()
-	defer s.Stop()
+	s := spinner.New(os.Stdout)
+	s.Start("Optimizing index ")
 	optimizer, err := letarette.StartIndexOptimization(db, 100)
 	if err != nil {
-		logger.Error.Printf("Failed to start optimizer: %w", err)
+		s.Stop(fmt.Sprintf("Failed to start optimizer: %v\n", err))
 		return
 	}
 	defer optimizer.Close()
 	for {
 		done, err := optimizer.Step()
 		if err != nil {
-			logger.Error.Printf("Failed to run optimize step: %w", err)
+			s.Stop(fmt.Sprintf("Failed to run optimize step: %v\n", err))
 			return
 		}
 		if done {
@@ -297,29 +297,30 @@ func optimizeIndex(db letarette.Database) {
 	optimizer.Close()
 	err = letarette.VacuumIndex(db)
 	if err != nil {
-		logger.Error.Printf("Failed to vacuum after optimize: %w", err)
+		s.Stop(fmt.Sprintf("Failed to vacuum after optimize: %v\n", err))
+		return
 	}
+	s.Stop("OK\n")
 }
 
 func rebuildIndex(db letarette.Database) {
-	s := getSpinner("Rebuilding index ", "OK\n")
-	s.Start()
-	defer s.Stop()
+	s := spinner.New(os.Stdout)
+	s.Start("Rebuilding index ")
 
 	err := letarette.RebuildIndex(db)
 	if err == nil {
 		err = letarette.VacuumIndex(db)
 	}
 	if err != nil {
-		logger.Error.Printf("Failed to rebuild index: %v", err)
+		s.Stop(fmt.Sprintf("Failed to rebuild index: %v\n", err))
 		return
 	}
+	s.Stop("OK\n")
 }
 
 func compressIndex(db letarette.Database) {
-	s := getSpinner("Compressing index", "OK\n")
-	s.Start()
-	defer s.Stop()
+	s := spinner.New(os.Stdout)
+	s.Start("Compressing index ")
 
 	ctx := context.Background()
 	err := letarette.CompressIndex(ctx, db)
@@ -327,8 +328,10 @@ func compressIndex(db letarette.Database) {
 		err = letarette.VacuumIndex(db)
 	}
 	if err != nil {
-		logger.Error.Printf("Failed to compress index: %v", err)
+		s.Stop(fmt.Sprintf("Failed to compress index: %v\n", err))
+		return
 	}
+	s.Stop("OK\n")
 }
 
 func forceIndexStemmerState(state snowball.Settings, db letarette.Database) {
@@ -426,18 +429,6 @@ func resetMigration(cfg letarette.Config, version int) {
 	fmt.Println("OK")
 }
 
-func getSpinner(labels ...string) *spinner.Spinner {
-	spnr := spinner.New(spinner.CharSets[2], time.Millisecond*500)
-	spnr.Color("yellow", "bold")
-	if len(labels) > 0 {
-		spnr.Prefix = labels[0]
-	}
-	if len(labels) > 1 {
-		spnr.FinalMSG = labels[1]
-	}
-	return spnr
-}
-
 func sql(db letarette.Database, statement string) {
 	start := time.Now()
 	result, err := db.RawQuery(statement)
@@ -453,21 +444,22 @@ func sql(db letarette.Database, statement string) {
 }
 
 func updateSpelling(cfg letarette.Config) {
-	s := getSpinner("Updating spelling", "OK\n")
-	s.Start()
-	defer s.Stop()
+	s := spinner.New(os.Stdout)
+	s.Start("Updating spelling ")
 
 	db, err := letarette.OpenDatabase(cfg)
 	defer db.Close()
 
 	if err != nil {
-		logger.Error.Printf("Failed to open db: %v", err)
+		s.Stop(fmt.Sprintf("Failed to open db: %v", err))
 		return
 	}
 
 	ctx := context.Background()
 	err = letarette.UpdateSpellfix(ctx, db, cmdline.SpellingLimit)
 	if err != nil {
-		logger.Error.Printf("Failed to update spelling: %v", err)
+		s.Stop(fmt.Sprintf("Failed to update spelling: %v", err))
+		return
 	}
+	s.Stop("OK\n")
 }
