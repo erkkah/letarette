@@ -19,16 +19,16 @@ endif
 SQLITE_TAGS := fts5,sqlite_omit_load_extension
 
 letarette: generate snowball sqlite.a
-	go build -ldflags="$(STAMP) $(LDFLAGS)" -v -tags "$(SQLITE_TAGS)" -o letarette$(EXE) ./cmd/worker
+	go build -ldflags="$(STAMP) $(LDFLAGS)" -mod=readonly -v -tags "$(SQLITE_TAGS)" -o letarette$(EXE) ./cmd/worker
 
 lrcli: client snowball
-	go build -ldflags="$(STAMP) $(LDFLAGS)" -v -tags "$(SQLITE_TAGS),dbstats" ./cmd/lrcli
+	go build -ldflags="$(STAMP) $(LDFLAGS)" -mod=readonly -v -tags "$(SQLITE_TAGS),dbstats" ./cmd/lrcli
 
 tinysrv: client
-	go build -ldflags="$(LDFLAGS)" -v ./cmd/tinysrv
+	go build -ldflags="$(LDFLAGS)" -mod=readonly -v ./cmd/tinysrv
 
 lrload: client
-	go build -ldflags="$(LDFLAGS)" -v ./cmd/lrload
+	go build -ldflags="$(LDFLAGS)" -mod=readonly -v ./cmd/lrload
 
 client:
 	go build -v ./pkg/client
