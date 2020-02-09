@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <sqlite3.h>
+#include <sqlite3-binding.h>
 
 int initSnowballStemmer(
     sqlite3* db,
