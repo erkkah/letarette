@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <sqlite3-binding.h>
+package letarette
 
-int sqlite3_compress_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines *pApi);
+func fadvice(fd uintptr, size int64) error {
+	return nil
+}

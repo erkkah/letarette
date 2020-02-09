@@ -15,9 +15,7 @@
 package spellfix
 
 // #cgo CFLAGS: -DSQLITE_CORE
-// #cgo darwin CFLAGS: -I/usr/local/opt/sqlite/include
-// #cgo LDFLAGS: -lsqlite3
-// #cgo darwin LDFLAGS: -L/usr/local/opt/sqlite/lib
+// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}../../../sqlite.a
 // #include "spellfix.h"
 import "C"
 import (
@@ -27,6 +25,8 @@ import (
 
 	"github.com/mattn/go-sqlite3"
 )
+
+// #include "../letarette/sqlite.c"
 
 // Init registers the spellfix extension with a connection.
 func Init(conn *sqlite3.SQLiteConn) error {

@@ -6,3 +6,5 @@ vendor
 *.db-wal
 licenses
 snowball.status
+*.exe
+sqlite.a
