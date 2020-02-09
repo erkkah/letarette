@@ -26,10 +26,8 @@ import (
 )
 
 // #cgo CFLAGS: -DSQLITE_CORE
-// #cgo darwin CFLAGS: -I/usr/local/opt/sqlite/include
-// #cgo LDFLAGS: -lsqlite3
-// #cgo darwin LDFLAGS: -L/usr/local/opt/sqlite/lib
-// #include <sqlite3.h>
+// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}../../../sqlite.a
+// #include <sqlite3-binding.h>
 import "C"
 
 // Stats holds statistics gathered by GetIndexStats

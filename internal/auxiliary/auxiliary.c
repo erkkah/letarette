@@ -18,6 +18,15 @@
 #include <string.h>
 #include <stdlib.h>
 
+#if defined(_WIN32) || defined(_WIN64)
+char *strndup(const char* src, size_t len) {
+    char* copy = (char*) malloc(len + 1);
+    memcpy(copy, src, len);
+    copy[len] = 0;
+    return copy;
+}
+#endif
+
 struct MatchData {
     sqlite3_int64 rowid;
     int phrase;

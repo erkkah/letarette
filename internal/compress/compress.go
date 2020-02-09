@@ -15,9 +15,8 @@
 package compress
 
 // #cgo CFLAGS: -DSQLITE_CORE
-// #cgo darwin CFLAGS: -I/usr/local/opt/sqlite/include
-// #cgo LDFLAGS: -lsqlite3 -lz
-// #cgo darwin LDFLAGS: -L/usr/local/opt/sqlite/lib
+// #cgo LDFLAGS: -lz
+// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}../../../sqlite.a
 // #include "compress.h"
 import "C"
 import (
