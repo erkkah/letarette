@@ -14,8 +14,15 @@
 
 package letarette
 
+import "fmt"
+
 // Tag is set to the current git tag, or the current date
 var Tag = ""
 
 // Revision is set the the current git sha, or "dev"
 var Revision = ""
+
+// Version returns a version string containing tag and revision
+func Version() string {
+	return fmt.Sprintf("%s (%s)", Tag, Revision)
+}
