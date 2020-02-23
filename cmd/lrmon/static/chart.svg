@@ -1,0 +1,7 @@
+{{with $plot:=(index .State.Plots (index .Request.Form.id 0))}}
+{{if .SVG}}
+{{.SVG}}
+{{else}}
+<svg viewbox="0 0 640 240" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" width="640" height="240"></svg>
+{{end}}
+{{end}}

@@ -1,0 +1,74 @@
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <style>
+            @import url('https://fonts.googleapis.com/css?family=Fira+Sans&display=swap&subset=latin-ext');
+            @import url(/chota.min.css);
+            :root {
+                --font-family: "Fira Sans", sans-serif;
+            }
+        </style>
+        <title>Letarette monitor</title>
+    </head>
+    <body>
+        <div class="container">
+            <nav class="nav">
+                <div class="nav-left">
+                    <span class="text-grey">Monitor {{.State.Version}}</span>
+                </div>
+                <div class="nav-center">
+                    <a class="brand" href="#">Letarette</a>
+                </div>
+                <div class="nav-right">
+                    <div class="tabs">
+                        <a href="/index.html">Status</a>
+                        <a class="active">Metrics</a>
+                    </div>
+                </div>
+            </nav>
+            <div class="row"><div class="col"><h4>Metrics</h4></div></div>
+            <div class="row reverse">
+                <div class="col-3 is-right">
+                    <button class="button outline icon-only" onclick="playPause(this)">⏯</a>
+                </div>
+            </div>
+            {{range $id, $plot := .State.Plots}}
+            <div class="row">
+                <div class="col-11">
+                    <img width="100%" class="chart" reload="{{$plot.Reload}}" src="/chart.svg?id={{$id}}&r=0"/>
+                </div>
+                <div class="col-1 is-vertical-align">
+                    <a class="tag button outline icon-only is-small hide-xs" href="/plot/remove?id={{$id}}">✘</a>
+                </div>
+            </div>
+            {{else}}
+            <div class="is-full-width text-center">No plots</div>
+            {{end}}
+        </div>
+        <script>
+            let paused = false;
+            function playPause(button) {
+                paused = !paused;
+                if (paused) {
+                    button.classList.remove("outline");
+                } else {
+                    button.classList.add("outline");
+                }   
+            }
+            const charts = document.getElementsByClassName("chart");
+            for (const chart of charts) {
+                const reloader = (c) => {
+                    const reload = parseInt(c.getAttribute("reload"), 10);
+                    if (!paused) {
+                        const src = c.getAttribute("src");
+                        const reloadSrc = src.replace(/^(.*r=)(\d+)$/, (match, p1, p2) => `${p1}${parseInt(p2, 10)+1}`);
+                        c.setAttribute("src", reloadSrc);
+                    }
+                    setTimeout(reloader, reload, c);
+                };
+                setTimeout(reloader, 1000, chart);
+            }
+        </script>
+    </body>
+</html>
