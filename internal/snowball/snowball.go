@@ -24,7 +24,7 @@ import (
 
 // #cgo CFLAGS: -DSQLITE_CORE -Isnowball/include
 // #cgo LDFLAGS: ${SRCDIR}/snowball/libstemmer.o
-// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}../../../sqlite.a
+// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}/../../sqlite.a -lm
 // #cgo dbstats CFLAGS: -DSQLITE_ENABLE_DBSTAT_VTAB=1
 // #include "snowball.h"
 // #include <stdlib.h>

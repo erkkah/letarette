@@ -16,7 +16,7 @@ package compress
 
 // #cgo CFLAGS: -DSQLITE_CORE
 // #cgo CFLAGS: -DMINIZ_NO_STDIO -DMINIZ_NO_ARCHIVE_APIS -DMINIZ_NO_TIME -Dcompress=mz_compress -Duncompress=mz_uncompress
-// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}../../../sqlite.a
+// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}/../../sqlite.a -lm
 // #include "compress.h"
 import "C"
 import (
