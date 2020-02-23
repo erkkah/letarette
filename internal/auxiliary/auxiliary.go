@@ -15,7 +15,7 @@
 package auxiliary
 
 // #cgo CFLAGS: -DSQLITE_CORE
-// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}../../../sqlite.a
+// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}/../../sqlite.a -lm
 // #include "auxiliary.h"
 import "C"
 import (
