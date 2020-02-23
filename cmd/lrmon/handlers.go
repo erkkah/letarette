@@ -18,6 +18,11 @@ func errorResponse(w http.ResponseWriter, err error) error {
 	return textResponse(w, 500, fmt.Sprintf("Error: %v", err))
 }
 
+func redirect(w http.ResponseWriter, location string) {
+	w.Header().Add("location", location)
+	w.WriteHeader(302)
+}
+
 func setContentTypeFromPath(w http.ResponseWriter, path string) {
 	contentType := "text/plain"
 
