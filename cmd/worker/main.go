@@ -30,6 +30,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 
+	lr "github.com/erkkah/letarette"
 	"github.com/erkkah/letarette/internal/letarette"
 	"github.com/erkkah/letarette/internal/snowball"
 	"github.com/erkkah/letarette/pkg/logger"
@@ -49,7 +50,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info.Printf("Starting Letarette %s (%s)", letarette.Tag, letarette.Revision)
+	logger.Info.Printf("Starting Letarette %s", lr.Version())
 
 	profiler, err := letarette.StartProfiler(cfg)
 	if err != nil {
