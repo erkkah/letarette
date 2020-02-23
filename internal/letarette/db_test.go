@@ -46,7 +46,7 @@ func (setup *testSetup) cleanup() {
 	}
 }
 
-func getTestSetup(t *testing.T) *testSetup {
+func getTestSetup(t *testing.T, compress ...bool) *testSetup {
 	setup := new(testSetup)
 	var err error
 	setup.tmpDir, err = ioutil.TempDir("", "letarette")
@@ -55,6 +55,10 @@ func getTestSetup(t *testing.T) *testSetup {
 	}
 	setup.config.Db.Path = path.Join(setup.tmpDir, "leta.db")
 	setup.config.Index.Spaces = []string{"test"}
+	for _, state := range compress {
+		setup.config.Index.Compress = state
+	}
+
 	setup.config.Stemmer.Languages = []string{"english"}
 
 	db, err := OpenDatabase(setup.config)
@@ -87,6 +91,24 @@ func TestAddDocument_EmptySpace(t *testing.T) {
 
 func TestAddDocument_NewDocument(t *testing.T) {
 	setup := getTestSetup(t)
+	defer setup.cleanup()
+
+	docs := []protocol.Document{
+		protocol.Document{
+			ID:      "myID",
+			Updated: time.Now(),
+			Text:    "tjo och hej",
+			Alive:   true,
+		},
+	}
+	ctx := context.Background()
+	err := setup.db.addDocumentUpdates(ctx, "test", docs)
+
+	gta.NilError(t, err, "Failed to add new document")
+}
+
+func TestAddDocument_NewDocument_Compressed(t *testing.T) {
+	setup := getTestSetup(t, true)
 	defer setup.cleanup()
 
 	docs := []protocol.Document{
