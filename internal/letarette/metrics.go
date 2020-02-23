@@ -15,25 +15,105 @@
 package letarette
 
 import (
+	"bytes"
+	"compress/zlib"
+	"encoding/base64"
+	"encoding/json"
 	"expvar"
 	"fmt"
-	"net/http"
+	"reflect"
+	"strings"
+	"time"
 
-	"github.com/zserge/metric"
+	"github.com/erkkah/letarette/pkg/protocol"
+	"github.com/nats-io/nats.go"
 )
 
 var metrics = struct {
-	docRequests metric.Metric
-}{
-	docRequests: metric.NewCounter("1m5s", "5m10s", "15m10s"),
+	DocRequests expvar.Int
+}{}
+
+type jsonExpvar struct {
+	expvar.Var
 }
 
-// ExposeMetrics is a test for exposing metrics
-func ExposeMetrics(port uint16) {
-	expvar.Publish("doc:requests", metrics.docRequests)
+var metricsByName = map[string]jsonExpvar{}
 
-	http.Handle("/debug/metrics", metric.Handler(metric.Exposed))
-	go func() {
-		http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-	}()
+func (v jsonExpvar) MarshalJSON() ([]byte, error) {
+	return []byte(v.String()), nil
+}
+
+func init() {
+	mType := reflect.TypeOf(metrics)
+	mValue := reflect.ValueOf(&metrics).Elem()
+
+	// ??? Change into recursively traversing the struct
+	for i := 0; i < mType.NumField(); i++ {
+		field := mType.Field(i)
+		value := mValue.Field(i)
+		metricName := strings.ToLower(field.Name)
+		metricsByName[metricName] = jsonExpvar{value.Addr().Interface().(expvar.Var)}
+	}
+}
+
+func getMetricsJSON() ([]byte, error) {
+	json, err := json.Marshal(&metricsByName)
+	return json, err
+}
+
+func getPackedMetrics() (string, error) {
+	json, err := getMetricsJSON()
+	if err != nil {
+		return "", err
+	}
+
+	var b bytes.Buffer
+	w := zlib.NewWriter(&b)
+	_, err = w.Write(json)
+	w.Close()
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+}
+
+type MetricsCollector interface {
+	Close()
+}
+
+type metricsCollector nats.Subscription
+
+func (mc *metricsCollector) Close() {
+	sub := (*nats.Subscription)(mc)
+	sub.Unsubscribe()
+}
+
+func StartMetricsCollector(nc *nats.Conn, db Database, cfg Config) (MetricsCollector, error) {
+	privateDB := db.(*database)
+	indexID, err := privateDB.getIndexID()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read index ID: %w", err)
+	}
+
+	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
+	if err != nil {
+		return nil, err
+	}
+
+	sub, err := ec.Subscribe(cfg.Nats.Topic+".metrics.request", func(req *protocol.MetricsRequest) {
+		packed, _ := getPackedMetrics()
+		reply := protocol.Metrics{
+			RequestID:  req.RequestID,
+			IndexID:    indexID,
+			Updated:    time.Now(),
+			PackedJSON: packed,
+		}
+		ec.Publish(cfg.Nats.Topic+".metrics.reply", &reply)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return (*metricsCollector)(sub), nil
 }

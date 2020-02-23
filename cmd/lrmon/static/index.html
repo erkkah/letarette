@@ -1,0 +1,109 @@
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <style>
+            @import url('https://fonts.googleapis.com/css?family=Fira+Sans&display=swap&subset=latin-ext');
+            @import url(/chota.min.css);
+            :root {
+                --font-family: "Fira Sans", sans-serif;
+            }
+        </style>
+        <title>Letarette monitor</title>
+    </head>
+    <body>
+        <div class="container">
+            <nav class="nav">
+                <div class="nav-left">
+                    <span class="text-grey">Monitor {{.State.Version}}</span>
+                </div>
+                <div class="nav-center">
+                    <a class="brand" href="#">Letarette</a>
+                </div>
+                <div class="nav-right">
+                    <div class="tabs">
+                        <a class="active">Status</a>
+                        <a href="/metrics.html">Metrics</a>
+                    </div>
+                </div>
+            </nav>
+            <div class="row"><div class="col"><h4>Status</h4></div></div>
+            <div class="row">
+                <div class="col">
+                    <table>
+                        <thead>
+                            <tr><th>Index ID</th><th class="hide-xs">Shardgroup</th><th class="hide-xs">Documents</th><th>Status</th><th class="hide-xs hide-sm">Updated</th></tr>
+                        </thead>
+                        <tbody>
+                            {{range .State.IndexStatus}}
+                            <tr>
+                                <td>
+                                    <details class="dropdown">
+                                        <summary>{{.IndexID}}</summary>
+                                        <form method="POST" class="card" action="/plot/add">
+                                            <input type="hidden" name="index" value="{{.IndexID}}"/>
+                                            <fieldset class="row">
+                                                <legend>Add metric plot</legend>
+                                                <label class="col-12">Metric
+                                                    <select name="metric">
+                                                        {{$metrics := index $.State.Metrics .IndexID}}
+                                                        {{range $metric, $value := $metrics.Value}}
+                                                        <option value="{{$metric}}">{{$metric}}</option>
+                                                        {{end}}
+                                                    </select>
+                                                </label>
+                                                <label class="col-12">Aggregation
+                                                    <div class="row">
+                                                    <select class="col-6" name="period">
+                                                        {{$periods := list "1s" "10s" "30s" "1m" "5m"}}
+                                                        {{range $periods}}
+                                                        <option value="{{.}}">{{.}}</option>
+                                                        {{end}}
+                                                    </select>
+                                                    <select class="col-6" name="method">
+                                                        <option value="avg">Average</option>
+                                                        <option value="sum">Sum</option>
+                                                        <option value="delta">Delta</option>
+                                                    </select>
+                                                </div>
+                                                </label>
+                                                <label class="col-6">Window
+                                                    <select name="window">
+                                                        {{$windows := list "1m" "5m" "10m" "30m" "60m"}}
+                                                        {{range $windows}}
+                                                        <option value="{{.}}">{{.}}</option>
+                                                        {{end}}
+                                                    </select>
+                                                </label>
+                                                <label class="col-6">Type
+                                                    <select name="type">
+                                                        <option value="line">Line</option>
+                                                        <option value="bar">Bar</option>
+                                                    </select>
+                                                </label>
+                                                <footer class="col-12 is-right">
+                                                    <button type="submit">Add</button>
+                                                </footer>
+                                            </fieldset>
+                                        </form>
+                                    </details>
+                                </td>
+                                <td class="hide-xs">{{.Shardgroup | add 1}}/{{.ShardgroupSize}}</td>
+                                <td class="hide-xs">{{.DocCount}}</td>
+                                <td>{{.Status}}</td>
+                                <td class="hide-xs hide-sm">{{.LastUpdate | time "iso"}}</td>
+                            </tr>
+                            {{else}}
+                            <tr>
+                                <td></td>
+                                <td></td>
+                                <td><i>No data</i></td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
