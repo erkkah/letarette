@@ -22,6 +22,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/erkkah/letarette"
 	"github.com/erkkah/letarette/pkg/charma"
 
 	"github.com/kelseyhightower/envconfig"
@@ -137,8 +138,8 @@ func validateIndexDurations(cfg Config) bool {
 		cfg.Index.Wait.Refetch < cfg.Index.Wait.Document)
 }
 
-var usageFormat = fmt.Sprintf("{{$t:=\"\t\"}}%s\n%s (%s)\n",
-	charma.CircleChars("Letarette"), Tag, Revision,
+var usageFormat = fmt.Sprintf("{{$t:=\"\t\"}}%s\n%s\n",
+	charma.CircleChars("Letarette"), letarette.Version(),
 ) + `
 Configuration environment variables:
 
