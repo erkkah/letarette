@@ -26,7 +26,7 @@ import (
 )
 
 // #cgo CFLAGS: -DSQLITE_CORE
-// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}../../../sqlite.a
+// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}/../../sqlite.a -lm
 // #include <sqlite3-binding.h>
 import "C"
 
