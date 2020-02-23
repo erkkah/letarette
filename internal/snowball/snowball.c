@@ -19,8 +19,8 @@
 #include <string.h>
 #include <stdlib.h>
 
-#if SQLITE_VERSION_NUMBER < 3020000
-#error "Need at least SQLite 3.20.0."
+#if SQLITE_VERSION_NUMBER < 3024000
+#error "Need at least SQLite 3.24.0."
 #pragma message "Found SQLite " SQLITE_VERSION
 #endif
 
