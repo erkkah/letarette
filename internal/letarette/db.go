@@ -87,7 +87,6 @@ type database struct {
 	wdb            *sqlx.DB
 	resultCap      int
 	searchStrategy int
-	compress       bool
 
 	addDocumentStatement    *sqlx.Stmt
 	updateInterestStatement *sqlx.Stmt
@@ -113,6 +112,13 @@ func OpenDatabase(cfg Config) (Database, error) {
 		}
 	}
 
+	var addDocumentSQL string
+	if cfg.Index.Compress {
+		addDocumentSQL = addCompressedDocumentSQL
+	} else {
+		addDocumentSQL = addUncompressedDocumentSQL
+	}
+
 	addDocumentStatement, err := wdb.Preparex(addDocumentSQL)
 	if err != nil {
 		if err != nil {
@@ -133,7 +139,6 @@ func OpenDatabase(cfg Config) (Database, error) {
 		wdb:                     wdb,
 		resultCap:               cfg.Search.Cap,
 		searchStrategy:          cfg.Search.Strategy,
-		compress:                cfg.Index.Compress,
 		addDocumentStatement:    addDocumentStatement,
 		updateInterestStatement: updateInterestStatement,
 	}

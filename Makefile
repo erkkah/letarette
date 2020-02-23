@@ -18,7 +18,7 @@ endif
 
 SQLITE_TAGS := fts5,sqlite_omit_load_extension
 
-letarette: generate snowball sqlite.a
+letarette: generate snowball
 	go build -ldflags="$(STAMP) $(LDFLAGS)" -mod=readonly -v -tags "$(SQLITE_TAGS)" -o letarette$(EXE) ./cmd/worker
 
 lrcli: client snowball
@@ -33,10 +33,6 @@ lrload: client
 client:
 	go build -v ./pkg/client
 
-sqlite.a: go.mod
-	go build -buildmode archive -o sqlite.a -tags "$(SQLITE_TAGS)" github.com/mattn/go-sqlite3
-	ranlib sqlite.a
-
 SNOWBALL := internal/snowball/snowball
 
 snowball: $(SNOWBALL)/libstemmer.o
@@ -47,11 +43,12 @@ $(SNOWBALL)/libstemmer.o: $(SNOWBALL)/README
 $(SNOWBALL)/README:
 	git submodule init && git submodule update --recursive
 
-test:
+.PHONY: test
+test: generate
 	go test -tags "$(SQLITE_TAGS)" ./internal/letarette ./pkg/*
 
 generate:
 	go generate internal/letarette/db.go
 
 clean:
-	go clean -i -r github.com/erkkah/letarette/... && rm sqlite.a
+	go clean github.com/erkkah/letarette/...

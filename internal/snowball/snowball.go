@@ -22,9 +22,11 @@ import (
 	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
-// #cgo CFLAGS: -DSQLITE_CORE -Isnowball/include
+// #cgo CFLAGS: -DSQLITE_CORE
+// #cgo CFLAGS: -Isnowball/include
 // #cgo LDFLAGS: ${SRCDIR}/snowball/libstemmer.o
-// #cgo LDFLAGS: -Wl,--allow-multiple-definition ${SRCDIR}/../../sqlite.a -lm
+// #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
+// #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 // #cgo dbstats CFLAGS: -DSQLITE_ENABLE_DBSTAT_VTAB=1
 // #include "snowball.h"
 // #include <stdlib.h>
