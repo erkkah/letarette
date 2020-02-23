@@ -10,6 +10,7 @@ gotest.tools
 
 manualdeps="
 github.com/snowballstem/snowball:internal/snowball/snowball/COPYING
+github.com/jenil/chota:cmd/lrmon/static/LICENSE.chota.txt
 "
 
 TARGET=licenses
