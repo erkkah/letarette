@@ -26,8 +26,6 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-// #include "../letarette/sqlite.c"
-
 // Init registers the spellfix extension with a connection.
 func Init(conn *sqlite3.SQLiteConn) error {
 	db := dbFromConnection(conn)
