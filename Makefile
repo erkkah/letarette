@@ -1,4 +1,4 @@
-all: letarette lrcli lrload
+all: letarette lrcli lrload lrmon
 
 STAMP := $(shell ./stamp.sh github.com/erkkah/letarette/internal/letarette)
 
@@ -29,6 +29,10 @@ tinysrv: client
 
 lrload: client
 	go build -ldflags="$(LDFLAGS)" -mod=readonly -v ./cmd/lrload
+
+lrmon: client
+	go generate -tags "prod" ./cmd/lrmon
+	go build -ldflags="$(LDFLAGS)" -v -tags "prod" ./cmd/lrmon
 
 client:
 	go build -v ./pkg/client

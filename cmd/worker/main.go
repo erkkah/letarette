@@ -51,7 +51,6 @@ func main() {
 
 	logger.Info.Printf("Starting Letarette %s (%s)", letarette.Tag, letarette.Revision)
 
-	letarette.ExposeMetrics(cfg.MetricsPort)
 	profiler, err := letarette.StartProfiler(cfg)
 	if err != nil {
 		logger.Error.Printf("Failed to start profiler: %v", err)
@@ -114,6 +113,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	metrics, err := letarette.StartMetricsCollector(conn, db, cfg)
+	if err != nil {
+		logger.Error.Printf("Failed to start metrics collector: %v", err)
+		os.Exit(1)
+	}
+
 	var indexer letarette.Indexer
 	if !cfg.Index.Disable {
 		indexer, err = letarette.StartIndexer(conn, db, cfg)
@@ -138,6 +143,9 @@ func main() {
 	select {
 	case s := <-signals:
 		logger.Info.Printf("Received signal %v\n", s)
+		if metrics != nil {
+			metrics.Close()
+		}
 		if monitor != nil {
 			monitor.Close()
 		}

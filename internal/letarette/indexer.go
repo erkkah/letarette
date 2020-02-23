@@ -199,7 +199,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 	docsToRequest = min(docsToRequest, int(idx.cfg.Index.ReqSize))
 	if docsToRequest > 0 {
 		logger.Debug.Printf("Requesting %v docs\n", docsToRequest)
-		metrics.docRequests.Add(float64(docsToRequest))
+		metrics.DocRequests.Add(int64(docsToRequest))
 		err = idx.requestDocuments(space, pendingDocs[:docsToRequest])
 		if err != nil {
 			logger.Error.Printf("Failed to request documents: %v", err)
