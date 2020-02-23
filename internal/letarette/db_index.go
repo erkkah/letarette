@@ -38,9 +38,14 @@ func (db *database) getDocumentCount(ctx context.Context) (uint64, error) {
 	return count, err
 }
 
-var addDocumentSQL = `
+var addCompressedDocumentSQL = `
 replace into docs (spaceID, docID, updatedNanos, title, txt, alive)
-values (:spaceID, :docID, :updated, :title, case :compress when 0 then :txt else compress(:txt) end, :alive)
+values (:spaceID, :docID, :updated, :title, compress(:txt), :alive);
+`
+
+var addUncompressedDocumentSQL = `
+replace into docs (spaceID, docID, updatedNanos, title, txt, alive)
+values (:spaceID, :docID, :updated, :title, :txt, :alive);
 `
 
 var updateInterestSQL = `
@@ -69,13 +74,12 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 
 	for _, doc := range docs {
 		txt := ""
-		if doc.Alive {
-			txt = doc.Text
-		}
 		title := ""
 		if doc.Alive {
+			txt = doc.Text
 			title = doc.Title
 		}
+
 		res, err := docsStatement.ExecContext(
 			ctx,
 			sql.Named("spaceID", spaceID),
@@ -84,7 +88,6 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 			sql.Named("title", title),
 			sql.Named("txt", txt),
 			sql.Named("alive", doc.Alive),
-			sql.Named("compress", db.compress),
 		)
 
 		if err != nil {
