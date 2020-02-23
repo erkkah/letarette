@@ -15,6 +15,8 @@
 package client
 
 import (
+	"time"
+
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
@@ -36,6 +38,7 @@ func NewMonitor(URLs []string, listener MonitorListener, options ...Option) (Mon
 		listener: listener,
 	}
 
+	client.local = client
 	client.apply(options)
 
 	ec, err := connect(URLs, client.state)
@@ -52,14 +55,69 @@ func NewMonitor(URLs []string, listener MonitorListener, options ...Option) (Mon
 		return nil, err
 	}
 
+	if client.metricsCollector != nil {
+		client.startMetricsCollector()
+	}
+
 	return client, nil
+}
+
+// MetricsCollector is a callback function receiving metrics updates
+type MetricsCollector func(metrics protocol.Metrics)
+
+// WithMetricsCollector makes the monitor periodically request metrics
+// from the cluster.
+func WithMetricsCollector(collector MetricsCollector, interval time.Duration) Option {
+	return func(st *state) {
+		m := st.local.(*monitor)
+		m.metricsCollector = collector
+		m.metricsInterval = interval
+		m.metricsDone = make(chan struct{})
+	}
 }
 
 type monitor struct {
 	state
 	listener MonitorListener
+
+	metricsCollector MetricsCollector
+	metricsInterval  time.Duration
+	metricsDone      chan struct{}
 }
 
 func (m *monitor) Close() {
 	m.conn.Close()
+	if m.metricsDone != nil {
+		close(m.metricsDone)
+		m.metricsDone = nil
+	}
+}
+
+func (m *monitor) startMetricsCollector() error {
+	sub, err := m.conn.Subscribe(m.topic+".metrics.reply", func(metrics *protocol.Metrics) {
+		m.metricsCollector(*metrics)
+	})
+	if err != nil {
+		return err
+	}
+	go func() {
+		for {
+			select {
+			case <-time.After(m.metricsInterval):
+				m.requestMetrics()
+			case <-m.metricsDone:
+				sub.Unsubscribe()
+				return
+			}
+		}
+	}()
+	return nil
+}
+
+func (m *monitor) requestMetrics() error {
+	req := protocol.MetricsRequest{
+		RequestID: time.Now().String(),
+	}
+	err := m.conn.Publish(m.topic+".metrics.request", &req)
+	return err
 }
