@@ -41,7 +41,8 @@ func (s *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			errorResponse(w, err)
 			return
 		}
-		path = "/metrics.html"
+		redirect(w, "/metrics.html")
+		return
 	}
 	if path == "/plot/remove" {
 		err = handleRemovePlot(req.Form)
@@ -49,7 +50,8 @@ func (s *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			errorResponse(w, err)
 			return
 		}
-		path = "/metrics.html"
+		redirect(w, "/metrics.html")
+		return
 	}
 	if path == "/" {
 		path = "/index.html"
