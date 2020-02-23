@@ -1,6 +1,6 @@
 all: letarette lrcli lrload lrmon
 
-STAMP := $(shell ./stamp.sh github.com/erkkah/letarette/internal/letarette)
+STAMP := $(shell ./stamp.sh github.com/erkkah/letarette)
 
 GO_SQLITE := $(shell go list -f '{{.Dir}}' github.com/mattn/go-sqlite3)
 
@@ -32,7 +32,7 @@ lrload: client
 
 lrmon: client
 	go generate -tags "prod" ./cmd/lrmon
-	go build -ldflags="$(LDFLAGS)" -v -tags "prod" ./cmd/lrmon
+	go build -ldflags="$(STAMP) $(LDFLAGS)" -v -tags "prod" ./cmd/lrmon
 
 client:
 	go build -v ./pkg/client
