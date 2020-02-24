@@ -29,8 +29,11 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+// All exported metrics
 var metrics = struct {
 	DocRequests expvar.Int
+	UpdateQueue expvar.Int
+	PendingDocs expvar.Int
 }{}
 
 type jsonExpvar struct {
@@ -78,6 +81,7 @@ func getPackedMetrics() (string, error) {
 	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 }
 
+// MetricsCollector listens and responds to metrics requests
 type MetricsCollector interface {
 	Close()
 }
@@ -89,6 +93,7 @@ func (mc *metricsCollector) Close() {
 	sub.Unsubscribe()
 }
 
+// StartMetricsCollector creates a new metrics collector, and starts responding to requests
 func StartMetricsCollector(nc *nats.Conn, db Database, cfg Config) (MetricsCollector, error) {
 	privateDB := db.(*database)
 	indexID, err := privateDB.getIndexID()
