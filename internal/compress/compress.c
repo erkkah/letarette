@@ -112,6 +112,12 @@ static void uncompressFunc(
     nOut = (nOut<<7) | (pIn[i]&0x7f);
     if( (pIn[i]&0x80)!=0 ){ i++; break; }
   }
+
+  if ((nOut == 0) || (pIn[i] != 0x78)) {
+    sqlite3_result_blob(context, pIn, nIn, 0);
+    return;
+  }
+
   pOut = sqlite3_malloc( nOut+1 );
   rc = uncompress(pOut, &nOut, &pIn[i], nIn-i);
   if( rc == Z_OK ){
