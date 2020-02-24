@@ -23,7 +23,7 @@ drop trigger docs_au;
 
 create trigger docs_au after update on docs begin
     insert into fts(fts, rowid, title, txt) values ('delete', old.id, old.title, old.txt);
-    insert into fts(rowid, title, txt) values (new.id, new.title, uncompress(new.txt));
+    insert into fts(rowid, title, txt) values (new.id, new.title, new.txt);
 end;
 
 insert into fts(fts) values("rebuild");
