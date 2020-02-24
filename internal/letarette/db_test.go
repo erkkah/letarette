@@ -90,14 +90,16 @@ func TestAddDocument_EmptySpace(t *testing.T) {
 }
 
 func TestAddDocument_NewDocument(t *testing.T) {
-	setup := getTestSetup(t)
+	setup := getTestSetup(t, false)
 	defer setup.cleanup()
 
+	// "Cortex " below (note the space) is a "valid"
+	// compressed header in the original sqlite3 compress extension.
 	docs := []protocol.Document{
 		protocol.Document{
 			ID:      "myID",
 			Updated: time.Now(),
-			Text:    "tjo och hej",
+			Text:    "Cortex and such",
 			Alive:   true,
 		},
 	}
