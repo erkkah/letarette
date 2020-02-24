@@ -61,19 +61,25 @@ type metricsQuote struct {
 }
 type indexMetrics map[string]metricsQuote
 
-type indexStatus map[string]protocol.IndexStatus
+type statusUpdate struct {
+	protocol.IndexStatus
+	Updated time.Time
+}
+
+type indexStatus map[string]statusUpdate
 
 // Maps from plot specifier
 type plotsMap map[string]*plot
 type seriesMap map[string]*margaid.Series
 
 type plot struct {
-	index  string
-	metric string
-	method string
-	period time.Duration
-	window time.Duration
-	Reload int
+	index    string
+	metric   string
+	method   string
+	plotType string
+	period   time.Duration
+	window   time.Duration
+	Reload   int
 	// Make atomic?
 	SVG template.HTML
 }
@@ -100,7 +106,10 @@ func cloneStatusWith(source indexStatus, index string, update protocol.IndexStat
 	for k, v := range source {
 		result[k] = v
 	}
-	result[index] = update
+	result[index] = statusUpdate{
+		update,
+		time.Now(),
+	}
 	return result
 }
 
@@ -177,7 +186,15 @@ func updatePlots(state State) {
 			m.Axis(series, margaid.XAxis, m.TimeTicker("15:04:05"), true, xTitle)
 			m.Axis(series, margaid.YAxis, m.ValueTicker('f', 0, 10), true, "")
 			m.Frame()
-			m.Line(series)
+			switch plot.plotType {
+			case "line":
+				m.Line(series)
+			case "smooth":
+				m.Smooth(series)
+			case "bar":
+				m.Bar([]*margaid.Series{series})
+			}
+
 			m.Render(&rendered)
 		}
 
@@ -236,12 +253,13 @@ func addPlot(index, metric, method string, period, window time.Duration, plotTyp
 
 	stateUpdates <- func(state State) State {
 		plot := plot{
-			index:  index,
-			metric: metric,
-			method: method,
-			period: period,
-			window: window,
-			Reload: int(period.Milliseconds()),
+			index:    index,
+			metric:   metric,
+			method:   method,
+			period:   period,
+			window:   window,
+			plotType: plotType,
+			Reload:   int(period.Milliseconds()),
 		}
 		specifier := fmt.Sprintf("%s:%s:%s:%v:%v:%s", index, metric, method, period, window, plotType)
 		state.Plots = clonePlotsWith(state.Plots, specifier, &plot)
