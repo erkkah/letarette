@@ -38,9 +38,9 @@
                             {{range .State.IndexStatus}}
                             <tr>
                                 <td>
-                                    <details class="dropdown">
+                                    <details class="">
                                         <summary>{{.IndexID}}</summary>
-                                        <form method="POST" class="card" action="/plot/add">
+                                        <form method="POST" action="/plot/add">
                                             <input type="hidden" name="index" value="{{.IndexID}}"/>
                                             <fieldset class="row">
                                                 <legend>Add metric plot</legend>
@@ -55,7 +55,7 @@
                                                 <label class="col-12">Aggregation
                                                     <div class="row">
                                                     <select class="col-6" name="period">
-                                                        {{$periods := list "1s" "10s" "30s" "1m" "5m"}}
+                                                        {{$periods := list "1s" "5s" "10s" "30s" "1m" "5m"}}
                                                         {{range $periods}}
                                                         <option value="{{.}}">{{.}}</option>
                                                         {{end}}
@@ -91,7 +91,7 @@
                                 <td class="hide-xs">{{.Shardgroup | add 1}}/{{.ShardgroupSize}}</td>
                                 <td class="hide-xs">{{.DocCount}}</td>
                                 <td>{{.Status}}</td>
-                                <td class="hide-xs hide-sm">{{.LastUpdate | time "iso"}}</td>
+                                <td class="hide-xs hide-sm">{{.Updated | time "iso"}}</td>
                             </tr>
                             {{else}}
                             <tr>
