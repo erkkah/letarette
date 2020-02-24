@@ -52,7 +52,7 @@ type Config struct {
 			EmptyCycle time.Duration `default:"5s"`
 			Interest   time.Duration `default:"5s"`
 			Document   time.Duration `default:"20s"`
-			Refetch    time.Duration `default:"1s"`
+			Refetch    time.Duration `default:"2s"`
 		}
 		Disable  bool `default:"false"`
 		Compress bool `default:"false"`
