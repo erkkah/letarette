@@ -36,11 +36,7 @@ select
         gettokens(fts,
             case matchColumn
                 when 0 then docs.title
-                when 1 then case
-                    when iscompressed(docs.txt) then uncompress(docs.txt)
-                    else docs.txt
-                end
-
+                when 1 then uncompress(docs.txt)
             end,
             max(matchOffset-1, 0), 10),
         X'0A', " "
