@@ -83,6 +83,9 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 				filtered = append(filtered, doc)
 			}
 		}
+
+		metrics.UpdateQueue.Set(int64(len(updates)))
+
 		updates <- protocol.DocumentUpdate{
 			Space:     update.Space,
 			Documents: filtered,
@@ -195,6 +198,8 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 		}
 	}
 
+	metrics.PendingDocs.Set(int64(numPending))
+
 	docsToRequest := min(numPending, maxRequestedDocuments-numRequested)
 	docsToRequest = min(docsToRequest, int(idx.cfg.Index.ReqSize))
 	if docsToRequest > 0 {
@@ -231,6 +236,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 		refetchInterval := idx.cfg.Index.Wait.Refetch
 
 		lastRequest := idx.lastDocumentRequest[space]
+
 		if now.After(lastRequest.Add(refetchInterval)) {
 			state, err := idx.db.getInterestListState(idx.context, space)
 			if err != nil {
@@ -301,14 +307,13 @@ func (idx *indexer) requestNextChunk(space string) error {
 
 	if len(update.Updates) > 0 {
 		logger.Debug.Printf("Received interest list of %v docs\n", len(update.Updates))
+		idx.updateReceived <- struct{}{}
 	}
 
 	err = idx.db.setInterestList(idx.context, update)
 	if err != nil {
 		return fmt.Errorf("Failed to set interest list: %w", err)
 	}
-
-	idx.updateReceived <- struct{}{}
 
 	return nil
 }
