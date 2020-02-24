@@ -20,7 +20,6 @@ import (
 	"github.com/erkkah/letarette/internal/letarette"
 	"github.com/erkkah/letarette/internal/snowball"
 
-	"github.com/erkkah/letarette/pkg/charma"
 	"github.com/erkkah/letarette/pkg/logger"
 )
 
@@ -60,8 +59,7 @@ var cmdline struct {
 }
 
 func main() {
-	title := charma.CircleChars("Letarette")
-	usage := title + `
+	usage := `Letarette
 
 Usage:
     lrcli search [-l <limit>] [-p <page>] [-g <groupsize>] [-i] <space> [<phrase>...]
