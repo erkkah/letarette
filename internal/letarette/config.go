@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/erkkah/letarette"
-	"github.com/erkkah/letarette/pkg/charma"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -138,8 +137,9 @@ func validateIndexDurations(cfg Config) bool {
 		cfg.Index.Wait.Refetch < cfg.Index.Wait.Document)
 }
 
-var usageFormat = fmt.Sprintf("{{$t:=\"\t\"}}%s\n%s\n",
-	charma.CircleChars("Letarette"), letarette.Version(),
+var usageFormat = fmt.Sprintf(
+	"{{$t:=\"\t\"}}Letarette\n%s\n",
+	letarette.Version(),
 ) + `
 Configuration environment variables:
 
