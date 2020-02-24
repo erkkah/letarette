@@ -49,7 +49,7 @@ values (:spaceID, :docID, :updated, :title, :txt, :alive);
 `
 
 var updateInterestSQL = `
-update interest set state=? where spaceID=? and docID=?
+update interest set state=:state where spaceID=:spaceID and docID=:docID
 `
 
 func (db *database) addDocumentUpdates(ctx context.Context, space string, docs []protocol.Document) error {
@@ -99,7 +99,12 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 			return fmt.Errorf("Failed to update index, no rows affected")
 		}
 
-		_, err = interestStatement.ExecContext(ctx, served, spaceID, doc.ID)
+		_, err = interestStatement.ExecContext(
+			ctx,
+			sql.Named("state", served),
+			sql.Named("spaceID", spaceID),
+			sql.Named("docID", doc.ID),
+		)
 
 		if err != nil {
 			return fmt.Errorf("Failed to update interest list: %w", err)
