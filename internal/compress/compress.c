@@ -25,7 +25,7 @@
 */
 #include "sqlite3ext.h"
 SQLITE_EXTENSION_INIT1
-#include <zlib.h>
+#include "miniz.h"
 
 /*
 ** Implementation of the "compress(X)" SQL function.  The input X is
