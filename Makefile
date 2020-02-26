@@ -56,3 +56,8 @@ generate:
 
 clean:
 	go clean github.com/erkkah/letarette/...
+
+tidy:
+	touch $(SNOWBALL)/go.mod
+	go mod tidy
+	rm $(SNOWBALL)/go.mod
