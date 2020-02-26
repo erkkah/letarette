@@ -26,6 +26,7 @@ type Spinner struct {
 	pos          int
 	writer       io.Writer
 	endWith      chan string
+	stopped      bool
 }
 
 // New creates a spinner for the given destination.
@@ -50,6 +51,7 @@ func (s *Spinner) Start(prompt ...string) {
 				s.spin()
 			case msg := <-s.endWith:
 				s.stop(msg, len(prefix))
+				close(s.endWith)
 				return
 			}
 		}
@@ -59,7 +61,10 @@ func (s *Spinner) Start(prompt ...string) {
 // Stop stops the spinner and optionally prints an ending
 // message.
 func (s *Spinner) Stop(message ...string) {
-	s.endWith <- (strings.Join(message, " "))
+	if !s.stopped {
+		s.endWith <- (strings.Join(message, " "))
+	}
+	s.stopped = true
 }
 
 func (s *Spinner) spin() {
