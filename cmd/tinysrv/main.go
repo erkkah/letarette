@@ -171,6 +171,9 @@ func updateRandomDocument(delete bool) {
 
 func fetchInitial(limit uint16) []protocol.DocumentReference {
 	result := []protocol.DocumentReference{}
+	if int(limit) > len(ix) {
+		limit = uint16(len(ix))
+	}
 	for _, v := range ix[:limit] {
 		result = append(result, protocol.DocumentReference{
 			ID:      protocol.DocumentID(strconv.Itoa(v.id)),
@@ -326,6 +329,7 @@ func handleDocumentRequest(ctx context.Context, req protocol.DocumentRequest) (p
 		return protocol.DocumentUpdate{}, fmt.Errorf("Space %v not in db", req.Space)
 	}
 
+	start := time.Now()
 	docs := []protocol.Document{}
 	for _, v := range req.Wanted {
 		entryID, _ := strconv.Atoi(string(v))
@@ -344,6 +348,10 @@ func handleDocumentRequest(ctx context.Context, req protocol.DocumentRequest) (p
 		} else {
 			docs = append(docs, deadDocument(v))
 		}
+	}
+	passed := time.Since(start)
+	if config.Verbose {
+		log.Printf("Found %v docs in %s", len(docs), passed)
 	}
 	return protocol.DocumentUpdate{
 		Space:     space,
