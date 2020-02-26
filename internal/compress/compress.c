@@ -124,7 +124,7 @@ static void uncompressFunc(
   nIn = sqlite3_value_bytes(argv[0]);
   nOut = 0;
   if (pIn[0] == 0xf8) {
-    for(i=0; i<nIn && i<6; i++){
+    for(i=1; i<nIn && i<6; i++){
       nOut = (nOut<<7) | (pIn[i]&0x7f);
       if( (pIn[i]&0x80)!=0 ){ i++; break; }
     }
@@ -169,8 +169,8 @@ static void isCompressedFunc(
   pIn = sqlite3_value_blob(argv[0]);
   nIn = sqlite3_value_bytes(argv[0]);
   nOut = 0;
-  if (pIn[0] == 0xf9) {
-    for(i=0; i<nIn && i<5; i++){
+  if (pIn[0] == 0xf8) {
+    for(i=1; i<nIn && i<6; i++){
       nOut = (nOut<<7) | (pIn[i]&0x7f);
       if( (pIn[i]&0x80)!=0 ){ i++; break; }
     }
