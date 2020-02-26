@@ -102,6 +102,9 @@ Options:
 		return
 	}
 	cfg.Db.ToolConnection = true
+	if cmdline.Database != "" {
+		cfg.Db.Path = cmdline.Database
+	}
 
 	if cmdline.Env {
 		letarette.Usage()
@@ -121,9 +124,6 @@ Options:
 }
 
 func indexSubcommand(cfg letarette.Config) {
-	if cmdline.Database != "" {
-		cfg.Db.Path = cmdline.Database
-	}
 	db, err := letarette.OpenDatabase(cfg)
 	defer func() {
 		if db == nil {
