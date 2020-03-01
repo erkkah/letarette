@@ -94,7 +94,7 @@ static void compressFunc(
   }
 }
 
-static int isValidHeader(const char* data) {
+static int isValidHeader(const unsigned char* data) {
   return
     (data[0] == 0x78 &&
     ((data[0] * 256) + data[1]) % 31 == 0);
