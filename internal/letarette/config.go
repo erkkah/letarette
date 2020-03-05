@@ -48,11 +48,11 @@ type Config struct {
 		ReqSize        uint16   `default:"25"`
 		MaxOutstanding uint16   `split_words:"true" default:"2"`
 		Wait           struct {
-			Cycle      time.Duration `default:"5ms"`
+			Cycle      time.Duration `default:"500ms"`
 			EmptyCycle time.Duration `default:"5s"`
 			Interest   time.Duration `default:"5s"`
-			Document   time.Duration `default:"20s"`
-			Refetch    time.Duration `default:"2s"`
+			Document   time.Duration `default:"30s"`
+			Refetch    time.Duration `default:"3s"`
 		}
 		Disable  bool `default:"false"`
 		Compress bool `default:"false"`
