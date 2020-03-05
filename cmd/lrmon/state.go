@@ -44,9 +44,33 @@ func init() {
 	stateUpdates = make(chan stateUpdater, 10)
 
 	go func() {
-		for update := range stateUpdates {
-			oldState := getState()
-			state.Store(update(oldState))
+	updating:
+		for {
+			select {
+			case update, ok := <-stateUpdates:
+				if !ok {
+					break updating
+				}
+				oldState := getState()
+				state.Store(update(oldState))
+			case <-time.After(time.Second * 10):
+				oldState := getState()
+
+				now := time.Now()
+				stale := now.Add(-time.Second * 30)
+				dead := now.Add(-time.Minute * 10)
+
+				alive := indexStatus{}
+				for index, status := range oldState.IndexStatus {
+					if status.Updated.Before(dead) {
+						continue
+					}
+					status.Stale = status.Updated.Before(stale)
+					alive[index] = status
+				}
+				oldState.IndexStatus = alive
+				state.Store(oldState)
+			}
 		}
 		logger.Info.Printf("Stopping updater")
 	}()
@@ -62,6 +86,7 @@ type indexMetrics map[string]metricsQuote
 type statusUpdate struct {
 	protocol.IndexStatus
 	Updated time.Time
+	Stale   bool
 }
 
 type indexStatus map[string]statusUpdate
@@ -106,6 +131,7 @@ func cloneStatusWith(source indexStatus, index string, update protocol.IndexStat
 	result[index] = statusUpdate{
 		update,
 		time.Now(),
+		false,
 	}
 	return result
 }
