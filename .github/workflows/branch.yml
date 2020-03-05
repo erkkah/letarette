@@ -59,14 +59,6 @@ jobs:
     - name: Install go-bindata
       run: go get -u github.com/go-bindata/go-bindata/...
 
-    - name: Install sqlite3 libs (ubuntu)
-      run: sudo apt-get install -y libsqlite3-dev
-      if: startsWith(matrix.os, 'ubuntu')
-
-    - name: Install sqlite3 libs (macos)
-      run: brew install sqlite3
-      if: startsWith(matrix.os, 'macos')
-
     - name: Build
       run: make
     
