@@ -48,8 +48,11 @@ import (
 type InterestState int
 
 const (
+	// Waiting to be requested, unhandled
 	pending InterestState = iota
+	// Requested from document manager
 	requested
+	// Received from document manager
 	served
 )
 
