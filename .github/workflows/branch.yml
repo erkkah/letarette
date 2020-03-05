@@ -38,7 +38,7 @@ jobs:
       run: choco install make mingw
 
     - name: Get GOCACHE
-      run: bash -c 'echo ::set-env name=GOCACHE::$(go env | grep GOCACHE | cut -d= -f 2) | sed -e 's/"//g'
+      run: bash -c 'echo ::set-env name=GOCACHE::$(go env | grep GOCACHE | cut -d= -f 2)' | sed -e 's/"//g'
     
     - name: Cache go build cache
       uses: actions/cache@v1
