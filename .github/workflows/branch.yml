@@ -35,7 +35,7 @@ jobs:
 
     - name: Install windows build helpers
       if: startsWith(matrix.os, 'windows')
-      run: choco install make msys2
+      run: choco install make mingw
 
     - name: Get GOCACHE
       run: bash -c 'echo ::set-env name=GOCACHE::$(eval `go env | grep GOCACHE` && echo $GOCACHE)'
