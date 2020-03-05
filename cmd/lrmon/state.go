@@ -22,14 +22,12 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/erkkah/letarette"
 	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
-	"github.com/erkkah/margaid"
 )
 
 var state atomic.Value
@@ -70,7 +68,6 @@ type indexStatus map[string]statusUpdate
 
 // Maps from plot specifier
 type plotsMap map[string]*plot
-type seriesMap map[string]*margaid.Series
 
 type plot struct {
 	index    string
@@ -137,7 +134,6 @@ func clonePlotsWithout(source plotsMap, index string) plotsMap {
 		if k != index {
 			result[k] = v
 		}
-
 	}
 	return result
 }
@@ -146,59 +142,6 @@ func handleStatusUpdate(indexStatus protocol.IndexStatus) {
 	stateUpdates <- func(state State) State {
 		state.IndexStatus = cloneStatusWith(state.IndexStatus, indexStatus.IndexID, indexStatus)
 		return state
-	}
-}
-
-var plotSeries = map[string]*margaid.Series{}
-
-func updatePlots(state State) {
-	for spec, plot := range state.Plots {
-		series := plotSeries[spec]
-		if series == nil {
-			series = margaid.NewSeries(
-				margaid.CappedByAge(plot.window, time.Now),
-				margaid.AggregatedBy(margaid.Avg, plot.period),
-			)
-			plotSeries[spec] = series
-		}
-
-		var rendered bytes.Buffer
-
-		metrics, indexFound := state.Metrics[plot.index]
-		update, metricFound := metrics.Value[plot.metric]
-		if !(indexFound && metricFound) {
-			m := margaid.New(640, 240, margaid.WithTitleFont("sans-serif", 12))
-			m.Title("Unknown metric")
-			m.Frame()
-			m.Render(&rendered)
-		} else {
-			series.Add(margaid.MakeValue(margaid.SecondsFromTime(metrics.Timestamp), update))
-
-			m := margaid.New(640, 240,
-				margaid.WithTitleFont("sans-serif", 12),
-				margaid.WithLabelFont("sans", 10),
-				margaid.WithAutorange(margaid.XAxis, series),
-				margaid.WithAutorange(margaid.YAxis, series),
-			)
-
-			m.Title(fmt.Sprintf("%s: %s", plot.index[:6], plot.metric))
-			xTitle := fmt.Sprintf("%s %s / %s", plot.period, plot.method, plot.window)
-			m.Axis(series, margaid.XAxis, m.TimeTicker("15:04:05"), true, xTitle)
-			m.Axis(series, margaid.YAxis, m.ValueTicker('f', 0, 10), true, "")
-			m.Frame()
-			switch plot.plotType {
-			case "line":
-				m.Line(series)
-			case "smooth":
-				m.Smooth(series)
-			case "bar":
-				m.Bar([]*margaid.Series{series})
-			}
-
-			m.Render(&rendered)
-		}
-
-		state.Plots[spec].SVG = template.HTML(rendered.String())
 	}
 }
 
@@ -242,38 +185,4 @@ func unpackMetrics(metrics protocol.Metrics) (metricsMap, error) {
 		return nil, fmt.Errorf("Failed to unmarshal JSON: %w", err)
 	}
 	return metricsMap, nil
-}
-
-// Adds a plot.
-// Metric identifiers are not allowed to contain colons.
-func addPlot(index, metric, method string, period, window time.Duration, plotType string) error {
-	if strings.Contains(metric, ":") {
-		return fmt.Errorf("Cannot plot metric %q with colon in identifier", metric)
-	}
-
-	stateUpdates <- func(state State) State {
-		plot := plot{
-			index:    index,
-			metric:   metric,
-			method:   method,
-			period:   period,
-			window:   window,
-			plotType: plotType,
-			Reload:   int(period.Milliseconds()),
-		}
-		specifier := fmt.Sprintf("%s:%s:%s:%v:%v:%s", index, metric, method, period, window, plotType)
-		state.Plots = clonePlotsWith(state.Plots, specifier, &plot)
-		return state
-	}
-
-	return nil
-}
-
-func removePlot(id string) error {
-	stateUpdates <- func(state State) State {
-		state.Plots = clonePlotsWithout(state.Plots, id)
-		return state
-	}
-
-	return nil
 }
