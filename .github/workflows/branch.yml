@@ -43,6 +43,10 @@ jobs:
         key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
         restore-keys: ${{ runner.os }}-gocache-
 
+    - name: Install windows build helpers
+      if: startsWith(matrix.os, 'windows')
+      run: choco install make msys2
+
     - name: Init submodule
       run: git submodule init && git submodule update --recursive
 
