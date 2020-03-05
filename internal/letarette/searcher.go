@@ -150,7 +150,8 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 	// ??? Worker pool = 4 * GOMAXPROCS
 	// I/O vs CPU
 	numWorkers := 4 * runtime.GOMAXPROCS(-1)
-	workChannel := make(chan searchWork, numWorkers)
+	// ??? Hmm, queue size == 2 * workers
+	workChannel := make(chan searchWork, numWorkers*2)
 
 	for i := 0; i < numWorkers; i++ {
 		go func() {
@@ -180,6 +181,13 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			metrics.QueryQueue.Set(int64(len(workChannel)))
+		}
+	}()
 
 	go func() {
 		logger.Info.Printf("Searcher starting")
