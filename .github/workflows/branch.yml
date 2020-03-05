@@ -33,8 +33,12 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
         restore-keys: ${{ runner.os }}-go-
 
+    - name: Install windows build helpers
+      if: startsWith(matrix.os, 'windows')
+      run: choco install make msys2
+
     - name: Get GOCACHE
-      run: echo ::set-env name=GOCACHE::$(eval `go env | grep GOCACHE` && echo $GOCACHE)
+      run: bash -c 'echo ::set-env name=GOCACHE::$(eval `go env | grep GOCACHE` && echo $GOCACHE)'
     
     - name: Cache go build cache
       uses: actions/cache@v1
@@ -42,10 +46,6 @@ jobs:
         path: ${{ env.GOCACHE }}
         key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
         restore-keys: ${{ runner.os }}-gocache-
-
-    - name: Install windows build helpers
-      if: startsWith(matrix.os, 'windows')
-      run: choco install make msys2
 
     - name: Init submodule
       run: git submodule init && git submodule update --recursive
