@@ -51,7 +51,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		cfg:                 cfg,
 		conn:                ec,
 		db:                  db.(*database),
-		updateReceived:      make(chan struct{}, 10),
+		updateReceived:      make(chan struct{}, 50),
 	}
 
 	for _, space := range cfg.Index.Spaces {
@@ -61,7 +61,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 		}
 	}
 
-	updates := make(chan protocol.DocumentUpdate, 10)
+	updates := make(chan protocol.DocumentUpdate, 50)
 
 	go func() {
 		self.waiter.Add(1)
@@ -199,6 +199,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 	}
 
 	metrics.PendingDocs.Set(int64(numPending))
+	metrics.ServedDocs.Add(int64(numServed))
 
 	docsToRequest := min(numPending, maxRequestedDocuments-numRequested)
 	docsToRequest = min(docsToRequest, int(idx.cfg.Index.ReqSize))

@@ -34,6 +34,8 @@ var metrics = struct {
 	DocRequests expvar.Int
 	UpdateQueue expvar.Int
 	PendingDocs expvar.Int
+	ServedDocs  expvar.Int
+	QueryQueue  expvar.Int
 }{}
 
 type jsonExpvar struct {
