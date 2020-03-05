@@ -56,9 +56,6 @@ jobs:
         key: ${{ runner.os }}-snowball-${{ hashFiles('snowball.status') }}
         restore-keys: ${{ runner.os }}-snowball-
 
-    - name: Install go-bindata
-      run: go get -u github.com/go-bindata/go-bindata/...
-
     - name: Build
       run: make
     
