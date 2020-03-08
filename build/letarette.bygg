@@ -1,0 +1,75 @@
+# bygg-file for building letarette
+
+all: letarette lrcli lrload lrmon
+
+REV = dev
+
+{{if (exec "git" "status" "--porcelain") | eq "" -}}
+    << Clean repo
+    rev = {{slice (exec "git" "rev-parse" "HEAD") 0 7 -}}
+{{else -}}
+    << Dirty repo
+{{end -}}
+
+{{$tag := (exec "git" "tag" "--contains") -}}
+{{if eq $tag "" -}}
+    {{$tag = date "2006-01-02" -}}
+{{end -}}
+
+TAG = {{$tag}}
+
+PACKAGE = github.com/erkkah/letarette
+STAMP = -X '$PACKAGE.Revision=$REV' -X '$PACKAGE.Tag=$TAG'
+
+{{$go_sqlite := (exec "go" "list" "-f" "{{.Dir}}" "github.com/mattn/go-sqlite3")}}
+GO_SQLITE = {{$go_sqlite}}
+
+env.CGO_CFLAGS = {{exec "go" "env" "CGO_CFLAGS"}}
+env.CGO_CFLAGS += -I${GO_SQLITE}
+env.CGO_CFLAGS += -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_OMIT_SHARED_CACHE
+env.CGO_CFLAGS += -DSQLITE_USE_ALLOCA -DSQLITE_OMIT_PROGRESS_CALLBACK -DSQLITE_OMIT_DEPRECATED
+
+EXE = {{with .env.OS}}{{if eq . "Windows_NT"}}.exe{{end}}{{end}}
+LDFLAGS = ${env.LDFLAGS}{{if .env.STATIC}}-linkmode external -extldflags -static{{end}}
+SQLITE_TAGS = fts5,sqlite_omit_load_extension
+
+letarette: generate snowball
+letarette <- go build -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS -o letarette${EXE} ./cmd/worker
+
+lrcli: client snowball
+lrcli <- go build -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS,dbstats ./cmd/lrcli
+
+tinysrv: client
+tinysrv <- go build -ldflags=$LDFLAGS -mod=readonly -v ./cmd/tinysrv
+
+lrload: client
+lrload <- go build -ldflags=$LDFLAGS -mod=readonly -v ./cmd/lrload
+
+lrmon: client
+lrmon <- go generate -tags "prod" ./cmd/lrmon
+lrmon <- go build -ldflags="$STAMP $LDFLAGS" -v -tags "prod" ./cmd/lrmon
+
+client <- go build -v ./pkg/client
+
+SNOWBALL = internal/snowball/snowball
+
+snowball: $SNOWBALL/libstemmer.o
+
+$SNOWBALL/libstemmer.o: $SNOWBALL/README
+$SNOWBALL/libstemmer.o <- go run github.com/erkkah/letarette/build/bygg.go snowball.bygg
+
+#	$(MAKE) -C $(SNOWBALL) libstemmer.o
+
+$SNOWBALL/README <- git submodule init
+$SNOWBALL/README <- git submodule update --recursive
+
+test: generate
+test <- go test -tags $SQLITE_TAGS ./internal/letarette ./pkg/*
+
+generate <-	go generate internal/letarette/db.go
+
+clean <- go clean github.com/erkkah/letarette/...
+
+tidy <- touch $SNOWBALL/go.mod
+tidy <- go mod tidy
+tidy <- rm $SNOWBALL/go.mod
