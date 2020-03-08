@@ -33,32 +33,88 @@ func main() {
 	flag.BoolVar(&config.verbose, "v", false, "Verbose")
 	flag.Parse()
 
-	mainTarget := "all"
+	tgt := "all"
 
 	args := flag.Args()
 	if len(args) > 1 {
-		mainTarget = args[1]
+		tgt = args[1]
 	}
 
 	script := args[0]
 
-	verbose("Building target %q from file %q", mainTarget, script)
+	verbose("Building target %q from file %q", tgt, script)
 
-	tmpl := template.New(path.Base(script))
-	tmpl.Funcs(functions)
-
-	verbose("Parsing template")
-	tmpl, err := tmpl.ParseFiles(script)
-
+	b, err := newBygg(script)
 	if err != nil {
-		fmt.Printf("Failed to parse templates: %v\n", err)
+		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
 
+	err = b.buildTarget(tgt)
+
+}
+
+type target struct {
+	name          string
+	buildCommands []string
+	dependencies  []string
+	resolved      bool
+	modifiedAt    time.Time
+}
+
+type bygg struct {
+	lastError error
+
+	targets map[string]target
+	vars    map[string]string
+	env     map[string]string
+	visited map[string]bool
+	tmpl    *template.Template
+}
+
+func newBygg(script string) (*bygg, error) {
+	result := &bygg{
+		targets: map[string]target{},
+		vars:    map[string]string{},
+		env:     map[string]string{},
+		visited: map[string]bool{},
+	}
+
+	getFunctions := func(b *bygg) template.FuncMap {
+		return template.FuncMap{
+			"exec": func(prog string, args ...string) string {
+				cmd := exec.Command(prog, args...)
+				cmd.Env = b.combinedEnv()
+				var output []byte
+				output, b.lastError = cmd.Output()
+				return string(output)
+			},
+			"ok": func() bool {
+				return b.lastError == nil
+			},
+			"date": func(layout string) string {
+				return time.Now().Format(layout)
+			},
+		}
+	}
+
+	result.tmpl = template.New(path.Base(script))
+	result.tmpl.Funcs(getFunctions(result))
+
+	verbose("Parsing template")
+	var err error
+	result.tmpl, err = result.tmpl.ParseFiles(script)
+
+	if err != nil {
+		return result, fmt.Errorf("Failed to parse templates: %w", err)
+	}
+	return result, nil
+}
+
+func (b *bygg) buildTarget(tgt string) error {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		fmt.Printf("Failed to get user cache dir: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to get user cache dir: %v", err)
 	}
 	goCache := filepath.Join(cacheDir, "go-build")
 	goVersion := runtime.Version()
@@ -77,62 +133,40 @@ func main() {
 
 	verbose("Executing template")
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, data)
+	err = b.tmpl.Execute(&buf, data)
 	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	verbose("Loading build script")
-	err = loadBuildScript(&buf)
+	err = b.loadBuildScript(&buf)
 	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	if config.verbose {
 		fmt.Println("bygg: Vars:")
-		for k, v := range vars {
+		for k, v := range b.vars {
 			fmt.Printf("\t%s=%s\n", k, v)
 		}
 		fmt.Println("bygg: Targets:")
-		for k, v := range targets {
+		for k, v := range b.targets {
 			fmt.Printf("\t%s=%v\n", k, v.dependencies)
 		}
 	}
 
-	if tgt, ok := targets[mainTarget]; ok {
-		err = resolve(tgt)
+	if tgt, ok := b.targets[tgt]; ok {
+		err = b.resolve(tgt)
 		if err != nil {
-			fmt.Printf("%v\n", err)
-			os.Exit(1)
+			return err
 		}
-		os.Exit(0)
-	} else {
-		fmt.Printf("No such target %q", mainTarget)
-		os.Exit(1)
+		return nil
 	}
+
+	return fmt.Errorf("No such target %q", tgt)
 }
 
-var lastError error
-
-var functions template.FuncMap = template.FuncMap{
-	"exec": func(prog string, args ...string) string {
-		cmd := exec.Command(prog, args...)
-		cmd.Env = combinedEnv()
-		var output []byte
-		output, lastError = cmd.Output()
-		return string(output)
-	},
-	"ok": func() bool {
-		return lastError == nil
-	},
-	"date": func(layout string) string {
-		return time.Now().Format(layout)
-	},
-}
-
-func loadBuildScript(scriptSource io.Reader) error {
+func (b *bygg) loadBuildScript(scriptSource io.Reader) error {
 	scanner := bufio.NewScanner(scriptSource)
 
 	// Handle dependencies, build commands and assignments, with
@@ -172,19 +206,19 @@ func loadBuildScript(scriptSource io.Reader) error {
 		operator := matches[2]
 		rvalue := matches[3]
 
-		lvalue = expand(lvalue)
-		rvalue = expand(rvalue)
+		lvalue = b.expand(lvalue)
+		rvalue = b.expand(rvalue)
 
 		var err error
 		switch operator {
 		case ":":
-			err = handleDependencies(lvalue, rvalue)
+			err = b.handleDependencies(lvalue, rvalue)
 		case "=":
-			err = handleAssignment(lvalue, rvalue, false)
+			err = b.handleAssignment(lvalue, rvalue, false)
 		case "+=":
-			err = handleAssignment(lvalue, rvalue, true)
+			err = b.handleAssignment(lvalue, rvalue, true)
 		case "<-":
-			err = handleBuildCommand(lvalue, rvalue)
+			err = b.handleBuildCommand(lvalue, rvalue)
 		default:
 			return fmt.Errorf("Unexpected operator %q", operator)
 		}
@@ -197,65 +231,53 @@ func loadBuildScript(scriptSource io.Reader) error {
 	return nil
 }
 
-type target struct {
-	name          string
-	buildCommands []string
-	dependencies  []string
-	resolved      bool
-	modifiedAt    time.Time
-}
-
-var targets = map[string]target{}
-var vars = map[string]string{}
-var env = map[string]string{}
-
-func handleDependencies(lvalue, rvalue string) error {
-	t := targets[lvalue]
+func (b *bygg) handleDependencies(lvalue, rvalue string) error {
+	t := b.targets[lvalue]
 	t.name = lvalue
 	dependencies, err := splitQuoted(rvalue)
 	if err != nil {
 		return err
 	}
 	t.dependencies = append(t.dependencies, dependencies...)
-	targets[lvalue] = t
+	b.targets[lvalue] = t
 
 	return nil
 }
 
-func handleAssignment(lvalue, rvalue string, add bool) error {
+func (b *bygg) handleAssignment(lvalue, rvalue string, add bool) error {
 	if strings.Contains(lvalue, ".") {
 		parts := strings.SplitN(lvalue, ".", 2)
 		context := parts[0]
 		name := parts[1]
 		if context == "env" {
 			if add {
-				rvalue = env[name] + " " + rvalue
+				rvalue = b.env[name] + " " + rvalue
 			}
-			env[name] = rvalue
+			b.env[name] = rvalue
 		} else {
 			return fmt.Errorf("Unknown variable context %q", context)
 		}
 	} else {
 		if add {
-			rvalue = vars[lvalue] + " " + rvalue
+			rvalue = b.vars[lvalue] + " " + rvalue
 		}
-		vars[lvalue] = rvalue
+		b.vars[lvalue] = rvalue
 	}
 
 	return nil
 }
 
-func handleBuildCommand(lvalue, rvalue string) error {
-	t := targets[lvalue]
+func (b *bygg) handleBuildCommand(lvalue, rvalue string) error {
+	t := b.targets[lvalue]
 	t.name = lvalue
 	t.buildCommands = append(t.buildCommands, rvalue)
-	targets[lvalue] = t
+	b.targets[lvalue] = t
 
 	return nil
 }
 
 // Permissive variable expansion
-func expand(expr string) string {
+func (b *bygg) expand(expr string) string {
 	return os.Expand(expr, func(varExpr string) string {
 		varExpr = strings.Trim(varExpr, " \t")
 		if strings.Contains(varExpr, ".") {
@@ -265,7 +287,7 @@ func expand(expr string) string {
 
 			switch context {
 			case "env":
-				if local, ok := env[name]; ok {
+				if local, ok := b.env[name]; ok {
 					return local
 				}
 				return os.Getenv(name)
@@ -273,25 +295,23 @@ func expand(expr string) string {
 				return ""
 			}
 		} else {
-			return vars[varExpr]
+			return b.vars[varExpr]
 		}
 	})
 }
 
-var visited = map[string]bool{}
-
-func resolve(t target) error {
+func (b *bygg) resolve(t target) error {
 	if t.resolved {
 		return nil
 	}
 
 	verbose("Resolving target %q", t.name)
-	if visited[t.name] {
+	if b.visited[t.name] {
 		return fmt.Errorf("Cyclic dependency resolving %q", t.name)
 	}
-	visited[t.name] = true
+	b.visited[t.name] = true
 	defer func() {
-		visited[t.name] = false
+		b.visited[t.name] = false
 	}()
 
 	dependencies := t.dependencies
@@ -299,7 +319,7 @@ func resolve(t target) error {
 	var mostRecentUpdate time.Time
 
 	for _, depName := range dependencies {
-		dep, ok := targets[depName]
+		dep, ok := b.targets[depName]
 		if !ok {
 			if targetExists(depName) {
 				dep = target{
@@ -309,7 +329,7 @@ func resolve(t target) error {
 				return fmt.Errorf("Target %q has unknown dependency %q", t.name, depName)
 			}
 		}
-		err := resolve(dep)
+		err := b.resolve(dep)
 		if err != nil {
 			return err
 		}
@@ -320,7 +340,7 @@ func resolve(t target) error {
 
 	if !targetExists(t.name) || mostRecentUpdate.IsZero() || getTargetDate(t.name).Before(mostRecentUpdate) {
 		for _, cmd := range t.buildCommands {
-			err := build(cmd)
+			err := b.build(cmd)
 			if err != nil {
 				return err
 			}
@@ -337,7 +357,7 @@ func resolve(t target) error {
 	return nil
 }
 
-func build(command string) error {
+func (b *bygg) build(command string) error {
 	if config.dryRun {
 		fmt.Printf("Not running command %q\n", command)
 		return nil
@@ -350,15 +370,15 @@ func build(command string) error {
 	args := parts[1:]
 	verbose("Running command %q with args %v", prog, args)
 	cmd := exec.Command(prog, args...)
-	cmd.Env = combinedEnv()
+	cmd.Env = b.combinedEnv()
 	output, err := cmd.CombinedOutput()
 	fmt.Print(string(output))
 	return err
 }
 
-func combinedEnv() []string {
+func (b *bygg) combinedEnv() []string {
 	localEnv := []string{}
-	for k, v := range env {
+	for k, v := range b.env {
 		localEnv = append(localEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 	return append(os.Environ(), localEnv...)
