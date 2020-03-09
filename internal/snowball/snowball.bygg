@@ -1,0 +1,43 @@
+#
+# bygg-file for building libsnowball, adapted from the Makefile
+# in the libstemmer_c project.
+#
+# NOTE: Needs to be verified and manually updated when updating the
+# library!
+#
+
+ROOT = ext/libstemmer_c
+AR = ar
+CC = gcc
+CFLAGS = -O2
+CPPFLAGS = -I$ROOT/include
+
+ext: ext/libstemmer_c/README
+ext <- https://snowballstem.org/dist/libstemmer_c.tgz md5:f8288a861db7c97dc4750020c7c7aa6f
+
+{{$langs := "arabic basque catalan danish dutch english finnish french german greek hindi hungarian"}}
+{{$langs = printf "%s %s" $langs "indonesian irish italian lithuanian nepali norwegian porter portuguese"}}
+{{$langs = printf "%s %s" $langs "romanian russian spanish swedish tamil turkish"}}
+
+{{$runtime := "runtime/api runtime/utilities libstemmer/libstemmer_utf8"}}
+
+snowball_objects = {{range split $langs}}$ROOT/src_c/stem_UTF_8_{{.}}.o {{end}}
+snowball_objects += {{range split $runtime}}$ROOT/{{.}}.o {{end}}
+
+runtime_headers = {{range split "include/libstemmer.h libstemmer/modules_utf8.h runtime/api.h runtime/header.h"}}$ROOT/{{.}} {{end}}
+
+{{range split $langs}}
+{{$base := printf "$ROOT/src_c/stem_UTF_8_%s" .}}
+{{$base}}.o: {{$base}}.c {{$base}}.h $runtime_headers
+{{$base}}.o <- $CC $CFLAGS -c -o {{$base}}.o {{$base}}.c
+{{end}}
+
+{{range split $runtime}}
+{{$base := printf "$ROOT/%s" .}}
+{{$base}}.o: {{$base}}.c $runtime_headers
+{{$base}}.o <- $CC $CFLAGS -c -o {{$base}}.o {{$base}}.c
+{{end}}
+
+all: $ROOT/libstemmer.o
+$ROOT/libstemmer.o: $ROOT $snowball_objects
+$ROOT/libstemmer.o <- $AR -cr $ROOT/libstemmer.o $snowball_objects
