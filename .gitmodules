@@ -1,3 +1,0 @@
-[submodule "internal/snowball/snowball"]
-	path = internal/snowball/snowball
-	url = https://github.com/snowballstem/snowball.git
