@@ -24,7 +24,7 @@ import (
 
 // #cgo CFLAGS: -DSQLITE_CORE
 // #cgo CFLAGS: -Isnowball/include
-// #cgo LDFLAGS: ${SRCDIR}/snowball/libstemmer.o
+// #cgo LDFLAGS: ${SRCDIR}/ext/libstemmer_c/libstemmer.o
 // #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
 // #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 // #cgo dbstats CFLAGS: -DSQLITE_ENABLE_DBSTAT_VTAB=1
