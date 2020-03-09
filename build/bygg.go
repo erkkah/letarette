@@ -7,11 +7,16 @@ It uses only go builtins and is small enough to be run using "go run".
 package main
 
 import (
+	"archive/tar"
 	"bufio"
 	"bytes"
+	"compress/gzip"
+	"crypto/md5"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -26,11 +31,13 @@ import (
 var config struct {
 	verbose bool
 	dryRun  bool
+	baseDir string
 }
 
 func main() {
 	flag.BoolVar(&config.dryRun, "n", false, "Performs a dry run")
 	flag.BoolVar(&config.verbose, "v", false, "Verbose")
+	flag.StringVar(&config.baseDir, "C", ".", "Base dir")
 	flag.Parse()
 
 	tgt := "all"
@@ -44,7 +51,7 @@ func main() {
 
 	verbose("Building target %q from file %q", tgt, script)
 
-	b, err := newBygg(script)
+	b, err := newBygg(config.baseDir, script)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
@@ -73,14 +80,22 @@ type bygge struct {
 	env     map[string]string
 	visited map[string]bool
 	tmpl    *template.Template
+	dir     string
 }
 
-func newBygg(script string) (*bygge, error) {
+func newBygg(dir, script string) (*bygge, error) {
+	pwd, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		return nil, err
+	}
+	defer os.Chdir(pwd)
+
 	result := &bygge{
 		targets: map[string]target{},
 		vars:    map[string]string{},
 		env:     map[string]string{},
 		visited: map[string]bool{},
+		dir:     dir,
 	}
 
 	getFunctions := func(b *bygge) template.FuncMap {
@@ -121,6 +136,12 @@ func newBygg(script string) (*bygge, error) {
 }
 
 func (b *bygge) buildTarget(tgt string) error {
+	pwd, _ := os.Getwd()
+	if err := os.Chdir(b.dir); err != nil {
+		return err
+	}
+	defer os.Chdir(pwd)
+
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		return fmt.Errorf("Failed to get user cache dir: %v", err)
@@ -186,7 +207,7 @@ func (b *bygge) loadBuildScript(scriptSource io.Reader) error {
 	// all <- gcc -o all all.c
 	// bar=baz
 	// bar += yes
-	commandExp := regexp.MustCompile(`([A-Za-z._\-/${}]+)\s*([:=]|\+=|<-)\s*(.*)`)
+	commandExp := regexp.MustCompile(`([\w._\-/${}]+)\s*([:=]|\+=|<-)\s*(.*)`)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -342,6 +363,7 @@ func (b *bygge) resolve(t target) error {
 		if err != nil {
 			return err
 		}
+		dep = b.targets[depName]
 		if dep.modifiedAt.After(mostRecentUpdate) {
 			mostRecentUpdate = dep.modifiedAt
 		}
@@ -363,6 +385,9 @@ func (b *bygge) resolve(t target) error {
 	} else {
 		t.modifiedAt = time.Now()
 	}
+
+	b.targets[t.name] = t
+
 	return nil
 }
 
@@ -379,11 +404,29 @@ func (b *bygge) build(tgt, command string) error {
 	args := parts[1:]
 	verbose("Running command %q with args %v", prog, args)
 	if prog == "bygg" {
-		bb, err := newBygg(args[0])
+		byggDir := "."
+		byggTarget := "all"
+		if len(args) == 0 {
+			return fmt.Errorf("Missing buildfile")
+		}
+		if args[0] == "-C" {
+			if len(args) < 3 {
+				return fmt.Errorf("Invalid bygg arguments")
+			}
+			byggDir = args[1]
+			args = args[2:]
+		}
+		if len(args) == 2 {
+			byggTarget = args[1]
+		}
+		bb, err := newBygg(byggDir, args[0])
 		if err != nil {
 			return err
 		}
-		return bb.buildTarget(tgt)
+		return bb.buildTarget(byggTarget)
+	}
+	if strings.HasPrefix(prog, "http") {
+		return handleDownload(tgt, prog, args...)
 	}
 	cmd := exec.Command(prog, args...)
 	cmd.Env = b.combinedEnv()
@@ -433,8 +476,10 @@ func splitQuoted(quoted string) ([]string, error) {
 			if inString {
 				builder.WriteString(char)
 			} else {
-				parts = append(parts, builder.String())
-				builder.Reset()
+				if builder.Len() != 0 {
+					parts = append(parts, builder.String())
+					builder.Reset()
+				}
 			}
 		default:
 			builder.WriteString(char)
@@ -460,4 +505,88 @@ func getFileDate(target string) time.Time {
 		return time.Time{}
 	}
 	return fileInfo.ModTime()
+}
+
+func handleDownload(target string, url string, checksum ...string) error {
+	response, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	err = os.MkdirAll(target, 0770)
+	if err != nil {
+		return err
+	}
+
+	tmpFile, err := ioutil.TempFile(os.TempDir(), target)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+	}()
+
+	_, err = io.Copy(tmpFile, response.Body)
+	if err != nil {
+		return err
+	}
+	tmpFile.Seek(0, 0)
+
+	if len(checksum) > 0 && strings.HasPrefix(checksum[0], "md5:") {
+		hash := md5.New()
+		_, err = io.Copy(hash, tmpFile)
+		if err != nil {
+			return err
+		}
+		sum := fmt.Sprintf("md5:%x", hash.Sum(nil))
+		if sum != checksum[0] {
+			return fmt.Errorf("Checksum verification failed for %q", url)
+		}
+		tmpFile.Seek(0, 0)
+	}
+
+	var reader io.Reader = tmpFile
+	if strings.HasSuffix(url, "gz") {
+		reader, err = gzip.NewReader(reader)
+		if err != nil {
+			return err
+		}
+	}
+
+	if strings.HasSuffix(url, ".tar") || strings.HasSuffix(url, ".tar.gz") || strings.HasSuffix(url, "tgz") {
+		tarReader := tar.NewReader(reader)
+
+		for {
+			hdr, err := tarReader.Next()
+			if err == io.EOF {
+				break
+			}
+			finfo := hdr.FileInfo()
+
+			if finfo.IsDir() {
+				dir := path.Join(target, hdr.Name)
+				err = os.MkdirAll(dir, finfo.Mode())
+				if err != nil {
+					return err
+				}
+			} else if finfo.Mode().IsRegular() {
+				dest, err := os.Create(path.Join(target, hdr.Name))
+				if err != nil {
+					return err
+				}
+				_, err = io.Copy(dest, tarReader)
+				if err != nil {
+					return err
+				}
+			} else {
+				return fmt.Errorf("Unsupported file type: %v", finfo.Mode().String())
+			}
+		}
+	} else {
+		return fmt.Errorf("Unsupported file: %v", url)
+	}
+
+	return nil
 }
