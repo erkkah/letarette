@@ -127,9 +127,8 @@ func newBygg(dir, script string) (*bygge, error) {
 		return nil, fmt.Errorf("Bygg file %q not found", script)
 	}
 	var err error
-	result.tmpl, err = result.tmpl.ParseFiles(script)
 
-	if err != nil {
+	if result.tmpl, err = result.tmpl.ParseFiles(script); err != nil {
 		return nil, fmt.Errorf("Failed to parse templates: %w", err)
 	}
 	return result, nil
@@ -163,31 +162,17 @@ func (b *bygge) buildTarget(tgt string) error {
 
 	verbose("Executing template")
 	var buf bytes.Buffer
-	err = b.tmpl.Execute(&buf, data)
-	if err != nil {
+	if err = b.tmpl.Execute(&buf, data); err != nil {
 		return err
 	}
 
 	verbose("Loading build script")
-	err = b.loadBuildScript(&buf)
-	if err != nil {
+	if err = b.loadBuildScript(&buf); err != nil {
 		return err
 	}
 
-	if config.verbose {
-		fmt.Println("bygg: Vars:")
-		for k, v := range b.vars {
-			fmt.Printf("\t%s=%s\n", k, v)
-		}
-		fmt.Println("bygg: Targets:")
-		for k, v := range b.targets {
-			fmt.Printf("\t%s=%v\n", k, v.dependencies)
-		}
-	}
-
 	if tgt, ok := b.targets[tgt]; ok {
-		err = b.resolve(tgt)
-		if err != nil {
+		if err = b.resolve(tgt); err != nil {
 			return err
 		}
 		return nil
@@ -359,8 +344,7 @@ func (b *bygge) resolve(t target) error {
 				return fmt.Errorf("Target %q has unknown dependency %q", t.name, depName)
 			}
 		}
-		err := b.resolve(dep)
-		if err != nil {
+		if err := b.resolve(dep); err != nil {
 			return err
 		}
 		dep = b.targets[depName]
@@ -371,8 +355,7 @@ func (b *bygge) resolve(t target) error {
 
 	if !exists(t.name) || mostRecentUpdate.IsZero() || getFileDate(t.name).Before(mostRecentUpdate) {
 		for _, cmd := range t.buildCommands {
-			err := b.build(t.name, cmd)
-			if err != nil {
+			if err := b.build(t.name, cmd); err != nil {
 				return err
 			}
 		}
@@ -514,8 +497,7 @@ func handleDownload(target string, url string, checksum ...string) error {
 	}
 	defer response.Body.Close()
 
-	err = os.MkdirAll(target, 0770)
-	if err != nil {
+	if err = os.MkdirAll(target, 0770); err != nil {
 		return err
 	}
 
@@ -528,16 +510,14 @@ func handleDownload(target string, url string, checksum ...string) error {
 		os.Remove(tmpFile.Name())
 	}()
 
-	_, err = io.Copy(tmpFile, response.Body)
-	if err != nil {
+	if _, err = io.Copy(tmpFile, response.Body); err != nil {
 		return err
 	}
 	tmpFile.Seek(0, 0)
 
 	if len(checksum) > 0 && strings.HasPrefix(checksum[0], "md5:") {
 		hash := md5.New()
-		_, err = io.Copy(hash, tmpFile)
-		if err != nil {
+		if _, err = io.Copy(hash, tmpFile); err != nil {
 			return err
 		}
 		sum := fmt.Sprintf("md5:%x", hash.Sum(nil))
@@ -549,8 +529,7 @@ func handleDownload(target string, url string, checksum ...string) error {
 
 	var reader io.Reader = tmpFile
 	if strings.HasSuffix(url, "gz") {
-		reader, err = gzip.NewReader(reader)
-		if err != nil {
+		if reader, err = gzip.NewReader(reader); err != nil {
 			return err
 		}
 	}
@@ -567,8 +546,7 @@ func handleDownload(target string, url string, checksum ...string) error {
 
 			if finfo.IsDir() {
 				dir := path.Join(target, hdr.Name)
-				err = os.MkdirAll(dir, finfo.Mode())
-				if err != nil {
+				if err = os.MkdirAll(dir, finfo.Mode()); err != nil {
 					return err
 				}
 			} else if finfo.Mode().IsRegular() {
@@ -576,8 +554,7 @@ func handleDownload(target string, url string, checksum ...string) error {
 				if err != nil {
 					return err
 				}
-				_, err = io.Copy(dest, tarReader)
-				if err != nil {
+				if _, err = io.Copy(dest, tarReader); err != nil {
 					return err
 				}
 			} else {
