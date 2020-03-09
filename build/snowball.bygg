@@ -1,0 +1,33 @@
+#
+# bygg-file for building libsnowball, adapted from the GNUmakefile
+# in the snowball project.
+#
+# NOTE: Needs to be verified and manually updated when updating the
+# snowball library!
+#
+
+AR = ar
+CC = gcc
+ROOT=internal/snowball/snowball
+C_SRC_DIR=$ROOT/src_c
+LIBSTEMMER = $ROOT/libstemmer
+RUNTIME_OBJECTS = $ROOT/runtime/api.o $ROOT/runtime/utilities.o
+
+# Hard-coded list !
+#algorithms = arabic basque catalan danish dutch english finnish french german greek hindi
+#algorithms += hungarian indonesian irish italian lithuanian nepali norwegian porter
+#algorithms += portuguese romanian russian serbian spanish swedish tamil turkish
+
+{{$algorithms := split "arabic basque catalan danish dutch english"}}
+C_LIB_SOURCES = {{range $algorithms}}$C_SRC_DIR/stem_UTF_8_{{.}}.c {{end}}
+C_LIB_HEADERS = {{range $algorithms}}$C_SRC_DIR/stem_UTF_8_{{.}}.h {{end}}
+
+$ROOT/libstemmer.o: $ROOT/libstemmer/libstemmer.o $RUNTIME_OBJECTS $C_LIB_OBJECTS
+$ROOT/libstemmer.o <- $AR -cru $ROOT/libstemmer.o $ROOT/libstemmer/libstemmer.o $RUNTIME_OBJECTS $C_LIB_OBJECTS
+
+$LIBSTEMMER/libstemmer.o: $LIBSTEMMER/modules.h $C_LIB_HEADERS
+
+$LIBSTEMMER/modules.h: $LIBSTEMMER/mkmodules.pl $LIBSTEMMER/modules.txt
+$LIBSTEMMER/modules.h <- $LIBSTEMMER/mkmodules.pl $LIBSTEMMER/modules.h $C_SRC_DIR, $LIBSTEMMER/modules.txt $LIBSTEMMER/mkinc.mak
+
+
