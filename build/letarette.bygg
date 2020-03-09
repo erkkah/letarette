@@ -53,15 +53,9 @@ lrmon <- go build -ldflags="$STAMP $LDFLAGS" -v -tags "prod" ./cmd/lrmon
 
 client <- go build -v ./pkg/client
 
-SNOWBALL = internal/snowball/snowball
-
+SNOWBALL = internal/snowball/ext/libstemmer_c
 snowball: $SNOWBALL/libstemmer.o
-
-$SNOWBALL/libstemmer.o: $SNOWBALL/README
-$SNOWBALL/libstemmer.o <- bygg build/snowball.bygg
-
-$SNOWBALL/README <- git submodule init
-$SNOWBALL/README <- git submodule update --recursive
+$SNOWBALL/libstemmer.o <- bygg -C internal/snowball snowball.bygg
 
 test: generate
 test <- go test -tags $SQLITE_TAGS ./internal/letarette ./pkg/*
@@ -70,6 +64,4 @@ generate <-	go generate internal/letarette/db.go
 
 clean <- go clean github.com/erkkah/letarette/...
 
-tidy <- touch $SNOWBALL/go.mod
 tidy <- go mod tidy
-tidy <- rm $SNOWBALL/go.mod
