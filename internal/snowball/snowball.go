@@ -23,7 +23,7 @@ import (
 )
 
 // #cgo CFLAGS: -DSQLITE_CORE
-// #cgo CFLAGS: -Isnowball/include
+// #cgo CFLAGS: -Iext/libstemmer_c/include
 // #cgo LDFLAGS: ${SRCDIR}/ext/libstemmer_c/libstemmer.o
 // #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
 // #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
