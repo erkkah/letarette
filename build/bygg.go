@@ -51,7 +51,10 @@ func main() {
 	}
 
 	err = b.buildTarget(tgt)
-
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
 }
 
 type target struct {
@@ -62,7 +65,7 @@ type target struct {
 	modifiedAt    time.Time
 }
 
-type bygg struct {
+type bygge struct {
 	lastError error
 
 	targets map[string]target
@@ -72,15 +75,15 @@ type bygg struct {
 	tmpl    *template.Template
 }
 
-func newBygg(script string) (*bygg, error) {
-	result := &bygg{
+func newBygg(script string) (*bygge, error) {
+	result := &bygge{
 		targets: map[string]target{},
 		vars:    map[string]string{},
 		env:     map[string]string{},
 		visited: map[string]bool{},
 	}
 
-	getFunctions := func(b *bygg) template.FuncMap {
+	getFunctions := func(b *bygge) template.FuncMap {
 		return template.FuncMap{
 			"exec": func(prog string, args ...string) string {
 				cmd := exec.Command(prog, args...)
@@ -95,23 +98,29 @@ func newBygg(script string) (*bygg, error) {
 			"date": func(layout string) string {
 				return time.Now().Format(layout)
 			},
+			"split": func(unsplit string) []string {
+				return strings.Split(unsplit, " ")
+			},
 		}
 	}
 
 	result.tmpl = template.New(path.Base(script))
 	result.tmpl.Funcs(getFunctions(result))
 
-	verbose("Parsing template")
+	verbose("Parsing template %q", script)
+	if !exists(script) {
+		return nil, fmt.Errorf("Bygg file %q not found", script)
+	}
 	var err error
 	result.tmpl, err = result.tmpl.ParseFiles(script)
 
 	if err != nil {
-		return result, fmt.Errorf("Failed to parse templates: %w", err)
+		return nil, fmt.Errorf("Failed to parse templates: %w", err)
 	}
 	return result, nil
 }
 
-func (b *bygg) buildTarget(tgt string) error {
+func (b *bygge) buildTarget(tgt string) error {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		return fmt.Errorf("Failed to get user cache dir: %v", err)
@@ -166,7 +175,7 @@ func (b *bygg) buildTarget(tgt string) error {
 	return fmt.Errorf("No such target %q", tgt)
 }
 
-func (b *bygg) loadBuildScript(scriptSource io.Reader) error {
+func (b *bygge) loadBuildScript(scriptSource io.Reader) error {
 	scanner := bufio.NewScanner(scriptSource)
 
 	// Handle dependencies, build commands and assignments, with
@@ -231,7 +240,7 @@ func (b *bygg) loadBuildScript(scriptSource io.Reader) error {
 	return nil
 }
 
-func (b *bygg) handleDependencies(lvalue, rvalue string) error {
+func (b *bygge) handleDependencies(lvalue, rvalue string) error {
 	t := b.targets[lvalue]
 	t.name = lvalue
 	dependencies, err := splitQuoted(rvalue)
@@ -244,7 +253,7 @@ func (b *bygg) handleDependencies(lvalue, rvalue string) error {
 	return nil
 }
 
-func (b *bygg) handleAssignment(lvalue, rvalue string, add bool) error {
+func (b *bygge) handleAssignment(lvalue, rvalue string, add bool) error {
 	if strings.Contains(lvalue, ".") {
 		parts := strings.SplitN(lvalue, ".", 2)
 		context := parts[0]
@@ -267,7 +276,7 @@ func (b *bygg) handleAssignment(lvalue, rvalue string, add bool) error {
 	return nil
 }
 
-func (b *bygg) handleBuildCommand(lvalue, rvalue string) error {
+func (b *bygge) handleBuildCommand(lvalue, rvalue string) error {
 	t := b.targets[lvalue]
 	t.name = lvalue
 	t.buildCommands = append(t.buildCommands, rvalue)
@@ -277,7 +286,7 @@ func (b *bygg) handleBuildCommand(lvalue, rvalue string) error {
 }
 
 // Permissive variable expansion
-func (b *bygg) expand(expr string) string {
+func (b *bygge) expand(expr string) string {
 	return os.Expand(expr, func(varExpr string) string {
 		varExpr = strings.Trim(varExpr, " \t")
 		if strings.Contains(varExpr, ".") {
@@ -300,7 +309,7 @@ func (b *bygg) expand(expr string) string {
 	})
 }
 
-func (b *bygg) resolve(t target) error {
+func (b *bygge) resolve(t target) error {
 	if t.resolved {
 		return nil
 	}
@@ -321,7 +330,7 @@ func (b *bygg) resolve(t target) error {
 	for _, depName := range dependencies {
 		dep, ok := b.targets[depName]
 		if !ok {
-			if targetExists(depName) {
+			if exists(depName) {
 				dep = target{
 					name: depName,
 				}
@@ -338,9 +347,9 @@ func (b *bygg) resolve(t target) error {
 		}
 	}
 
-	if !targetExists(t.name) || mostRecentUpdate.IsZero() || getTargetDate(t.name).Before(mostRecentUpdate) {
+	if !exists(t.name) || mostRecentUpdate.IsZero() || getFileDate(t.name).Before(mostRecentUpdate) {
 		for _, cmd := range t.buildCommands {
-			err := b.build(cmd)
+			err := b.build(t.name, cmd)
 			if err != nil {
 				return err
 			}
@@ -349,15 +358,15 @@ func (b *bygg) resolve(t target) error {
 
 	t.resolved = true
 
-	if targetExists(t.name) {
-		t.modifiedAt = getTargetDate(t.name)
+	if exists(t.name) {
+		t.modifiedAt = getFileDate(t.name)
 	} else {
 		t.modifiedAt = time.Now()
 	}
 	return nil
 }
 
-func (b *bygg) build(command string) error {
+func (b *bygge) build(tgt, command string) error {
 	if config.dryRun {
 		fmt.Printf("Not running command %q\n", command)
 		return nil
@@ -369,6 +378,13 @@ func (b *bygg) build(command string) error {
 	prog := parts[0]
 	args := parts[1:]
 	verbose("Running command %q with args %v", prog, args)
+	if prog == "bygg" {
+		bb, err := newBygg(args[0])
+		if err != nil {
+			return err
+		}
+		return bb.buildTarget(tgt)
+	}
 	cmd := exec.Command(prog, args...)
 	cmd.Env = b.combinedEnv()
 	output, err := cmd.CombinedOutput()
@@ -376,7 +392,7 @@ func (b *bygg) build(command string) error {
 	return err
 }
 
-func (b *bygg) combinedEnv() []string {
+func (b *bygge) combinedEnv() []string {
 	localEnv := []string{}
 	for k, v := range b.env {
 		localEnv = append(localEnv, fmt.Sprintf("%s=%s", k, v))
@@ -433,12 +449,12 @@ func splitQuoted(quoted string) ([]string, error) {
 	return parts, nil
 }
 
-func targetExists(target string) bool {
-	_, err := os.Stat(target)
-	return !os.IsNotExist(err)
+func exists(target string) bool {
+	stat, err := os.Stat(target)
+	return err == nil && stat != nil
 }
 
-func getTargetDate(target string) time.Time {
+func getFileDate(target string) time.Time {
 	fileInfo, _ := os.Stat(target)
 	if fileInfo == nil {
 		return time.Time{}
