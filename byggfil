@@ -55,7 +55,7 @@ client <- go build -v ./pkg/client
 
 SNOWBALL = internal/snowball/ext/libstemmer_c
 snowball: $SNOWBALL/libstemmer.o
-$SNOWBALL/libstemmer.o <- bygg -C internal/snowball snowball.bygg
+$SNOWBALL/libstemmer.o <- bygg -C internal/snowball
 
 test: generate
 test <- go test -tags $SQLITE_TAGS ./internal/letarette ./pkg/*
