@@ -35,10 +35,10 @@ jobs:
 
     - name: Install windows build helpers
       if: startsWith(matrix.os, 'windows')
-      run: choco install make mingw
+      run: choco install mingw
 
     - name: Get GOCACHE
-      run: bash -c 'echo ::set-env name=GOCACHE::$(go env | grep GOCACHE | cut -d\" -f 2)'
+      run: go run bygg/bygg.go gocache
     
     - name: Cache go build cache
       uses: actions/cache@v1
@@ -61,7 +61,7 @@ jobs:
         restore-keys: ${{ runner.os }}-snowball-
 
     - name: Build
-      run: make
+      run: go run bygg/bygg.go
     
     - name: Test
-      run: make test
+      run: go run bygg/bygg.go test

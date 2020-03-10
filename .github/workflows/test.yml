@@ -34,7 +34,7 @@ jobs:
         restore-keys: ${{ runner.os }}-go-
 
     - name: Get GOCACHE
-      run: echo ::set-env name=GOCACHE::$(eval `go env | grep GOCACHE` && echo $GOCACHE)
+      run: go run bygg/bygg.go gocache
     
     - name: Cache go build cache
       uses: actions/cache@v1
@@ -57,7 +57,7 @@ jobs:
         restore-keys: ${{ runner.os }}-snowball-
 
     - name: Build
-      run: make
+      run: go run bygg/bygg.go
     
     - name: Test
-      run: make test
+      run: go run bygg/bygg.go test
