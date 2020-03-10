@@ -450,14 +450,18 @@ func splitQuoted(quoted string) ([]string, error) {
 		char := scanner.Text()
 		switch char {
 		case `\`:
-			escapeNext = true
+			if inString {
+				escapeNext = true
+			} else {
+				builder.WriteString(char)
+			}
 		case `"`:
 			if escapeNext {
 				builder.WriteString(char)
-				escapeNext = false
 			} else {
 				inString = !inString
 			}
+			escapeNext = false
 		case ` `:
 			if inString {
 				builder.WriteString(char)
@@ -467,8 +471,10 @@ func splitQuoted(quoted string) ([]string, error) {
 					builder.Reset()
 				}
 			}
+			escapeNext = false
 		default:
 			builder.WriteString(char)
+			escapeNext = false
 		}
 	}
 	if inString {
