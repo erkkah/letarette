@@ -12,7 +12,7 @@ CC = gcc
 CFLAGS = -O2
 CPPFLAGS = -I$ROOT/include
 
-ext: ext/libstemmer_c/README
+$ROOT: ext
 ext <- https://snowballstem.org/dist/libstemmer_c.tgz md5:f8288a861db7c97dc4750020c7c7aa6f
 
 {{$langs := "arabic basque catalan danish dutch english finnish french german greek hindi hungarian"}}
