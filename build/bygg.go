@@ -40,14 +40,16 @@ func main() {
 	flag.StringVar(&config.baseDir, "C", ".", "Base dir")
 	flag.Parse()
 
+	script := "bygg.bygg"
 	tgt := "all"
 
 	args := flag.Args()
+	if len(args) > 0 {
+		script = args[0]
+	}
 	if len(args) > 1 {
 		tgt = args[1]
 	}
-
-	script := args[0]
 
 	verbose("Building target %q from file %q", tgt, script)
 
