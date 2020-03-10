@@ -386,6 +386,10 @@ func (b *bygge) build(tgt, command string) error {
 	prog := parts[0]
 	args := parts[1:]
 	verbose("Running command %q with args %v", prog, args)
+	if prog == "<<" {
+		fmt.Println(strings.Join(args, " "))
+		return nil
+	}
 	if prog == "bygg" {
 		byggDir := "."
 		byggTarget := "all"
