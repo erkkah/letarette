@@ -34,26 +34,24 @@ var config struct {
 	baseDir string
 }
 
+const byggfil = "byggfil"
+
 func main() {
 	flag.BoolVar(&config.dryRun, "n", false, "Performs a dry run")
 	flag.BoolVar(&config.verbose, "v", false, "Verbose")
 	flag.StringVar(&config.baseDir, "C", ".", "Base dir")
 	flag.Parse()
 
-	script := "bygg.bygg"
 	tgt := "all"
 
 	args := flag.Args()
 	if len(args) > 0 {
-		script = args[0]
-	}
-	if len(args) > 1 {
-		tgt = args[1]
+		tgt = args[0]
 	}
 
-	verbose("Building target %q from file %q", tgt, script)
+	verbose("Building target %q", tgt)
 
-	b, err := newBygg(config.baseDir, script)
+	b, err := newBygg(config.baseDir)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
@@ -85,7 +83,7 @@ type bygge struct {
 	dir     string
 }
 
-func newBygg(dir, script string) (*bygge, error) {
+func newBygg(dir string) (*bygge, error) {
 	pwd, _ := os.Getwd()
 	if err := os.Chdir(dir); err != nil {
 		return nil, err
@@ -121,16 +119,16 @@ func newBygg(dir, script string) (*bygge, error) {
 		}
 	}
 
-	result.tmpl = template.New(path.Base(script))
+	result.tmpl = template.New(byggfil)
 	result.tmpl.Funcs(getFunctions(result))
 
-	verbose("Parsing template %q", script)
-	if !exists(script) {
-		return nil, fmt.Errorf("Bygg file %q not found", script)
+	verbose("Parsing template")
+	if !exists(byggfil) {
+		return nil, fmt.Errorf("Bygg file %q not found", byggfil)
 	}
 	var err error
 
-	if result.tmpl, err = result.tmpl.ParseFiles(script); err != nil {
+	if result.tmpl, err = result.tmpl.ParseFiles(byggfil); err != nil {
 		return nil, fmt.Errorf("Failed to parse templates: %w", err)
 	}
 	return result, nil
@@ -391,20 +389,19 @@ func (b *bygge) build(tgt, command string) error {
 	if prog == "bygg" {
 		byggDir := "."
 		byggTarget := "all"
-		if len(args) == 0 {
-			return fmt.Errorf("Missing buildfile")
-		}
-		if args[0] == "-C" {
-			if len(args) < 3 {
-				return fmt.Errorf("Invalid bygg arguments")
+		if len(args) > 0 {
+			if args[0] == "-C" {
+				if len(args) < 2 {
+					return fmt.Errorf("Invalid bygg arguments")
+				}
+				byggDir = args[1]
+				args = args[2:]
 			}
-			byggDir = args[1]
-			args = args[2:]
+			if len(args) == 2 {
+				byggTarget = args[1]
+			}
 		}
-		if len(args) == 2 {
-			byggTarget = args[1]
-		}
-		bb, err := newBygg(byggDir, args[0])
+		bb, err := newBygg(byggDir)
 		if err != nil {
 			return err
 		}
