@@ -7,10 +7,10 @@ all: letarette lrcli lrload lrmon
 REV = dev
 
 {{if (exec "git" "status" "--porcelain") | eq "" -}}
-    << Clean repo
+    repoState = Clean repo
     rev = {{slice (exec "git" "rev-parse" "HEAD") 0 7 -}}
 {{else -}}
-    << Dirty repo
+    repoState = Dirty repo
 {{end -}}
 
 {{$tag := (exec "git" "tag" "--contains") -}}
@@ -36,6 +36,7 @@ LDFLAGS = ${env.LDFLAGS}{{if .env.STATIC}}-linkmode external -extldflags -static
 SQLITE_TAGS = fts5,sqlite_omit_load_extension
 
 letarette: generate snowball
+letarette <- << $repoState
 letarette <- go build -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS -o letarette${EXE} ./cmd/worker
 
 lrcli: client snowball
@@ -58,10 +59,12 @@ snowball: $SNOWBALL/libstemmer.o
 $SNOWBALL/libstemmer.o <- bygg -C internal/snowball
 
 test: generate
-test <- go test -tags $SQLITE_TAGS ./internal/letarette ./pkg/*
+test <- go test -tags $SQLITE_TAGS ./internal/letarette
 
 generate <-	go generate internal/letarette/db.go
 
 clean <- go clean github.com/erkkah/letarette/...
 
 tidy <- go mod tidy
+
+gocache <- << ::set-env name=GOCACHE::{{.GO_CACHE}}

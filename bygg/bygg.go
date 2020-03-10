@@ -208,7 +208,7 @@ func (b *bygge) loadBuildScript(scriptSource io.Reader) error {
 		}
 		// Handle message lines
 		if strings.HasPrefix(line, "<<") {
-			fmt.Println(strings.Trim(line[2:], " \t"))
+			fmt.Println(b.expand(strings.Trim(line[2:], " \t")))
 			continue
 		}
 
