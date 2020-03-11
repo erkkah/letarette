@@ -17,6 +17,7 @@ package letarette
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -37,12 +38,12 @@ type testSetup struct {
 }
 
 func (setup *testSetup) cleanup() {
-	err := os.RemoveAll(setup.tmpDir)
-	if err != nil {
-		panic("Failed to delete test temp dir")
-	}
 	if setup.db != nil {
 		setup.db.Close()
+	}
+	err := os.RemoveAll(setup.tmpDir)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to delete test temp dir: %v", err))
 	}
 }
 
