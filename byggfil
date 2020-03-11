@@ -31,15 +31,19 @@ env.CGO_CFLAGS += -I${GO_SQLITE}
 env.CGO_CFLAGS += -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_OMIT_SHARED_CACHE
 env.CGO_CFLAGS += -DSQLITE_USE_ALLOCA -DSQLITE_OMIT_PROGRESS_CALLBACK -DSQLITE_OMIT_DEPRECATED
 
-EXE = {{with .env.OS}}{{if eq . "Windows_NT"}}.exe{{end}}{{end}}
+{{with .env.OS}}{{if eq . "Windows_NT"}}
+EXE = .exe
+LIBSQLITE = libsqlite
+{{end}}{{end}}
+
 LDFLAGS = ${env.LDFLAGS}{{if .env.STATIC}}-linkmode external -extldflags -static{{end}}
 SQLITE_TAGS = fts5,sqlite_omit_load_extension
 
-letarette: generate snowball
+letarette: generate snowball $LIBSQLITE
 letarette <- << $repoState
 letarette <- go build -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS -o letarette${EXE} ./cmd/worker
 
-lrcli: client snowball
+lrcli: client snowball $LIBSQLITE
 lrcli <- go build -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS,dbstats ./cmd/lrcli
 
 tinysrv: client
@@ -53,6 +57,10 @@ lrmon <- go generate -tags "prod" ./cmd/lrmon
 lrmon <- go build -ldflags="$STAMP $LDFLAGS" -v -tags "prod" ./cmd/lrmon
 
 client <- go build -v ./pkg/client
+
+libsqlite: $GO_SQLITE/sqlite3-binding.c
+libsqlite <- gcc -I$GO_SQLITE -c $GO_SQLITE/sqlite3-binding.c -o internal/sqlite.o
+libsqlite <- ar -cr internal/libsqlite.a internal/sqlite.o
 
 SNOWBALL = internal/snowball/ext/libstemmer_c
 snowball: $SNOWBALL/libstemmer.o
