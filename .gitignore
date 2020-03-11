@@ -8,3 +8,5 @@ licenses
 snowball.status
 *.exe
 sqlite.a
+internal/libsqlite.a
+internal/sqlite.o

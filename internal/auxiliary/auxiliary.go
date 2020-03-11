@@ -17,6 +17,7 @@ package auxiliary
 // #cgo CFLAGS: -DSQLITE_CORE
 // #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
 // #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
+// #cgo windows LDFLAGS: -L${SRCDIR}/.. -lsqlite
 // #include "auxiliary.h"
 import "C"
 import (
