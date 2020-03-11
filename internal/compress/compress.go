@@ -16,6 +16,7 @@ package compress
 
 // #cgo CFLAGS: -DSQLITE_CORE
 // #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
+// #cgo windows LDFLAGS: -L${SRCDIR}/.. -lsqlite
 // #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 // #cgo CFLAGS: -DMINIZ_NO_STDIO -DMINIZ_NO_ARCHIVE_APIS -DMINIZ_NO_TIME -Dcompress=mz_compress -Duncompress=mz_uncompress
 // #include "compress.h"
