@@ -144,7 +144,7 @@ func (db *database) commitInterestList(ctx context.Context, space string) error 
 		interest
 		left join docs using(docID)
 		cross join listState
-		where interest.state = ? and docs.updatedNanos < listState.listCreatedAtNanos
+		where interest.state = ? and docs.updatedNanos <= listState.listCreatedAtNanos
 		order by docs.updatedNanos desc, docs.docID
 		limit 1;`, space, served)
 	if err != nil {
