@@ -2,7 +2,7 @@
 "bygg" is an attempt to replace the roles of "make" and "bash" in building
 letarette, making it easier to keep a portable build environment working.
 
-It uses only go builtins and is small enough to be run using "go run".
+It only uses go builtins and is small enough to be run using "go run".
 */
 package main
 
@@ -300,18 +300,16 @@ func (b *bygge) expand(expr string) string {
 			context := parts[0]
 			name := parts[1]
 
-			switch context {
-			case "env":
+			if context == "env" {
 				if local, ok := b.env[name]; ok {
 					return local
 				}
 				return os.Getenv(name)
-			default:
-				return ""
+
 			}
-		} else {
-			return b.vars[varExpr]
+			return ""
 		}
+		return b.vars[varExpr]
 	})
 }
 
@@ -353,7 +351,7 @@ func (b *bygge) resolve(t target) error {
 		}
 	}
 
-	if !exists(t.name) || mostRecentUpdate.IsZero() || getFileDate(t.name).Before(mostRecentUpdate) {
+	if !exists(t.name) || getFileDate(t.name).Before(mostRecentUpdate) {
 		for _, cmd := range t.buildCommands {
 			if err := b.build(t.name, cmd); err != nil {
 				return err
