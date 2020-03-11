@@ -16,6 +16,7 @@ package spellfix
 
 // #cgo CFLAGS: -DSQLITE_CORE
 // #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
+// #cgo windows LDFLAGS: -L${SRCDIR}/.. -lsqlite
 // #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 // #include "spellfix.h"
 import "C"

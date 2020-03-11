@@ -26,6 +26,7 @@ import (
 // #cgo CFLAGS: -Iext/libstemmer_c/include
 // #cgo LDFLAGS: ${SRCDIR}/ext/libstemmer_c/libstemmer.o
 // #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
+// #cgo windows LDFLAGS: -L${SRCDIR}/.. -lsqlite
 // #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 // #cgo dbstats CFLAGS: -DSQLITE_ENABLE_DBSTAT_VTAB=1
 // #include "snowball.h"
