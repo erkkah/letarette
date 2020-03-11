@@ -1,6 +1,20 @@
+// Copyright 2020 Erik Agsjö
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /*
 "bygg" is an attempt to replace the roles of "make" and "bash" in building
-letarette, making it easier to keep a portable build environment working.
+letarette, making it easier to maintain a portable build environment.
 
 It only uses go builtins and is small enough to be run using "go run".
 */
