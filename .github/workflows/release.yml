@@ -32,7 +32,7 @@ jobs:
         restore-keys: ${{ runner.os }}-go-
 
     - name: Get GOCACHE
-      run: go run bygg/bygg.go gocache
+      run: go run ./bygg gocache
     
     - name: Cache go build cache
       uses: actions/cache@v1
@@ -42,10 +42,10 @@ jobs:
         restore-keys: ${{ runner.os }}-gocache-
 
     - name: Build
-      run: go run bygg/bygg.go
+      run: go run ./bygg
     
     - name: Test
-      run: go run bygg/bygg.go test
+      run: go run ./bygg test
 
     - name: Collect licenses
       if: startsWith(matrix.os, 'ubuntu')
