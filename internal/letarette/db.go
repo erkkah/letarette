@@ -14,7 +14,7 @@
 
 package letarette
 
-//go:generate go run github.com/go-bindata/go-bindata/go-bindata -pkg $GOPACKAGE -o bindata.go migrations/ queries/
+//go:generate go run github.com/go-bindata/go-bindata/go-bindata -pkg $GOPACKAGE -o bindata.go migrations/ sql/
 
 import (
 	"crypto/rand"

@@ -48,7 +48,7 @@ type Stats struct {
 }
 
 // GetIndexStats collects statistics about the index,
-// partly by the use of the fts4vocab virtual table.
+// partly by the use of the fts5vocab virtual table.
 func GetIndexStats(dbo Database) (Stats, error) {
 	var s Stats
 	db := dbo.(*database)
@@ -94,7 +94,7 @@ func GetIndexStats(dbo Database) (Stats, error) {
 
 	rows, err = conn.QueryContext(
 		ctx,
-		`select term, sum(cnt) as num from temp.stats group by term order by num desc limit 15;`,
+		`select term, cnt from temp.stats order by cnt desc limit 15;`,
 	)
 	if err != nil {
 		return s, err
