@@ -73,6 +73,7 @@ type Config struct {
 		CacheTimeout   time.Duration `split_words:"true" default:"10m"`
 		CacheMaxsizeMB uint64        `split_words:"true" default:"250"`
 		Disable        bool          `default:"false"`
+		Stopwords      bool          `default:"true"`
 		Strategy       int           `default:"1" desc:"internal"`
 	}
 	Shardgroup      string `default:"1/1"`
