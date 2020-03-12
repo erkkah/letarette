@@ -90,6 +90,7 @@ type database struct {
 	wdb            *sqlx.DB
 	resultCap      int
 	searchStrategy int
+	stopwords      bool
 
 	addDocumentStatement    *sqlx.Stmt
 	updateInterestStatement *sqlx.Stmt
@@ -144,6 +145,7 @@ func OpenDatabase(cfg Config) (Database, error) {
 		searchStrategy:          cfg.Search.Strategy,
 		addDocumentStatement:    addDocumentStatement,
 		updateInterestStatement: updateInterestStatement,
+		stopwords:               cfg.Search.Stopwords,
 	}
 	return newDB, nil
 }
