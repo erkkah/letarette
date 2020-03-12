@@ -369,6 +369,11 @@ func (idx *indexer) doHousekeeping() {
 	}
 	lastHousekeeping = time.Now()
 
+	idx.updateSpelling()
+	idx.updateStopwords()
+}
+
+func (idx *indexer) updateSpelling() {
 	lag, err := GetSpellfixLag(idx.context, idx.db, idx.cfg.Spelling.MinFrequency)
 	if err != nil {
 		logger.Error.Printf("Failed to get spelling index lag: %v", err)
@@ -386,4 +391,13 @@ func (idx *indexer) doHousekeeping() {
 	}
 	duration := time.Since(start)
 	logger.Info.Printf("Housekeeping: Done updating spelling index in %v seconds", duration.Seconds())
+}
+
+func (idx *indexer) updateStopwords() {
+	logger.Debug.Printf("Updating stopwords...")
+	err := idx.db.updateStopwords(idx.context)
+	if err != nil {
+		logger.Error.Printf("Failed to update stop words: %v", err)
+	}
+	logger.Debug.Printf("Done updating stopwords")
 }
