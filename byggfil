@@ -37,7 +37,7 @@ LIBSQLITE = libsqlite
 {{end}}{{end}}
 
 LDFLAGS = ${env.LDFLAGS}{{if .env.STATIC}}-linkmode external -extldflags -static{{end}}
-SQLITE_TAGS = fts5,sqlite_omit_load_extension
+SQLITE_TAGS = fts5,sqlite_omit_load_extension,json1
 
 letarette: generate snowball $LIBSQLITE
 letarette <- << $repoState

@@ -55,39 +55,15 @@ func phrasesToMatchString(phrases []Phrase) string {
 	return matchString
 }
 
-var queryCache = map[int]string{}
-
-func loadSearchQuery(strategy int) (string, error) {
-	if loaded, found := queryCache[strategy]; found {
-		return loaded, nil
-	}
-
-	queryAsset := fmt.Sprintf("queries/search_%d.sql", strategy)
-	query, err := Asset(queryAsset)
-	if err != nil {
-		return "", err
-	}
-	// Strip comments to avoid name binding getting caught on the url
-	// in the license header (!)
-	lines := strings.Split(string(query), "\n")
-	uncommented := []string{}
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "--") {
-			continue
-		}
-		uncommented = append(uncommented, trimmed)
-	}
-	result := strings.Join(uncommented, "\n")
-	queryCache[strategy] = result
-	return result, nil
-}
-
 func (db *database) search(ctx context.Context, phrases []Phrase, spaces []string, pageLimit uint16, pageOffset uint16) (protocol.SearchResult, error) {
 	if len(phrases) == 0 {
 		return protocol.SearchResult{}, fmt.Errorf("Empty search phrase list")
 	}
 
+	phrases, err := db.stopwordFilterPhrases(ctx, phrases)
+	if err != nil {
+		return protocol.SearchResult{}, err
+	}
 	matchString := phrasesToMatchString(phrases)
 
 	query, err := loadSearchQuery(db.searchStrategy)
