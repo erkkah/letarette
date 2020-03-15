@@ -70,7 +70,6 @@ type Config struct {
 	Search struct {
 		Timeout        time.Duration `default:"4s"`
 		Cap            int           `default:"10000"`
-		CacheTimeout   time.Duration `split_words:"true" default:"10m"`
 		CacheMaxsizeMB uint64        `split_words:"true" default:"250"`
 		Disable        bool          `default:"false"`
 		Stopwords      bool          `default:"true"`
