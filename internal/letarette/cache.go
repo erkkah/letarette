@@ -15,8 +15,8 @@
 package letarette
 
 import (
+	"container/list"
 	"fmt"
-	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -28,20 +28,21 @@ import (
 // Cache keeps search results for a set duration before they are
 // thrown out. The cache is also limited in size.
 type Cache struct {
-	timeout time.Duration
 	// map[string]cacheEntry
 	internalMap   immutable.Map
 	sharedMap     atomic.Value
-	sortedEntries []cacheEntry
-	docToKeys     docKeysMap
-	size          uint64
-	maxSize       uint64
+	sortedEntries list.List
+
+	docToElements docElementsMap
+
+	size    uint64
+	maxSize uint64
 
 	updates       chan cacheEntry
 	invalidations chan protocol.DocumentID
 }
 
-type docKeysMap map[protocol.DocumentID][]string
+type docElementsMap map[protocol.DocumentID][]*list.Element
 
 type cacheEntry struct {
 	key    string
@@ -50,12 +51,10 @@ type cacheEntry struct {
 	stamp  time.Time
 }
 
-// NewCache creates cache with a given timeout and max size.
-func NewCache(timeout time.Duration, maxSize uint64) *Cache {
+// NewCache creates cache with a given max size.
+func NewCache(maxSize uint64) *Cache {
 	newCache := &Cache{
-		timeout:       timeout,
-		sortedEntries: []cacheEntry{},
-		docToKeys:     docKeysMap{},
+		docToElements: docElementsMap{},
 		maxSize:       maxSize,
 		// ??? Arbitrary chan sizes
 		updates:       make(chan cacheEntry, 100),
@@ -76,83 +75,71 @@ func (cache *Cache) update() {
 		mappedEntries := cache.internalMap
 
 		select {
+
 		case update := <-cache.updates:
+
+			element := cache.sortedEntries.PushBack(update)
 			update.size = len(update.key)
+
 			for _, v := range update.result.Hits {
 				update.size += len(v.Snippet)
 				update.size += len(v.ID)
 
-				keys := cache.docToKeys[v.ID]
-				keys = append(keys, update.key)
-				cache.docToKeys[v.ID] = keys
+				elements := cache.docToElements[v.ID]
+				elements = append(elements, element)
+				cache.docToElements[v.ID] = elements
 			}
+
+			element.Value = update
 			cache.size += uint64(update.size)
-			cache.sortedEntries = append(cache.sortedEntries, update)
+
 			mappedEntries = mappedEntries.Set(update.key, update)
 
 		case document := <-cache.invalidations:
-			if keys, ok := cache.docToKeys[document]; ok {
-				for _, k := range keys {
-					mappedEntries = mappedEntries.Delete(k)
+			if elements, ok := cache.docToElements[document]; ok {
+				for _, element := range elements {
+					entry := element.Value.(cacheEntry)
+					mappedEntries = mappedEntries.Delete(entry.key)
+					cache.sortedEntries.Remove(element)
 				}
+				delete(cache.docToElements, document)
 			}
 
 		case <-cleanup:
-			// Find the first entry that has not timed out
-			timeCut := sort.Search(len(cache.sortedEntries), func(i int) bool {
-				return time.Now().Before(cache.sortedEntries[i].stamp.Add(cache.timeout))
-			})
 
-			// Find the cut needed to shrink below accepted size
-			sizeCut := 0
-			if cache.maxSize > 0 {
-				reduced := cache.size
-				for i, v := range cache.sortedEntries {
-					if reduced > cache.maxSize {
-						reduced -= uint64(v.size)
-						sizeCut = i + 1
-					} else {
-						break
-					}
+			reduced := cache.size
+
+			// Shrink to below accepted size
+			for reduced > cache.maxSize {
+				e := cache.sortedEntries.Front()
+				if e == nil {
+					break
+				}
+				entry := cache.sortedEntries.Remove(e).(cacheEntry)
+				reduced -= uint64(entry.size)
+				mappedEntries = mappedEntries.Delete(entry.key)
+			}
+
+			if reduced == cache.size {
+				break
+			}
+
+			docToElements := docElementsMap{}
+			for e := cache.sortedEntries.Front(); e != nil; e = e.Next() {
+				entry := e.Value.(cacheEntry)
+				for _, h := range entry.result.Hits {
+					docToElements[h.ID] = append(docToElements[h.ID], e)
 				}
 			}
-			cut := max(timeCut, sizeCut)
-			if cut > 0 {
-				mappedEntries, cache.sortedEntries, cache.docToKeys, cache.size = cutAt(
-					mappedEntries,
-					cache.sortedEntries,
-					cache.size,
-					cut)
-			}
+			cache.docToElements = docToElements
+			cache.size = reduced
+
 			cleanup = time.After(cleanupInterval)
 		}
 
 		cache.internalMap = mappedEntries
 		cache.sharedMap.Store(mappedEntries)
 	}
-}
-
-func cutAt(
-	mapped immutable.Map, sorted []cacheEntry, size uint64, cut int,
-) (immutable.Map, []cacheEntry, docKeysMap, uint64) {
-
-	if cut < len(sorted) {
-		keepList := sorted[cut:]
-		for _, old := range sorted[:cut] {
-			size -= uint64(old.size)
-		}
-		var newMap immutable.Map
-		docKeys := docKeysMap{}
-		for _, k := range keepList {
-			val, _ := mapped.Get(k.key)
-			newMap = newMap.Set(k.key, val)
-			for _, h := range k.result.Hits {
-				docKeys[h.ID] = append(docKeys[h.ID], k.key)
-			}
-		}
-		return newMap, keepList, docKeys, size
-	}
-	return immutable.Map{}, []cacheEntry{}, docKeysMap{}, 0
 }
 
 func makeKey(query string, spaces []string, limit uint16, offset uint16) string {
@@ -171,7 +158,7 @@ func (cache *Cache) Get(query string, spaces []string, limit uint16, offset uint
 
 // Put stores search results in the cache
 func (cache *Cache) Put(query string, spaces []string, limit uint16, offset uint16, res protocol.SearchResult) {
-	if cache.timeout == 0 {
+	if cache.maxSize == 0 {
 		return
 	}
 	clonedHits := append(res.Hits[:0:0], res.Hits...)
