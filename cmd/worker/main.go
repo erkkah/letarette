@@ -120,9 +120,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	maxSize := cfg.Search.CacheMaxsizeMB * 1000 * 1000
+	cache := letarette.NewCache(cfg.Search.CacheTimeout, maxSize)
+
 	var indexer letarette.Indexer
 	if !cfg.Index.Disable {
-		indexer, err = letarette.StartIndexer(conn, db, cfg)
+		indexer, err = letarette.StartIndexer(conn, db, cfg, cache)
 		if err != nil {
 			logger.Error.Printf("Failed to start indexer: %v", err)
 			os.Exit(1)
@@ -131,7 +134,7 @@ func main() {
 
 	var searcher letarette.Searcher
 	if !cfg.Search.Disable {
-		searcher, err = letarette.StartSearcher(conn, db, cfg)
+		searcher, err = letarette.StartSearcher(conn, db, cfg, cache)
 		if err != nil {
 			logger.Error.Printf("Failed to start searcher: %v", err)
 			os.Exit(1)
