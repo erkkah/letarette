@@ -121,7 +121,7 @@ func main() {
 	}
 
 	maxSize := cfg.Search.CacheMaxsizeMB * 1000 * 1000
-	cache := letarette.NewCache(cfg.Search.CacheTimeout, maxSize)
+	cache := letarette.NewCache(maxSize)
 
 	var indexer letarette.Indexer
 	if !cfg.Index.Disable {
