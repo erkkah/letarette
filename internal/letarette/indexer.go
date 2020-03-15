@@ -35,7 +35,7 @@ type Indexer interface {
 // StartIndexer creates and starts an indexer instance. This is really a singleton
 // in that only one instance with the same database or config can be run at the
 // same time.
-func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
+func StartIndexer(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Indexer, error) {
 
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 	if err != nil {
@@ -70,6 +70,9 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config) (Indexer, error) {
 			err := self.db.addDocumentUpdates(mainContext, update.Space, update.Documents)
 			if err != nil {
 				logger.Error.Printf("Failed to add document update: %v", err)
+			}
+			for _, doc := range update.Documents {
+				cache.Invalidate(doc.ID)
 			}
 		}
 		self.waiter.Done()

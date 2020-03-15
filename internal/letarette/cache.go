@@ -18,26 +18,30 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
+	"github.com/erkkah/immutable"
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
 // Cache keeps search results for a set duration before they are
 // thrown out. The cache is also limited in size.
 type Cache struct {
-	timeout  time.Duration
-	mapped   entryMap
-	sorted   []cacheEntry
-	size     uint64
-	maxSize  uint64
-	requests chan cacheRequest
-	updates  chan cacheEntry
+	timeout time.Duration
+	// map[string]cacheEntry
+	internalMap   immutable.Map
+	sharedMap     atomic.Value
+	sortedEntries []cacheEntry
+	docToKeys     docKeysMap
+	size          uint64
+	maxSize       uint64
+
+	updates       chan cacheEntry
+	invalidations chan protocol.DocumentID
 }
 
-type entryMap map[string]cacheEntry
-
-type cacheRequest chan entryMap
+type docKeysMap map[protocol.DocumentID][]string
 
 type cacheEntry struct {
 	key    string
@@ -49,13 +53,16 @@ type cacheEntry struct {
 // NewCache creates cache with a given timeout and max size.
 func NewCache(timeout time.Duration, maxSize uint64) *Cache {
 	newCache := &Cache{
-		timeout:  timeout,
-		mapped:   entryMap{},
-		sorted:   []cacheEntry{},
-		maxSize:  maxSize,
-		requests: make(chan cacheRequest, 100),
-		updates:  make(chan cacheEntry, 100),
+		timeout:       timeout,
+		sortedEntries: []cacheEntry{},
+		docToKeys:     docKeysMap{},
+		maxSize:       maxSize,
+		// ??? Arbitrary chan sizes
+		updates:       make(chan cacheEntry, 100),
+		invalidations: make(chan protocol.DocumentID, 250),
 	}
+
+	newCache.sharedMap.Store(newCache.internalMap)
 
 	go newCache.update()
 
@@ -63,40 +70,44 @@ func NewCache(timeout time.Duration, maxSize uint64) *Cache {
 }
 
 func (cache *Cache) update() {
-	const cleanupInterval = time.Second * 1
+	const cleanupInterval = time.Second * 10
 	cleanup := time.After(cleanupInterval)
 	for {
+		mappedEntries := cache.internalMap
+
 		select {
-		case req := <-cache.requests:
-			req <- cache.mapped
 		case update := <-cache.updates:
-			if _, found := cache.mapped[update.key]; found {
-				break
-			}
 			update.size = len(update.key)
 			for _, v := range update.result.Hits {
 				update.size += len(v.Snippet)
 				update.size += len(v.ID)
+
+				keys := cache.docToKeys[v.ID]
+				keys = append(keys, update.key)
+				cache.docToKeys[v.ID] = keys
 			}
 			cache.size += uint64(update.size)
-			newMap := entryMap{}
-			for k, v := range cache.mapped {
-				newMap[k] = v
+			cache.sortedEntries = append(cache.sortedEntries, update)
+			mappedEntries = mappedEntries.Set(update.key, update)
+
+		case document := <-cache.invalidations:
+			if keys, ok := cache.docToKeys[document]; ok {
+				for _, k := range keys {
+					mappedEntries = mappedEntries.Delete(k)
+				}
 			}
-			newMap[update.key] = update
-			cache.mapped = newMap
-			cache.sorted = append(cache.sorted, update)
+
 		case <-cleanup:
 			// Find the first entry that has not timed out
-			timeCut := sort.Search(len(cache.sorted), func(i int) bool {
-				return time.Now().Before(cache.sorted[i].stamp.Add(cache.timeout))
+			timeCut := sort.Search(len(cache.sortedEntries), func(i int) bool {
+				return time.Now().Before(cache.sortedEntries[i].stamp.Add(cache.timeout))
 			})
 
 			// Find the cut needed to shrink below accepted size
 			sizeCut := 0
 			if cache.maxSize > 0 {
 				reduced := cache.size
-				for i, v := range cache.sorted {
+				for i, v := range cache.sortedEntries {
 					if reduced > cache.maxSize {
 						reduced -= uint64(v.size)
 						sizeCut = i + 1
@@ -107,36 +118,41 @@ func (cache *Cache) update() {
 			}
 			cut := max(timeCut, sizeCut)
 			if cut > 0 {
-				cache.cutAt(cut)
+				mappedEntries, cache.sortedEntries, cache.docToKeys, cache.size = cutAt(
+					mappedEntries,
+					cache.sortedEntries,
+					cache.size,
+					cut)
 			}
 			cleanup = time.After(cleanupInterval)
 		}
+
+		cache.internalMap = mappedEntries
+		cache.sharedMap.Store(mappedEntries)
 	}
 }
 
-func (cache *Cache) cutAt(cut int) {
-	if cut < len(cache.sorted) {
-		newList := cache.sorted[cut:]
-		for _, old := range cache.sorted[:cut] {
-			cache.size -= uint64(old.size)
-		}
-		newMap := entryMap{}
-		for _, k := range newList {
-			newMap[k.key] = cache.mapped[k.key]
-		}
-		cache.mapped = newMap
-		cache.sorted = newList
-	} else {
-		cache.mapped = entryMap{}
-		cache.sorted = []cacheEntry{}
-		cache.size = 0
-	}
-}
+func cutAt(
+	mapped immutable.Map, sorted []cacheEntry, size uint64, cut int,
+) (immutable.Map, []cacheEntry, docKeysMap, uint64) {
 
-func (cache *Cache) getEntries() entryMap {
-	req := make(cacheRequest, 0)
-	cache.requests <- req
-	return <-req
+	if cut < len(sorted) {
+		keepList := sorted[cut:]
+		for _, old := range sorted[:cut] {
+			size -= uint64(old.size)
+		}
+		var newMap immutable.Map
+		docKeys := docKeysMap{}
+		for _, k := range keepList {
+			val, _ := mapped.Get(k.key)
+			newMap = newMap.Set(k.key, val)
+			for _, h := range k.result.Hits {
+				docKeys[h.ID] = append(docKeys[h.ID], k.key)
+			}
+		}
+		return newMap, keepList, docKeys, size
+	}
+	return immutable.Map{}, []cacheEntry{}, docKeysMap{}, 0
 }
 
 func makeKey(query string, spaces []string, limit uint16, offset uint16) string {
@@ -145,9 +161,12 @@ func makeKey(query string, spaces []string, limit uint16, offset uint16) string 
 
 // Get fetches cached search results
 func (cache *Cache) Get(query string, spaces []string, limit uint16, offset uint16) (protocol.SearchResult, bool) {
-	mapped := cache.getEntries()
-	entry, found := mapped[makeKey(query, spaces, limit, offset)]
-	return entry.result, found
+	mapped := cache.sharedMap.Load().(immutable.Map)
+	key := makeKey(query, spaces, limit, offset)
+	if entry, found := mapped.Get(key); found {
+		return entry.(cacheEntry).result, true
+	}
+	return protocol.SearchResult{}, false
 }
 
 // Put stores search results in the cache
@@ -164,4 +183,9 @@ func (cache *Cache) Put(query string, spaces []string, limit uint16, offset uint
 	}
 	entry.result.Hits = clonedHits
 	cache.updates <- entry
+}
+
+// Invalidate marks a document as updated
+func (cache *Cache) Invalidate(doc protocol.DocumentID) {
+	cache.invalidations <- doc
 }
