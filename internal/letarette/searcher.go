@@ -124,7 +124,7 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 }
 
 // StartSearcher creates and starts a searcher instance.
-func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
+func StartSearcher(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Searcher, error) {
 	closer := make(chan bool, 0)
 
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
@@ -132,8 +132,6 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config) (Searcher, error) {
 		return &searcher{}, err
 	}
 
-	maxSize := cfg.Search.CacheMaxsizeMB * 1000 * 1000
-	cache := NewCache(cfg.Search.CacheTimeout, maxSize)
 	self := &searcher{
 		closer,
 		cfg,
