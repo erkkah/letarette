@@ -99,6 +99,7 @@ func (cache *Cache) update() {
 			mappedEntries = mappedEntries.Set(update.key, update)
 
 		case document := <-cache.invalidations:
+
 			if elements, ok := cache.docToElements[document]; ok {
 				for _, element := range elements {
 					entry := element.Value.(cacheEntry)
