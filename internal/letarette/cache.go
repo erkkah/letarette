@@ -25,9 +25,11 @@ import (
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
-// Cache keeps search results for a set duration before they are
-// thrown out. The cache is also limited in size.
+// Cache keeps search results for a set duration or until the cache
+// max size is reached.
 type Cache struct {
+	timeout time.Duration
+
 	// map[string]cacheEntry
 	internalMap   immutable.Map
 	sharedMap     atomic.Value
@@ -52,8 +54,9 @@ type cacheEntry struct {
 }
 
 // NewCache creates cache with a given max size.
-func NewCache(maxSize uint64) *Cache {
+func NewCache(timeout time.Duration, maxSize uint64) *Cache {
 	newCache := &Cache{
+		timeout:       timeout,
 		docToElements: docElementsMap{},
 		maxSize:       maxSize,
 		// ??? Arbitrary chan sizes
@@ -108,13 +111,18 @@ func (cache *Cache) update() {
 		case <-cleanup:
 
 			reduced := cache.size
+			limit := time.Now().Add(-cache.timeout)
+
+			keepShrinking := func(e *list.Element) bool {
+				if e == nil {
+					return false
+				}
+				entry := e.Value.(cacheEntry)
+				return entry.stamp.Before(limit) || (reduced > cache.maxSize)
+			}
 
 			// Shrink to below accepted size
-			for reduced > cache.maxSize {
-				e := cache.sortedEntries.Front()
-				if e == nil {
-					break
-				}
+			for e := cache.sortedEntries.Front(); keepShrinking(e); e = cache.sortedEntries.Front() {
 				entry := cache.sortedEntries.Remove(e).(cacheEntry)
 				reduced -= uint64(entry.size)
 				mappedEntries = mappedEntries.Delete(entry.key)
@@ -150,8 +158,9 @@ func makeKey(query string, spaces []string, limit uint16, offset uint16) string 
 func (cache *Cache) Get(query string, spaces []string, limit uint16, offset uint16) (protocol.SearchResult, bool) {
 	mapped := cache.sharedMap.Load().(immutable.Map)
 	key := makeKey(query, spaces, limit, offset)
-	if entry, found := mapped.Get(key); found {
-		return entry.(cacheEntry).result, true
+	if e, found := mapped.Get(key); found {
+		entry := e.(cacheEntry)
+		return entry.result, true
 	}
 	return protocol.SearchResult{}, false
 }
