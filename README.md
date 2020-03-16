@@ -51,6 +51,18 @@ Dressing up the result, if needed, is up to the search client implementation.
 
 Read more on the [Letarette main site][Letarette].
 
+## Building
+
+Since Letarette uses cgo a C compiler is required for building.
+On MacOS and Linux, this is usually not an issue.
+On Windows, Letarette test builds use `mingw` from Chocolatey:
+```sh
+choco install mingw
+```
+
+Letarette uses its own build system that has no external dependencies, just run `go generate` in the project root.
+
+
 [Letarette]: https://letarette.io
 [NATS]: https://nats.io
 [FTS5]: https://www.sqlite.org/fts5.html
