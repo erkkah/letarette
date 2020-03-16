@@ -7,10 +7,10 @@ all: letarette lrcli lrload lrmon
 REV = dev
 
 {{if (exec "git" "status" "--porcelain") | eq "" -}}
-    repoState = Clean repo
+    repoState = Clean repo, tagging with git rev
     rev = {{slice (exec "git" "rev-parse" "HEAD") 0 7 -}}
 {{else -}}
-    repoState = Dirty repo
+    repoState = Dirty repo, tagging as dev build
 {{end -}}
 
 {{$tag := (exec "git" "tag" "--contains") -}}
