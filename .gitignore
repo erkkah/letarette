@@ -5,8 +5,13 @@ vendor
 *.db-shm
 *.db-wal
 licenses
-snowball.status
 *.exe
 sqlite.a
 internal/libsqlite.a
 internal/sqlite.o
+
+letarette
+lrcli
+lrload
+lrmon
+tinysrv

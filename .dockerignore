@@ -1,4 +1,11 @@
+db
 *.db
 stuff
+testdata
 .vscode
 Dockerfile
+letarette
+lrcli
+lrmon
+lrload
+tinysrv
