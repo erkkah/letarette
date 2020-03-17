@@ -147,10 +147,10 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Search
 		reply string
 	}
 
-	// ??? Worker pool = 4 * GOMAXPROCS
-	// I/O vs CPU
+	// Worker pool = 4 * GOMAXPROCS
+	// I/O vs CPU, this needs measurements and tweaks.
 	numWorkers := 4 * runtime.GOMAXPROCS(-1)
-	// ??? Hmm, queue size == 2 * workers
+	// Queue size == 2 * workers
 	workChannel := make(chan searchWork, numWorkers*2)
 
 	for i := 0; i < numWorkers; i++ {
