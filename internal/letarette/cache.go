@@ -59,7 +59,6 @@ func NewCache(timeout time.Duration, maxSize uint64) *Cache {
 		timeout:       timeout,
 		docToElements: docElementsMap{},
 		maxSize:       maxSize,
-		// ??? Arbitrary chan sizes
 		updates:       make(chan cacheEntry, 100),
 		invalidations: make(chan protocol.DocumentID, 250),
 	}

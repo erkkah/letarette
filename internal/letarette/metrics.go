@@ -52,7 +52,6 @@ func init() {
 	mType := reflect.TypeOf(metrics)
 	mValue := reflect.ValueOf(&metrics).Elem()
 
-	// ??? Change into recursively traversing the struct
 	for i := 0; i < mType.NumField(); i++ {
 		field := mType.Field(i)
 		value := mValue.Field(i)
