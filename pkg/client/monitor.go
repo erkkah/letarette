@@ -56,7 +56,10 @@ func NewMonitor(URLs []string, listener MonitorListener, options ...Option) (Mon
 	}
 
 	if client.metricsCollector != nil {
-		client.startMetricsCollector()
+		err = client.startMetricsCollector()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return client, nil
@@ -104,9 +107,12 @@ func (m *monitor) startMetricsCollector() error {
 		for {
 			select {
 			case <-time.After(m.metricsInterval):
-				m.requestMetrics()
+				err := m.requestMetrics()
+				if m.onError != nil {
+					m.onError(err)
+				}
 			case <-m.metricsDone:
-				sub.Unsubscribe()
+				_ = sub.Unsubscribe()
 				return
 			}
 		}

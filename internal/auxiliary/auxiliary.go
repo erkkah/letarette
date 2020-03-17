@@ -33,7 +33,7 @@ func Init(conn *sqlite3.SQLiteConn) error {
 	db := dbFromConnection(conn)
 	result := C.initAuxiliaryFunctions(db)
 	if result != C.SQLITE_OK {
-		return fmt.Errorf("Failed to init auxiliary functions")
+		return fmt.Errorf("failed to init auxiliary functions")
 	}
 	return nil
 }

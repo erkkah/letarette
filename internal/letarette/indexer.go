@@ -57,19 +57,19 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Indexer
 	for _, space := range cfg.Index.Spaces {
 		err := self.db.clearInterestList(context.Background(), space)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to clear interest list: %w", err)
+			return nil, fmt.Errorf("failed to clear interest list: %w", err)
 		}
 	}
 
 	updates := make(chan protocol.DocumentUpdate, 50)
 
+	self.waiter.Add(1)
 	go func() {
-		self.waiter.Add(1)
 		for update := range updates {
 			self.updateReceived <- struct{}{}
 			err := self.db.addDocumentUpdates(mainContext, update.Space, update.Documents)
 			if err != nil {
-				logger.Error.Printf("Failed to add document update: %v", err)
+				logger.Error.Printf("failed to add document update: %v", err)
 			}
 			for _, doc := range update.Documents {
 				cache.Invalidate(doc.ID)
@@ -104,8 +104,8 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Indexer
 		if err != nil {
 			logger.Error.Printf("Failed to drain document subscription: %v", err)
 		} else {
+			self.waiter.Add(1)
 			go func() {
-				self.waiter.Add(1)
 				for {
 					messages, _, _ := subscription.Pending()
 					if messages == 0 {
@@ -174,14 +174,14 @@ func (idx *indexer) main(atExit func()) {
 
 }
 
-func (idx *indexer) runUpdateCycle(space string) (total int) {
+func (idx *indexer) runUpdateCycle(space string) int {
 	interests, err := idx.db.getInterestList(idx.context, space)
 	if err != nil {
 		logger.Error.Printf("Failed to fetch current interest list: %v", err)
-		return
+		return 0
 	}
 
-	total = len(interests)
+	total := len(interests)
 
 	numPending := 0
 	numRequested := 0
@@ -225,13 +225,13 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 		err = idx.commitFetched(space)
 		if err != nil {
 			logger.Error.Printf("Failed to commit docs: %v", err)
-			return
+			return total
 		}
 
 		err = idx.requestNextChunk(space)
 		if err != nil {
 			logger.Error.Printf("Failed to request next chunk: %v", err)
-			return
+			return total
 		}
 
 	} else {
@@ -245,7 +245,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 			state, err := idx.db.getInterestListState(idx.context, space)
 			if err != nil {
 				logger.Error.Printf("Failed to get interest list state: %v", err)
-				return
+				return total
 			}
 
 			if now.After(state.createdAtTime().Add(timeout)) {
@@ -264,7 +264,7 @@ func (idx *indexer) runUpdateCycle(space string) (total int) {
 		}
 	}
 
-	return
+	return total
 }
 
 func (idx *indexer) commitFetched(space string) error {
@@ -275,7 +275,7 @@ func (idx *indexer) requestNextChunk(space string) error {
 	topic := idx.cfg.Nats.Topic + ".index.request"
 	state, err := idx.db.getInterestListState(idx.context, space)
 	if err != nil {
-		return fmt.Errorf("Failed to get interest list state: %w", err)
+		return fmt.Errorf("failed to get interest list state: %w", err)
 	}
 	updateRequest := protocol.IndexUpdateRequest{
 		Space:         space,
@@ -316,7 +316,7 @@ func (idx *indexer) requestNextChunk(space string) error {
 
 	err = idx.db.setInterestList(idx.context, update)
 	if err != nil {
-		return fmt.Errorf("Failed to set interest list: %w", err)
+		return fmt.Errorf("failed to set interest list: %w", err)
 	}
 
 	return nil
@@ -337,7 +337,7 @@ func (idx *indexer) requestDocuments(space string, wanted []Interest) error {
 	for _, interest := range existingIDs {
 		err := idx.db.setInterestState(idx.context, space, interest, served)
 		if err != nil {
-			return fmt.Errorf("Failed to update interest state: %w", err)
+			return fmt.Errorf("failed to update interest state: %w", err)
 		}
 	}
 
@@ -348,7 +348,7 @@ func (idx *indexer) requestDocuments(space string, wanted []Interest) error {
 	for _, interest := range wantedIDs {
 		err := idx.db.setInterestState(idx.context, space, interest, requested)
 		if err != nil {
-			return fmt.Errorf("Failed to update interest state: %w", err)
+			return fmt.Errorf("failed to update interest state: %w", err)
 		}
 	}
 

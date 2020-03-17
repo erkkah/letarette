@@ -41,7 +41,7 @@ func updatePlots(state State) {
 			m := margaid.New(640, 240, margaid.WithTitleFont("sans-serif", 12))
 			m.Title("Unknown metric")
 			m.Frame()
-			m.Render(&rendered)
+			_ = m.Render(&rendered)
 		} else {
 			// Hacky way of removing plot type from spec
 			plotSpec := strings.Join(strings.Split(spec, ":")[:5], ":")
@@ -102,7 +102,7 @@ func updatePlots(state State) {
 			m.Axis(series, margaid.YAxis, m.ValueTicker('f', 0, 10), true, "")
 			m.Frame()
 
-			m.Render(&rendered)
+			_ = m.Render(&rendered)
 		}
 
 		state.Plots[spec].SVG = template.HTML(rendered.String())
@@ -113,7 +113,7 @@ func updatePlots(state State) {
 // Metric identifiers are not allowed to contain colons.
 func addPlot(index, metric, method string, period, window time.Duration, plotType string) error {
 	if strings.Contains(metric, ":") {
-		return fmt.Errorf("Cannot plot metric %q with colon in identifier", metric)
+		return fmt.Errorf("cannot plot metric %q with colon in identifier", metric)
 	}
 
 	stateUpdates <- func(state State) State {

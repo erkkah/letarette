@@ -144,21 +144,20 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT)
 
-	select {
-	case s := <-signals:
-		logger.Info.Printf("Received signal %v\n", s)
-		if metrics != nil {
-			metrics.Close()
-		}
-		if monitor != nil {
-			monitor.Close()
-		}
-		if searcher != nil {
-			searcher.Close()
-		}
-		if indexer != nil {
-			indexer.Close()
-		}
+	s := <-signals
+	logger.Info.Printf("Received signal %v\n", s)
+
+	if metrics != nil {
+		metrics.Close()
+	}
+	if monitor != nil {
+		monitor.Close()
+	}
+	if searcher != nil {
+		searcher.Close()
+	}
+	if indexer != nil {
+		indexer.Close()
 	}
 }
 

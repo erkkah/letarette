@@ -23,9 +23,8 @@ import (
 	"runtime/pprof"
 
 	"github.com/erkkah/letarette/pkg/logger"
-
 	// Pull in pprof HTTP handler
-	_ "net/http/pprof"
+	// _ "net/http/pprof"
 )
 
 // Profiler wraps native profiling tools
@@ -57,11 +56,11 @@ func StartProfiler(cfg Config) (*Profiler, error) {
 		logger.Info.Printf("Starting CPU profiler writer to %s", cfg.Profile.CPU)
 		f, err := os.Create(cfg.Profile.CPU)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create CPU profile: %v", err)
+			return nil, fmt.Errorf("failed to create CPU profile: %v", err)
 		}
 		profiler.cpuWriter = f
 		if err = pprof.StartCPUProfile(f); err != nil {
-			return nil, fmt.Errorf("Failed to start CPU profile: %v", err)
+			return nil, fmt.Errorf("failed to start CPU profile: %v", err)
 		}
 	}
 
@@ -69,7 +68,7 @@ func StartProfiler(cfg Config) (*Profiler, error) {
 		logger.Info.Printf("Starting memory profiler writer to %s", cfg.Profile.Mem)
 		f, err := os.Create(cfg.Profile.Mem)
 		if err != nil {
-			log.Fatalf("Failed to create memory profile: %v", err)
+			log.Fatalf("failed to create memory profile: %v", err)
 		}
 		profiler.memWriter = f
 	}
@@ -119,11 +118,11 @@ func (p *Profiler) Close() error {
 	}
 
 	if p.blockProfile != nil {
-		p.blockProfile.WriteTo(p.blockWriter, 1)
+		_ = p.blockProfile.WriteTo(p.blockWriter, 1)
 	}
 
 	if p.mutexProfile != nil {
-		p.mutexProfile.WriteTo(p.mutexWriter, 1)
+		_ = p.mutexProfile.WriteTo(p.mutexWriter, 1)
 	}
 	return nil
 }

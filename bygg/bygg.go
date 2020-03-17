@@ -138,12 +138,12 @@ func newBygg(dir string) (*bygge, error) {
 
 	verbose("Parsing template")
 	if !exists(byggfil) {
-		return nil, fmt.Errorf("Bygg file %q not found", byggfil)
+		return nil, fmt.Errorf("bygg file %q not found", byggfil)
 	}
 	var err error
 
 	if result.tmpl, err = result.tmpl.ParseFiles(byggfil); err != nil {
-		return nil, fmt.Errorf("Failed to parse templates: %w", err)
+		return nil, fmt.Errorf("failed to parse templates: %w", err)
 	}
 	return result, nil
 }
@@ -157,7 +157,7 @@ func (b *bygge) buildTarget(tgt string) error {
 
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return fmt.Errorf("Failed to get user cache dir: %v", err)
+		return fmt.Errorf("failed to get user cache dir: %v", err)
 	}
 	goCache := filepath.Join(cacheDir, "go-build")
 	goVersion := runtime.Version()
@@ -192,7 +192,7 @@ func (b *bygge) buildTarget(tgt string) error {
 		return nil
 	}
 
-	return fmt.Errorf("No such target %q", tgt)
+	return fmt.Errorf("no such target %q", tgt)
 }
 
 func (b *bygge) loadBuildScript(scriptSource io.Reader) error {
@@ -228,7 +228,7 @@ func (b *bygge) loadBuildScript(scriptSource io.Reader) error {
 
 		matches := commandExp.FindStringSubmatch(line)
 		if matches == nil {
-			return fmt.Errorf("Parse error: %q", line)
+			return fmt.Errorf("parse error: %q", line)
 		}
 
 		lvalue := matches[1]
@@ -247,9 +247,9 @@ func (b *bygge) loadBuildScript(scriptSource io.Reader) error {
 		case "+=":
 			err = b.handleAssignment(lvalue, rvalue, true)
 		case "<-":
-			err = b.handleBuildCommand(lvalue, rvalue)
+			b.handleBuildCommand(lvalue, rvalue)
 		default:
-			return fmt.Errorf("Unexpected operator %q", operator)
+			return fmt.Errorf("unexpected operator %q", operator)
 		}
 
 		if err != nil {
@@ -284,7 +284,7 @@ func (b *bygge) handleAssignment(lvalue, rvalue string, add bool) error {
 			}
 			b.env[name] = rvalue
 		} else {
-			return fmt.Errorf("Unknown variable context %q", context)
+			return fmt.Errorf("unknown variable context %q", context)
 		}
 	} else {
 		if add {
@@ -296,13 +296,11 @@ func (b *bygge) handleAssignment(lvalue, rvalue string, add bool) error {
 	return nil
 }
 
-func (b *bygge) handleBuildCommand(lvalue, rvalue string) error {
+func (b *bygge) handleBuildCommand(lvalue, rvalue string) {
 	t := b.targets[lvalue]
 	t.name = lvalue
 	t.buildCommands = append(t.buildCommands, rvalue)
 	b.targets[lvalue] = t
-
-	return nil
 }
 
 // Permissive variable expansion
@@ -334,7 +332,7 @@ func (b *bygge) resolve(t target) error {
 
 	verbose("Resolving target %q", t.name)
 	if b.visited[t.name] {
-		return fmt.Errorf("Cyclic dependency resolving %q", t.name)
+		return fmt.Errorf("cyclic dependency resolving %q", t.name)
 	}
 	b.visited[t.name] = true
 	defer func() {
@@ -353,7 +351,7 @@ func (b *bygge) resolve(t target) error {
 					name: depName,
 				}
 			} else {
-				return fmt.Errorf("Target %q has unknown dependency %q", t.name, depName)
+				return fmt.Errorf("target %q has unknown dependency %q", t.name, depName)
 			}
 		}
 		if err := b.resolve(dep); err != nil {
@@ -408,7 +406,7 @@ func (b *bygge) build(tgt, command string) error {
 		if len(args) > 0 {
 			if args[0] == "-C" {
 				if len(args) < 2 {
-					return fmt.Errorf("Invalid bygg arguments")
+					return fmt.Errorf("invalid bygg arguments")
 				}
 				byggDir = args[1]
 				args = args[2:]
@@ -477,11 +475,9 @@ func splitQuoted(quoted string) ([]string, error) {
 		case ` `:
 			if inString {
 				builder.WriteString(char)
-			} else {
-				if builder.Len() != 0 {
-					parts = append(parts, builder.String())
-					builder.Reset()
-				}
+			} else if builder.Len() != 0 {
+				parts = append(parts, builder.String())
+				builder.Reset()
 			}
 			escapeNext = false
 		default:
@@ -490,7 +486,7 @@ func splitQuoted(quoted string) ([]string, error) {
 		}
 	}
 	if inString {
-		return parts, fmt.Errorf("Unterminated string")
+		return parts, fmt.Errorf("unterminated string")
 	}
 	if builder.Len() != 0 {
 		parts = append(parts, builder.String())
@@ -534,7 +530,7 @@ func handleDownload(target string, url string, checksum ...string) error {
 	if _, err = io.Copy(tmpFile, response.Body); err != nil {
 		return err
 	}
-	tmpFile.Seek(0, 0)
+	_, _ = tmpFile.Seek(0, 0)
 
 	if len(checksum) > 0 && strings.HasPrefix(checksum[0], "md5:") {
 		hash := md5.New()
@@ -543,9 +539,9 @@ func handleDownload(target string, url string, checksum ...string) error {
 		}
 		sum := fmt.Sprintf("md5:%x", hash.Sum(nil))
 		if sum != checksum[0] {
-			return fmt.Errorf("Checksum verification failed for %q", url)
+			return fmt.Errorf("checksum verification failed for %q", url)
 		}
-		tmpFile.Seek(0, 0)
+		_, _ = tmpFile.Seek(0, 0)
 	}
 
 	var reader io.Reader = tmpFile
@@ -565,12 +561,13 @@ func handleDownload(target string, url string, checksum ...string) error {
 			}
 			finfo := hdr.FileInfo()
 
-			if finfo.IsDir() {
+			switch {
+			case finfo.IsDir():
 				dir := path.Join(target, hdr.Name)
 				if err = os.MkdirAll(dir, finfo.Mode()); err != nil {
 					return err
 				}
-			} else if finfo.Mode().IsRegular() {
+			case finfo.Mode().IsRegular():
 				dest, err := os.Create(path.Join(target, hdr.Name))
 				if err != nil {
 					return err
@@ -578,12 +575,12 @@ func handleDownload(target string, url string, checksum ...string) error {
 				if _, err = io.Copy(dest, tarReader); err != nil {
 					return err
 				}
-			} else {
-				return fmt.Errorf("Unsupported file type: %v", finfo.Mode().String())
+			default:
+				return fmt.Errorf("unsupported file type: %v", finfo.Mode().String())
 			}
 		}
 	} else {
-		return fmt.Errorf("Unsupported file: %v", url)
+		return fmt.Errorf("unsupported file: %v", url)
 	}
 
 	return nil

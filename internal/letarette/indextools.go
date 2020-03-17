@@ -70,9 +70,13 @@ func GetIndexStats(dbo Database) (Stats, error) {
 	if err != nil {
 		return s, err
 	}
+	err = rows.Err()
+	if err != nil {
+		return s, err
+	}
 	for rows.Next() {
 		var space string
-		rows.Scan(&space)
+		_ = rows.Scan(&space)
 
 		state, err := db.getInterestListState(ctx, space)
 		if err != nil {
@@ -99,6 +103,10 @@ func GetIndexStats(dbo Database) (Stats, error) {
 	if err != nil {
 		return s, err
 	}
+	err = rows.Err()
+	if err != nil {
+		return s, err
+	}
 
 	for rows.Next() {
 		var term string
@@ -117,13 +125,13 @@ func GetIndexStats(dbo Database) (Stats, error) {
 		ctx,
 		`select count(distinct term) from temp.stats`,
 	)
-	row.Scan(&s.Terms)
+	_ = row.Scan(&s.Terms)
 
 	row = conn.QueryRowContext(
 		ctx,
 		`select count(*) from docs`,
 	)
-	row.Scan(&s.Docs)
+	_ = row.Scan(&s.Docs)
 
 	return s, nil
 }
@@ -209,7 +217,7 @@ func (o IndexOptimizer) totalChanges() (int, error) {
 			changes = int(C.sqlite3_total_changes(sqliteConn))
 			return nil
 		}
-		return fmt.Errorf("Unsupported driver")
+		return fmt.Errorf("unsupported driver")
 	})
 
 	return changes, err

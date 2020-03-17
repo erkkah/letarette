@@ -65,7 +65,7 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 
 	defer func() {
 		if tx != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 
@@ -91,12 +91,12 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 		)
 
 		if err != nil {
-			return fmt.Errorf("Failed to update doc: %w", err)
+			return fmt.Errorf("failed to update doc: %w", err)
 		}
 
 		updatedRows, _ := res.RowsAffected()
 		if updatedRows != 1 {
-			return fmt.Errorf("Failed to update index, no rows affected")
+			return fmt.Errorf("failed to update index, no rows affected")
 		}
 
 		_, err = interestStatement.ExecContext(
@@ -107,7 +107,7 @@ func (db *database) addDocumentUpdates(ctx context.Context, space string, docs [
 		)
 
 		if err != nil {
-			return fmt.Errorf("Failed to update interest list: %w", err)
+			return fmt.Errorf("failed to update interest list: %w", err)
 		}
 	}
 	err = tx.Commit()
@@ -126,7 +126,7 @@ func (db *database) commitInterestList(ctx context.Context, space string) error 
 
 	defer func() {
 		if tx != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 
@@ -162,7 +162,7 @@ func (db *database) commitInterestList(ctx context.Context, space string) error 
 
 	count, _ := res.RowsAffected()
 	if count != 1 {
-		err = fmt.Errorf("Failed to update index position for space %q", space)
+		err = fmt.Errorf("failed to update index position for space %q", space)
 		return err
 	}
 
@@ -185,7 +185,7 @@ func (db *database) getSpaceID(ctx context.Context, space string) (int, error) {
 	err := db.rdb.GetContext(ctx, &spaceID, `select spaceID from spaces where space = ?`, space)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			err = fmt.Errorf("No such space, %v", space)
+			err = fmt.Errorf("no such space, %v", space)
 		}
 		return -1, err
 	}
@@ -202,6 +202,10 @@ func (db *database) getInterestList(ctx context.Context, space string) (result [
 		select docID, state from interest
 		where spaceID = ?
 		`, spaceID)
+	if err != nil {
+		return
+	}
+	err = rows.Err()
 	if err != nil {
 		return
 	}
@@ -268,7 +272,7 @@ func (db *database) setInterestList(ctx context.Context, indexUpdate protocol.In
 	tx, err := db.wdb.BeginTxx(ctx, nil)
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 
@@ -278,12 +282,13 @@ func (db *database) setInterestList(ctx context.Context, indexUpdate protocol.In
 		return err
 	}
 	var interestCount int
-	err = tx.GetContext(ctx, &interestCount, `select count(*) from interest where spaceID = ? and state <> ?`, spaceID, served)
+	err = tx.GetContext(ctx, &interestCount,
+		`select count(*) from interest where spaceID = ? and state <> ?`, spaceID, served)
 	if err != nil {
 		return err
 	}
 	if interestCount != 0 {
-		err = fmt.Errorf("Cannot overwrite active interest list")
+		err = fmt.Errorf("cannot overwrite active interest list")
 		return err
 	}
 	_, err = tx.ExecContext(ctx, `delete from interest where spaceID = ?`, spaceID)
@@ -322,7 +327,9 @@ func (db *database) setInterestList(ctx context.Context, indexUpdate protocol.In
 	return err
 }
 
-func (db *database) setInterestState(ctx context.Context, space string, docID protocol.DocumentID, state InterestState) error {
+func (db *database) setInterestState(
+	ctx context.Context, space string, docID protocol.DocumentID, state InterestState,
+) error {
 	spaceID, err := db.getSpaceID(ctx, space)
 	if err != nil {
 		return err
@@ -369,7 +376,7 @@ func (db *database) setStemmerState(state snowball.Settings) error {
 			return err
 		}
 		if rows, err := result.RowsAffected(); err != nil || rows != 1 {
-			return fmt.Errorf("Failed to insert default state")
+			return fmt.Errorf("failed to insert default state")
 		}
 	}
 	query := `

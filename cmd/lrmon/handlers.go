@@ -52,7 +52,7 @@ func setContentTypeFromPath(w http.ResponseWriter, path string) {
 func requireParam(param string, vars url.Values) (string, error) {
 	value := vars.Get(param)
 	if value == "" {
-		return "", fmt.Errorf("Expected parameter %q", param)
+		return "", fmt.Errorf("expected parameter %q", param)
 	}
 	return value, nil
 }
@@ -82,11 +82,11 @@ func handleAddPlot(vars url.Values) error {
 
 	period, err := time.ParseDuration(periodString)
 	if err != nil {
-		return fmt.Errorf("Failed to parse period: %w", err)
+		return fmt.Errorf("failed to parse period: %w", err)
 	}
 	window, err := time.ParseDuration(windowString)
 	if err != nil {
-		return fmt.Errorf("Failed to parse window: %w", err)
+		return fmt.Errorf("failed to parse window: %w", err)
 	}
 
 	plotType, err := requireParam("type", vars)
