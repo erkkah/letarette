@@ -67,7 +67,8 @@ func searchPhrase(phrase string, agent client.SearchAgent) {
 	}
 
 	fmt.Printf("Query executed in %v seconds with status %q\n", res.Duration, res.Status.String())
-	fmt.Printf("Returning %v of %v total hits, capped: %v\n", len(res.Result.Hits), res.Result.TotalHits, res.Result.Capped)
+	fmt.Printf("Returning %v of %v total hits, capped: %v\n",
+		len(res.Result.Hits), res.Result.TotalHits, res.Result.Capped)
 	if res.Status == protocol.SearchStatusNoHit && res.Result.Respelt != "" {
 		fmt.Printf("Did you mean %s?\n", res.Result.Respelt)
 	}

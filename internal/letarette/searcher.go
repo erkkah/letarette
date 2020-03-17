@@ -104,11 +104,13 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 	duration := float32(time.Since(start)) / float32(time.Second)
 
 	if err != nil {
-		if sqliteError, ok := err.(sqlite3.Error); ok && sqliteError.Code == sqlite3.ErrInterrupt {
+		sqliteError, ok := err.(sqlite3.Error)
+		switch {
+		case ok && sqliteError.Code == sqlite3.ErrInterrupt:
 			status = protocol.SearchStatusTimeout
-		} else if err == context.DeadlineExceeded {
+		case err == context.DeadlineExceeded:
 			status = protocol.SearchStatusTimeout
-		} else {
+		default:
 			status = protocol.SearchStatusServerError
 		}
 	} else if len(result.Hits) == 0 {
@@ -125,7 +127,7 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 
 // StartSearcher creates and starts a searcher instance.
 func StartSearcher(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Searcher, error) {
-	closer := make(chan bool, 0)
+	closer := make(chan bool)
 
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 	if err != nil {
@@ -162,7 +164,10 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Search
 					logger.Error.Printf("Failed to execute query: %v", err)
 				}
 				// Reply
-				ec.Publish(work.reply, response)
+				err = ec.Publish(work.reply, response)
+				if err != nil {
+					logger.Error.Printf("Failed to publish response: %v", err)
+				}
 			}
 		}()
 	}
@@ -191,7 +196,7 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Search
 		logger.Info.Printf("Searcher starting")
 		<-closer
 		close(workChannel)
-		subscription.Unsubscribe()
+		_ = subscription.Unsubscribe()
 		logger.Info.Printf("Searcher exiting")
 		closer <- true
 	}()

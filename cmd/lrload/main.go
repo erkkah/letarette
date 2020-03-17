@@ -169,8 +169,7 @@ func startAgent() error {
 	logger.Debug.Printf("ID: %v", clientID)
 
 	_, err = ec.Subscribe("leta.load.ping", func(interface{}) {
-
-		ec.Publish("leta.load.pong", &stringID)
+		_ = ec.Publish("leta.load.pong", &stringID)
 	})
 	if err != nil {
 		return err
@@ -201,7 +200,7 @@ func startAgent() error {
 				Err:      err,
 			}
 		}
-		ec.Publish("leta.load.response", &results)
+		_ = ec.Publish("leta.load.response", &results)
 	})
 	if err != nil {
 		return err
@@ -220,12 +219,10 @@ func getAgents(ec *nats.EncodedConn) ([]string, error) {
 		return agents, err
 	}
 
-	ec.Publish("leta.load.ping", nil)
+	_ = ec.Publish("leta.load.ping", nil)
 
-	select {
-	case <-time.After(time.Second * 2):
-		pingSub.Unsubscribe()
-	}
+	time.Sleep(time.Second * 2)
+	_ = pingSub.Unsubscribe()
 
 	return agents, nil
 }
@@ -243,7 +240,7 @@ func runTestSet(set testSet) error {
 	numAgents := len(agents)
 
 	if cmdline.Limit < 0 || numAgents < 1 {
-		return fmt.Errorf("No agents available")
+		return fmt.Errorf("no agents available")
 	}
 
 	if cmdline.Limit != 0 && numAgents > cmdline.Limit {
@@ -277,10 +274,10 @@ func runTestSet(set testSet) error {
 	if err != nil {
 		return err
 	}
-	responseSub.AutoUnsubscribe(numAgents)
+	_ = responseSub.AutoUnsubscribe(numAgents)
 
 	start := time.Now()
-	ec.Publish("leta.load.request", &testRequest{set, agents})
+	_ = ec.Publish("leta.load.request", &testRequest{set, agents})
 
 	logger.Debug.Printf("Waiting...")
 	wg.Wait()

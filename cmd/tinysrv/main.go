@@ -206,7 +206,10 @@ func min(a int, b int) int {
 	return b
 }
 
-func fetchByReference(afterDocument protocol.DocumentID, fromTime time.Time, limit uint16) []protocol.DocumentReference {
+func fetchByReference(
+	afterDocument protocol.DocumentID, fromTime time.Time, limit uint16,
+) []protocol.DocumentReference {
+
 	startIndex := sort.Search(len(ix), func(i int) bool {
 		return !ix[i].date.Before(fromTime)
 	})
@@ -244,7 +247,7 @@ var lastDelete = time.Now()
 
 func handleIndexRequest(ctx context.Context, req protocol.IndexUpdateRequest) (protocol.IndexUpdate, error) {
 	if req.Space != space {
-		return protocol.IndexUpdate{}, fmt.Errorf("Space %v not in db", req.Space)
+		return protocol.IndexUpdate{}, fmt.Errorf("space %v not in db", req.Space)
 	}
 
 	if updateFreq != 0 && time.Now().After(lastUpdate.Add(updateFreq)) {
@@ -257,7 +260,7 @@ func handleIndexRequest(ctx context.Context, req protocol.IndexUpdateRequest) (p
 		updateRandomDocument(true)
 	}
 
-	updates := []protocol.DocumentReference{}
+	var updates []protocol.DocumentReference
 
 	if req.AfterDocument == "" {
 		// Initial index fetch
@@ -266,7 +269,7 @@ func handleIndexRequest(ctx context.Context, req protocol.IndexUpdateRequest) (p
 		log.Printf("Index request, after %v, from %v", req.AfterDocument, req.FromTime)
 		entryID, err := strconv.Atoi(string(req.AfterDocument))
 		if err != nil {
-			return protocol.IndexUpdate{}, fmt.Errorf("Invalid document ID: %v", req.AfterDocument)
+			return protocol.IndexUpdate{}, fmt.Errorf("invalid document ID: %v", req.AfterDocument)
 		}
 		refEntry, found := db[entryID]
 		if !found {
@@ -326,7 +329,7 @@ func deadDocument(id protocol.DocumentID) protocol.Document {
 
 func handleDocumentRequest(ctx context.Context, req protocol.DocumentRequest) (protocol.DocumentUpdate, error) {
 	if req.Space != space {
-		return protocol.DocumentUpdate{}, fmt.Errorf("Space %v not in db", req.Space)
+		return protocol.DocumentUpdate{}, fmt.Errorf("space %v not in db", req.Space)
 	}
 
 	start := time.Now()
@@ -432,14 +435,11 @@ Options:
 	}
 	defer mgr.Close()
 
-	mgr.StartIndexRequestHandler(handleIndexRequest)
-	mgr.StartDocumentRequestHandler(handleDocumentRequest)
+	_ = mgr.StartIndexRequestHandler(handleIndexRequest)
+	_ = mgr.StartDocumentRequestHandler(handleDocumentRequest)
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT)
-
-	select {
-	case s := <-signals:
-		log.Printf("Received signal %v, exiting", s)
-	}
+	s := <-signals
+	log.Printf("received signal %v, exiting", s)
 }

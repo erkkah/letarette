@@ -42,7 +42,7 @@ func StartStatusMonitor(nc *nats.Conn, db Database, cfg Config) (StatusMonitor, 
 	privateDB := db.(*database)
 	indexID, err := privateDB.getIndexID()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read index ID: %w", err)
+		return nil, fmt.Errorf("failed to read index ID: %w", err)
 	}
 
 	logger.Info.Printf("Index@%v", indexID)
@@ -86,7 +86,7 @@ func StartStatusMonitor(nc *nats.Conn, db Database, cfg Config) (StatusMonitor, 
 				self.workerStatus[status.IndexID] = status
 				self.workerPingtime[status.IndexID] = time.Now()
 			case <-self.ctx.Done():
-				sub.Unsubscribe()
+				_ = sub.Unsubscribe()
 				return
 			case <-checkpoint:
 				self.checkpoint()
@@ -203,5 +203,8 @@ func (m *monitor) checkpoint() {
 	status.Status = m.statusCode
 
 	m.workerStatus[m.indexID] = status
-	m.conn.Publish(m.cfg.Nats.Topic+".status", &status)
+	err = m.conn.Publish(m.cfg.Nats.Topic+".status", &status)
+	if err != nil {
+		logger.Error.Printf("Failed to publish status update: %v", err)
+	}
 }

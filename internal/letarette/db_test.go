@@ -54,7 +54,7 @@ func getTestSetup(t *testing.T, compress ...bool) *testSetup {
 	if err != nil {
 		t.Fatal("Failed to create test temp dir")
 	}
-	setup.config.Db.Path = path.Join(setup.tmpDir, "leta.db")
+	setup.config.DB.Path = path.Join(setup.tmpDir, "leta.db")
 	setup.config.Index.Spaces = []string{"test"}
 	for _, state := range compress {
 		setup.config.Index.Compress = state

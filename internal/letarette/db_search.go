@@ -55,9 +55,14 @@ func phrasesToMatchString(phrases []Phrase) string {
 	return matchString
 }
 
-func (db *database) search(ctx context.Context, phrases []Phrase, spaces []string, pageLimit uint16, pageOffset uint16) (protocol.SearchResult, error) {
+func (db *database) search(
+	ctx context.Context, phrases []Phrase, spaces []string, pageLimit uint16, pageOffset uint16,
+) (
+	protocol.SearchResult, error,
+) {
+
 	if len(phrases) == 0 {
-		return protocol.SearchResult{}, fmt.Errorf("Empty search phrase list")
+		return protocol.SearchResult{}, fmt.Errorf("empty search phrase list")
 	}
 
 	if db.stopwords {
@@ -74,7 +79,7 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 
 	query, err := loadSearchQuery(db.searchStrategy)
 	if err != nil {
-		return protocol.SearchResult{}, fmt.Errorf("Search strategy %d not found", db.searchStrategy)
+		return protocol.SearchResult{}, fmt.Errorf("search strategy %d not found", db.searchStrategy)
 	}
 
 	type hit struct {
@@ -91,7 +96,7 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 	}
 	spacedQuery, spacedArgs, err := sqlx.In(query, spaceArgs...)
 	if err != nil {
-		return result, fmt.Errorf("Failed to expand 'in' values: %w", err)
+		return result, fmt.Errorf("failed to expand 'in' values: %w", err)
 	}
 
 	namedQuery, namedArgs, err := sqlx.Named(spacedQuery, map[string]interface{}{
@@ -101,7 +106,7 @@ func (db *database) search(ctx context.Context, phrases []Phrase, spaces []strin
 		"offset": pageOffset * pageLimit,
 	})
 	if err != nil {
-		return result, fmt.Errorf("Failed to expand named binds: %w", err)
+		return result, fmt.Errorf("failed to expand named binds: %w", err)
 	}
 
 	args := append(namedArgs[:0:0], namedArgs[:2]...)

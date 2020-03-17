@@ -36,7 +36,8 @@ func (db *database) spellFixTerm(ctx context.Context, term string) (string, floa
 		Score    int
 	}{}
 	unquotedTerm := strings.TrimSuffix(strings.TrimPrefix(term, `"`), `"`)
-	err = db.rdb.GetContext(ctx, &fixed, `select word, distance, score from speling where word match ? limit 1`, unquotedTerm)
+	err = db.rdb.GetContext(ctx, &fixed,
+		`select word, distance, score from speling where word match ? limit 1`, unquotedTerm)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return term, 0, false, nil

@@ -107,7 +107,10 @@ func printIndexStats(db letarette.Database) {
 
 	s.Stop()
 	writer := tabwriter.NewWriter(os.Stdout, 0, 4, 0, ' ', 0)
-	tmpl.Execute(writer, &stats)
+	err = tmpl.Execute(writer, &stats)
+	if err != nil {
+		logger.Error.Printf("Failed to execute template: %v", err)
+	}
 }
 
 func optimizeIndex(db letarette.Database) {
@@ -196,12 +199,9 @@ func doMonitor(cfg letarette.Config) {
 	}
 	defer m.Close()
 
-	signals := make(chan os.Signal)
+	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT)
-
-	select {
-	case <-signals:
-	}
+	<-signals
 }
 
 func resetMigration(cfg letarette.Config, version int) {
