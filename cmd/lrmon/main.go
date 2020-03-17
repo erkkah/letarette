@@ -27,7 +27,9 @@ import (
 */
 
 func main() {
-	monitor, err := client.NewMonitor([]string{"localhost"}, listener, client.WithMetricsCollector(collector, time.Second))
+	monitor, err := client.NewMonitor(
+		[]string{"localhost"}, listener, client.WithMetricsCollector(collector, time.Second),
+	)
 	if err != nil {
 		logger.Error.Printf("Failed to create monitor: %v", err)
 		return

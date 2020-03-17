@@ -105,7 +105,7 @@ func (agent *searchAgent) getNumShards() (int32, error) {
 		numShards := atomic.LoadInt32(&agent.volatileNumShards)
 		if numShards == 0 {
 			if time.Now().After(start.Add(time.Second * 5)) {
-				return 0, fmt.Errorf("Timeout waiting for cluster")
+				return 0, fmt.Errorf("timeout waiting for cluster")
 			}
 			time.Sleep(time.Millisecond * 100)
 		} else {
@@ -114,7 +114,13 @@ func (agent *searchAgent) getNumShards() (int32, error) {
 	}
 }
 
-func (agent *searchAgent) Search(q string, spaces []string, pageLimit int, pageOffset int) (res protocol.SearchResponse, err error) {
+func (agent *searchAgent) Search(
+	q string, spaces []string, pageLimit int, pageOffset int,
+) (
+	res protocol.SearchResponse,
+	err error,
+) {
+
 	numShards, err := agent.getNumShards()
 	if err != nil {
 		return
@@ -161,8 +167,8 @@ waitLoop:
 	for {
 		select {
 		case <-timeout:
-			sub.Unsubscribe()
-			err = fmt.Errorf("Timeout waiting for search response")
+			_ = sub.Unsubscribe()
+			err = fmt.Errorf("timeout waiting for search response")
 			return
 		case response := <-responseCh:
 			responses = append(responses, response)

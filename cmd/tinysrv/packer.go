@@ -49,7 +49,7 @@ func (p *Packer) Pack(str string) ([]byte, error) {
 		return nil, err
 	}
 	if written != len(utf8Bytes) {
-		return nil, fmt.Errorf("Unexpected compressor write result")
+		return nil, fmt.Errorf("unexpected compressor write result")
 	}
 	err = p.writer.Close()
 	if err != nil {
@@ -78,7 +78,7 @@ func (p *Packer) Unpack(packed []byte) (string, error) {
 		return "", err
 	}
 	if written != len(packed) {
-		return "", fmt.Errorf("Unexpected buffer write result")
+		return "", fmt.Errorf("unexpected buffer write result")
 	}
 	err = p.resetReader()
 	if err != nil {
@@ -89,5 +89,5 @@ func (p *Packer) Unpack(packed []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(unpacked.Bytes()), nil
+	return unpacked.String(), nil
 }

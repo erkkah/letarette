@@ -44,7 +44,7 @@ func New(writer io.Writer) *Spinner {
 func (s *Spinner) Start(prompt ...string) {
 	go func() {
 		prefix := strings.Join(prompt, " ") + "  "
-		s.writer.Write([]byte(prefix))
+		_, _ = s.writer.Write([]byte(prefix))
 		for {
 			select {
 			case <-time.After(time.Millisecond * 300):
@@ -71,11 +71,11 @@ func (s *Spinner) spin() {
 	s.pos++
 	s.pos %= len(s.spinnerChars)
 	char := s.spinnerChars[s.pos]
-	s.writer.Write([]byte("\b\b" + string(char) + " "))
+	_, _ = s.writer.Write([]byte("\b\b" + string(char) + " "))
 }
 
 func (s *Spinner) stop(message string, prefixLen int) {
 	backup := strings.Repeat("\b", prefixLen)
 	cleanup := strings.Repeat(" ", prefixLen)
-	s.writer.Write([]byte(backup + cleanup + backup + message))
+	_, _ = s.writer.Write([]byte(backup + cleanup + backup + message))
 }

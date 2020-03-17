@@ -101,16 +101,16 @@ type database struct {
 func OpenDatabase(cfg Config) (Database, error) {
 	registerCustomDriver(cfg)
 	var spaces []string
-	if !cfg.Db.ToolConnection {
+	if !cfg.DB.ToolConnection {
 		spaces = cfg.Index.Spaces
 	}
-	rdb, wdb, err := openDatabase(cfg.Db.Path, spaces)
+	rdb, wdb, err := openDatabase(cfg.DB.Path, spaces)
 	if err != nil {
 		return nil, err
 	}
 
-	if !cfg.Db.ToolConnection {
-		err = preloadDB(cfg.Db.Path)
+	if !cfg.DB.ToolConnection {
+		err = preloadDB(cfg.DB.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +126,7 @@ func OpenDatabase(cfg Config) (Database, error) {
 	addDocumentStatement, err := wdb.Preparex(addDocumentSQL)
 	if err != nil {
 		if err != nil {
-			return nil, fmt.Errorf("Failed to prepare doc update statement: %w", err)
+			return nil, fmt.Errorf("failed to prepare doc update statement: %w", err)
 		}
 	}
 	if err != nil {
@@ -135,7 +135,7 @@ func OpenDatabase(cfg Config) (Database, error) {
 
 	updateInterestStatement, err := wdb.Preparex(updateInterestSQL)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to prepare interest update statement: %w", err)
+		return nil, fmt.Errorf("failed to prepare interest update statement: %w", err)
 	}
 
 	newDB := &database{
@@ -156,7 +156,7 @@ func OpenDatabase(cfg Config) (Database, error) {
 // sets the version and resets the dirty flag.
 func ResetMigration(cfg Config, version int) error {
 	registerCustomDriver(cfg)
-	db, err := openMigrationConnection(cfg.Db.Path)
+	db, err := openMigrationConnection(cfg.DB.Path)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func ResetMigration(cfg Config, version int) error {
 		return err
 	}
 	if current < version {
-		return fmt.Errorf("Cannot reset migration forward from %v to %v", current, version)
+		return fmt.Errorf("cannot reset migration forward from %v to %v", current, version)
 	}
 	_, err = db.Exec(`update schema_migrations set version=?, dirty="false"`, version)
 	return err
@@ -179,14 +179,19 @@ func (db *database) Close() error {
 	_, tErr := db.wdb.Exec("pragma wal_checkpoint(TRUNCATE);")
 
 	wErr := db.wdb.Close()
+
 	if rErr != nil || tErr != nil || wErr != nil {
-		return fmt.Errorf("Failed to close db: %w, %w, %w", rErr, tErr, wErr)
+		return fmt.Errorf("failed to close db: %v, %v, %v", rErr, tErr, wErr)
 	}
 	return nil
 }
 
 func (db *database) RawQuery(statement string) ([]string, error) {
 	res, err := db.rdb.Queryx(statement)
+	if err != nil {
+		return nil, err
+	}
+	err = res.Err()
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +228,7 @@ func (db *database) getIndexID() (string, error) {
 	return indexID, err
 }
 
-func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
+func initDB(db *sqlx.DB, spaces []string) error {
 	migrations, err := AssetDir("migrations")
 	if err != nil {
 		return err
@@ -284,34 +289,34 @@ func initDB(db *sqlx.DB, sqliteURL string, spaces []string) error {
 		createSpace := `insert into spaces (space, lastUpdatedAtNanos) values(?, 0) on conflict do nothing`
 		_, err := db.Exec(createSpace, space)
 		if err != nil {
-			return fmt.Errorf("Failed to create space table: %w", err)
+			return fmt.Errorf("failed to create space table: %w", err)
 		}
 	}
 
 	var indexID string
 	err = db.Get(&indexID, "select indexID from meta")
 	if err != nil && err != sql.ErrNoRows {
-		return fmt.Errorf("Failed to get index id: %w", err)
+		return fmt.Errorf("failed to get index id: %w", err)
 	}
 	if len(indexID) == 0 {
 		var buf [128]byte
 		_, err = rand.Read(buf[:])
 		if err != nil {
-			return fmt.Errorf("Failed to generate random index id: %w", err)
+			return fmt.Errorf("failed to generate random index id: %w", err)
 		}
 		high := binary.BigEndian.Uint64(buf[:64])
 		low := binary.BigEndian.Uint64(buf[64:])
 		indexID = fmt.Sprintf("%X%X", high, low)
 		_, err = db.Exec("insert into meta (indexID) values(?)", indexID)
 		if err != nil {
-			return fmt.Errorf("Failed to store index id: %w", err)
+			return fmt.Errorf("failed to store index id: %w", err)
 		}
 
 		// Set default fts5 page size to 16k
 		const pageSize = 16384
 		_, err = db.Exec(`insert into fts(fts, rank) values("pgsz", ?)`, pageSize)
 		if err != nil {
-			return fmt.Errorf("Failed to set default page size: %w", err)
+			return fmt.Errorf("failed to set default page size: %w", err)
 		}
 	}
 
@@ -362,8 +367,8 @@ func registerCustomDriver(cfg Config) {
 						"pragma threads=4",
 						"pragma temp_store=2",
 						"pragma wal_autocheckpoint=4000",
-						fmt.Sprintf("pragma cache_size=-%d", cfg.Db.CacheSizeMB*1024),
-						fmt.Sprintf("pragma mmap_size=%d", cfg.Db.MMapSizeMB*1024*1024),
+						fmt.Sprintf("pragma cache_size=-%d", cfg.DB.CacheSizeMB*1024),
+						fmt.Sprintf("pragma mmap_size=%d", cfg.DB.MMapSizeMB*1024*1024),
 					}
 
 					_, err = conn.Exec(strings.Join(pragmas, ";"), []drv.Value{})
@@ -387,7 +392,7 @@ const (
 func getDatabaseURL(dbPath string, mode connectionMode) (string, error) {
 	abspath, err := filepath.Abs(dbPath)
 	if err != nil {
-		return "", fmt.Errorf("Failed to get absolute path to DB: %w", err)
+		return "", fmt.Errorf("failed to get absolute path to DB: %w", err)
 	}
 	escapedPath := strings.Replace(abspath, " ", "%20", -1)
 
@@ -437,6 +442,9 @@ func openDatabase(dbPath string, spaces []string) (rdb *sqlx.DB, wdb *sqlx.DB, e
 
 	// Multiple readers
 	readSqliteURL, err := getDatabaseURL(dbPath, readOnly)
+	if err != nil {
+		return nil, nil, err
+	}
 	rdb, err = sqlx.Connect(driver, readSqliteURL)
 	if err != nil {
 		return
@@ -444,7 +452,7 @@ func openDatabase(dbPath string, spaces []string) (rdb *sqlx.DB, wdb *sqlx.DB, e
 	rdb.SetMaxOpenConns(0)
 	rdb.SetMaxIdleConns(8)
 
-	err = initDB(wdb, writeSqliteURL, spaces)
+	err = initDB(wdb, spaces)
 	if err != nil {
 		return
 	}

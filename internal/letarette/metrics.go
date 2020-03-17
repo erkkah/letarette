@@ -92,7 +92,7 @@ type metricsCollector nats.Subscription
 
 func (mc *metricsCollector) Close() {
 	sub := (*nats.Subscription)(mc)
-	sub.Unsubscribe()
+	_ = sub.Unsubscribe()
 }
 
 // StartMetricsCollector creates a new metrics collector, and starts responding to requests
@@ -100,7 +100,7 @@ func StartMetricsCollector(nc *nats.Conn, db Database, cfg Config) (MetricsColle
 	privateDB := db.(*database)
 	indexID, err := privateDB.getIndexID()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read index ID: %w", err)
+		return nil, fmt.Errorf("failed to read index ID: %w", err)
 	}
 
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
@@ -116,7 +116,7 @@ func StartMetricsCollector(nc *nats.Conn, db Database, cfg Config) (MetricsColle
 			Updated:    time.Now(),
 			PackedJSON: packed,
 		}
-		ec.Publish(cfg.Nats.Topic+".metrics.reply", &reply)
+		_ = ec.Publish(cfg.Nats.Topic+".metrics.reply", &reply)
 	})
 	if err != nil {
 		return nil, err

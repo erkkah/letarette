@@ -39,12 +39,12 @@ func (s *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	uri := req.RequestURI
 	parsed, err := url.Parse(uri)
 	if err != nil {
-		errorResponse(w, err)
+		_ = errorResponse(w, err)
 		return
 	}
 	err = req.ParseForm()
 	if err != nil {
-		errorResponse(w, err)
+		_ = errorResponse(w, err)
 		return
 	}
 	logger.Debug.Printf("%s", parsed.Path)
@@ -52,7 +52,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if path == "/plot/add" {
 		err = handleAddPlot(req.Form)
 		if err != nil {
-			errorResponse(w, err)
+			_ = errorResponse(w, err)
 			return
 		}
 		redirect(w, "/metrics.html")
@@ -61,7 +61,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if path == "/plot/remove" {
 		err = handleRemovePlot(req.Form)
 		if err != nil {
-			errorResponse(w, err)
+			_ = errorResponse(w, err)
 			return
 		}
 		redirect(w, "/metrics.html")

@@ -25,7 +25,7 @@ import (
 
 func errorTemplate(templatePath string, err error) *template.Template {
 	result := template.New(templatePath)
-	result.Parse(fmt.Sprintf("Template error: %v", err))
+	_, _ = result.Parse(fmt.Sprintf("Template error: %v", err))
 	return result
 }
 

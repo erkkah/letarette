@@ -50,7 +50,7 @@ func ParseSemver(version string) (result Semver, err error) {
 			return
 		}
 	default:
-		err = fmt.Errorf("Invalid version string")
+		err = fmt.Errorf("invalid version string")
 	}
 	return
 }

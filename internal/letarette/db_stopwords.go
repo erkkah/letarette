@@ -69,7 +69,7 @@ func (db *database) updateStopwords(ctx context.Context) error {
 	}
 	defer func() {
 		if tx != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 

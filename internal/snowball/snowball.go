@@ -111,7 +111,7 @@ func Init(conn *sqlite3.SQLiteConn, settings Settings) error {
 	}
 
 	if result != C.SQLITE_OK {
-		return fmt.Errorf("Failed to init snowball, check language list")
+		return fmt.Errorf("failed to init snowball, check language list")
 	}
 	return nil
 }
