@@ -87,7 +87,7 @@ func TestAddDocument_EmptySpace(t *testing.T) {
 		protocol.Document{},
 	}
 	err := setup.db.addDocumentUpdates(ctx, "", docs)
-	gta.ErrorContains(t, err, "No such space", "Adding document with empty space should fail")
+	gta.ErrorContains(t, err, "no such space", "Adding document with empty space should fail")
 }
 
 func TestAddDocument_NewDocument(t *testing.T) {
@@ -256,7 +256,7 @@ func TestGetInterestList_NonexistingSpace(t *testing.T) {
 
 	ctx := context.Background()
 	_, err := setup.db.getInterestList(ctx, "kawonka")
-	gta.ErrorContains(t, err, "No such space", "Fetching interest list for nonexisting space should fail!")
+	gta.ErrorContains(t, err, "no such space", "Fetching interest list for nonexisting space should fail!")
 }
 
 func TestSetInterestList_NonexistingSpace(t *testing.T) {
@@ -335,7 +335,7 @@ func TestSetInterestList_CurrentListNonEmpty(t *testing.T) {
 	gta.NilError(t, err, "Setting interest list failed: %v", err)
 
 	err = setup.db.setInterestList(ctx, list)
-	gta.ErrorContains(t, err, "Cannot overwrite", "Setting interest list with current list should fail!")
+	gta.ErrorContains(t, err, "cannot overwrite", "Setting interest list with current list should fail!")
 }
 
 func TestGetStemmerState_Empty(t *testing.T) {
