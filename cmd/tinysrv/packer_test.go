@@ -45,7 +45,7 @@ func randomString(length int) string {
 	encoder := base64.NewEncoder(base64.StdEncoding, &encoded)
 	encoder.Write(randomBytes)
 	encoder.Close()
-	return string(encoded.Bytes())
+	return encoded.String()
 }
 
 func TestPackAndUnpack_SeveralShort(t *testing.T) {

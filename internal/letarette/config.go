@@ -36,7 +36,7 @@ type Config struct {
 		Topic       string `default:"leta"`
 		SearchGroup string `ignored:"true"`
 	}
-	Db struct {
+	DB struct {
 		Path           string `default:"letarette.db"`
 		CacheSizeMB    uint32 `default:"1024" desc:"internal"` // default 1G cache
 		MMapSizeMB     uint32 `default:"0" desc:"internal"`    // no mmap by default
@@ -105,7 +105,7 @@ func LoadConfig() (cfg Config, err error) {
 	}
 
 	if len(cfg.Index.Spaces) < 1 {
-		return Config{}, fmt.Errorf("No spaces defined")
+		return Config{}, fmt.Errorf("no spaces defined")
 	}
 
 	unique := map[string]string{}
@@ -113,11 +113,11 @@ func LoadConfig() (cfg Config, err error) {
 		unique[v] = v
 	}
 	if len(unique) != len(cfg.Index.Spaces) {
-		return Config{}, fmt.Errorf("Space names must be unique")
+		return Config{}, fmt.Errorf("space names must be unique")
 	}
 
 	if !validateIndexDurations(cfg) {
-		return Config{}, fmt.Errorf("Invalid index timing settings")
+		return Config{}, fmt.Errorf("invalid index timing settings")
 	}
 
 	group, size, err := parseShardGroupString(cfg.Shardgroup)
@@ -155,12 +155,12 @@ LOG_LEVEL{{$t}}String{{$t}}INFO
 func Usage() {
 	var cfg Config
 	tabs := tabwriter.NewWriter(os.Stdout, 1, 0, 4, ' ', 0)
-	envconfig.Usagef(prefix, &cfg, tabs, usageFormat)
+	_ = envconfig.Usagef(prefix, &cfg, tabs, usageFormat)
 }
 
 func parseShardGroupString(shardGroup string) (group, size int, err error) {
 	parts := strings.SplitN(shardGroup, "/", 2)
-	parseError := fmt.Errorf("Invalid shard group setting")
+	parseError := fmt.Errorf("invalid shard group setting")
 	if len(parts) != 2 {
 		err = parseError
 		return

@@ -190,25 +190,25 @@ func handleMetricsUpdate(metrics protocol.Metrics) {
 func unpackMetrics(metrics protocol.Metrics) (metricsMap, error) {
 	jsonBytes, err := base64.StdEncoding.DecodeString(metrics.PackedJSON)
 	if err != nil {
-		return nil, fmt.Errorf("Error while base64 unpacking: %w", err)
+		return nil, fmt.Errorf("error while base64 unpacking: %w", err)
 	}
 
 	compressed := bytes.NewBuffer(jsonBytes)
 	reader, err := zlib.NewReader(compressed)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating zlib reader: %w", err)
+		return nil, fmt.Errorf("error creating zlib reader: %w", err)
 	}
 
 	uncompressed := new(bytes.Buffer)
 	_, err = io.Copy(uncompressed, reader)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to uncompress: %w", err)
+		return nil, fmt.Errorf("failed to uncompress: %w", err)
 	}
 
 	var metricsMap metricsMap
 	err = json.Unmarshal(uncompressed.Bytes(), &metricsMap)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to unmarshal JSON: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 	return metricsMap, nil
 }

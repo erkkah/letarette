@@ -36,7 +36,7 @@ func Init(conn *sqlite3.SQLiteConn) error {
 	result := C.sqlite3_spellfix_init(db, &errorMessage, nullRoutines)
 	if result != C.SQLITE_OK {
 		message := C.GoString(errorMessage)
-		return fmt.Errorf("Failed to init spellfix extension: %s", message)
+		return fmt.Errorf("failed to init spellfix extension: %s", message)
 	}
 	return nil
 }

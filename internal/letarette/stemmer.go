@@ -32,7 +32,7 @@ func CheckStemmerSettings(db Database, cfg Config) error {
 	internal := db.(*database)
 	state, _, err := internal.getStemmerState()
 	if err == sql.ErrNoRows {
-		state := snowball.Settings{
+		state = snowball.Settings{
 			Stemmers:         cfg.Stemmer.Languages,
 			RemoveDiacritics: cfg.Stemmer.RemoveDiacritics,
 			TokenCharacters:  cfg.Stemmer.TokenCharacters,

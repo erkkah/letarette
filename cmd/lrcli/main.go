@@ -101,9 +101,9 @@ Options:
 		logger.Error.Printf("Config load problems: %v", err)
 		return
 	}
-	cfg.Db.ToolConnection = true
+	cfg.DB.ToolConnection = true
 	if cmdline.Database != "" {
-		cfg.Db.Path = cmdline.Database
+		cfg.DB.Path = cmdline.Database
 	}
 
 	if cmdline.Env {

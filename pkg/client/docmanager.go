@@ -33,8 +33,8 @@ type DocumentRequestHandler func(ctx context.Context, req protocol.DocumentReque
 // DocumentManager connects to the letarette cluster and processes indexing requests
 type DocumentManager interface {
 	Close()
-	StartIndexRequestHandler(handler IndexRequestHandler)
-	StartDocumentRequestHandler(handler DocumentRequestHandler)
+	StartIndexRequestHandler(handler IndexRequestHandler) error
+	StartDocumentRequestHandler(handler DocumentRequestHandler) error
 }
 
 type manager struct {
@@ -73,8 +73,8 @@ func (m *manager) Close() {
 	m.conn.Close()
 }
 
-func (m *manager) StartIndexRequestHandler(handler IndexRequestHandler) {
-	m.conn.Subscribe(m.topic+".index.request", func(sub, reply string, req *protocol.IndexUpdateRequest) {
+func (m *manager) StartIndexRequestHandler(handler IndexRequestHandler) error {
+	_, err := m.conn.Subscribe(m.topic+".index.request", func(sub, reply string, req *protocol.IndexUpdateRequest) {
 		update, err := handler(m.ctx, *req)
 		if err != nil {
 			m.onError(err)
@@ -85,10 +85,11 @@ func (m *manager) StartIndexRequestHandler(handler IndexRequestHandler) {
 			m.onError(err)
 		}
 	})
+	return err
 }
 
-func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) {
-	m.conn.Subscribe(m.topic+".document.request", func(req *protocol.DocumentRequest) {
+func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) error {
+	_, err := m.conn.Subscribe(m.topic+".document.request", func(req *protocol.DocumentRequest) {
 		update, err := handler(m.ctx, *req)
 		if err != nil {
 			m.onError(err)
@@ -116,7 +117,7 @@ func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) {
 								Documents: current.Documents[mid:],
 							},
 						)
-						m.onError(fmt.Errorf("Document list too large, splitting"))
+						m.onError(fmt.Errorf("document list too large, splitting"))
 					} else {
 						doc := current.Documents[0]
 						doc.Text = truncateString(doc.Text, int(m.conn.Conn.MaxPayload()/2))
@@ -128,7 +129,7 @@ func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) {
 								},
 							},
 						)
-						m.onError(fmt.Errorf("Document %v too large, truncating", doc.ID))
+						m.onError(fmt.Errorf("document %v too large, truncating", doc.ID))
 					}
 				} else {
 					m.onError(err)
@@ -136,6 +137,7 @@ func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) {
 			}
 		}
 	})
+	return err
 }
 
 func truncateString(long string, max int) string {
