@@ -238,7 +238,8 @@ issues:
     # Exclude some staticcheck messages
     - linters:
         - staticcheck
-      text: "SA9003:|SA5001"
+        - stylecheck
+      text: "SA9003:|SA5001:|ST1003:"
 
     # Exclude lll issues for long lines with go:generate, #cgo
     - linters:
