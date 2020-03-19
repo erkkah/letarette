@@ -15,6 +15,10 @@
 package client
 
 import (
+	"bytes"
+	"compress/zlib"
+	"encoding/json"
+	"io/ioutil"
 	"strings"
 	"time"
 
@@ -49,4 +53,64 @@ func connect(URLs []string, opts state) (*nats.EncodedConn, error) {
 	}
 
 	return ec, nil
+}
+
+const COMPRESSED_ENCODER = "COMPRESSED_ENCODER"
+const COMPRESSION_MARKER = uint8(0xf8)
+const COMPRESSION_LIMIT = 1024
+
+type CompressedJSONEncoder struct{}
+
+func (e CompressedJSONEncoder) Encode(subject string, value interface{}) ([]byte, error) {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(encoded) <= COMPRESSION_LIMIT {
+		return encoded, nil
+	}
+
+	var buf bytes.Buffer
+	_ = buf.WriteByte(COMPRESSION_MARKER)
+
+	writer, err := zlib.NewWriterLevel(&buf, zlib.BestSpeed)
+	if err != nil {
+		return nil, err
+	}
+	_, err = writer.Write(encoded)
+	if err != nil {
+		return nil, err
+	}
+	err = writer.Close()
+	return buf.Bytes(), err
+}
+
+func (e CompressedJSONEncoder) Decode(subject string, data []byte, valuePointer interface{}) error {
+	byteReader := bytes.NewReader(data)
+	marker, err := byteReader.ReadByte()
+	if err != nil {
+		return err
+	}
+
+	var bytes []byte
+
+	if marker != COMPRESSION_MARKER {
+		_ = byteReader.UnreadByte()
+		bytes, _ = ioutil.ReadAll(byteReader)
+	} else {
+		zReader, err := zlib.NewReader(byteReader)
+		if err != nil {
+			return err
+		}
+		bytes, err = ioutil.ReadAll(zReader)
+		if err != nil {
+			return err
+		}
+	}
+	return json.Unmarshal(bytes, valuePointer)
+}
+
+func init() {
+	nats.RegisterEncoder(COMPRESSED_ENCODER, CompressedJSONEncoder{})
 }
