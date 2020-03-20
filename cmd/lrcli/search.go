@@ -58,8 +58,8 @@ func searchPhrase(phrase string, agent client.SearchAgent) {
 	res, err := agent.Search(
 		phrase,
 		[]string{cmdline.Space},
-		cmdline.PageLimit,
-		cmdline.PageOffset,
+		cmdline.Limit,
+		cmdline.Offset,
 	)
 	if err != nil {
 		logger.Error.Printf("Failed to perform search: %v", err)

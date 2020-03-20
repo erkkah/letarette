@@ -100,11 +100,7 @@ type database struct {
 // migrates the database up to the latest version.
 func OpenDatabase(cfg Config) (Database, error) {
 	registerCustomDriver(cfg)
-	var spaces []string
-	if !cfg.DB.ToolConnection {
-		spaces = cfg.Index.Spaces
-	}
-	rdb, wdb, err := openDatabase(cfg.DB.Path, spaces)
+	rdb, wdb, err := openDatabase(cfg.DB.Path, cfg.Index.Spaces)
 	if err != nil {
 		return nil, err
 	}

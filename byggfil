@@ -2,7 +2,7 @@
 # bygg-file for building letarette
 #
 
-all: letarette lrcli lrload lrmon
+all: letarette lrcli lrload lrmon tinysrv
 
 REV = dev
 
