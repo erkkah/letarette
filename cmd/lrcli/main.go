@@ -27,8 +27,8 @@ var cmdline struct {
 	Search      bool
 	Space       string   `docopt:"<space>"`
 	Phrases     []string `docopt:"<phrase>"`
-	PageLimit   int      `docopt:"-l"`
-	PageOffset  int      `docopt:"-p"`
+	Limit       int      `docopt:"-l"`
+	Offset      int      `docopt:"-p"`
 	GroupSize   int32    `docopt:"-g"`
 	Interactive bool     `docopt:"-i"`
 
@@ -47,6 +47,10 @@ var cmdline struct {
 	Rebuild      bool
 	Optimize     bool
 	ForceStemmer bool `docopt:"forcestemmer"`
+
+	Load       bool
+	JSON       string `docopt:"<json>"`
+	AutoAssign bool   `docopt:"-a"`
 
 	Spelling      bool
 	Update        bool
@@ -72,6 +76,7 @@ Usage:
     lrcli index [-d <db>] optimize
     lrcli index [-d <db>] rebuild
     lrcli index [-d <db>] forcestemmer
+    lrcli load [-d <db>] [-l <limit>] [-a] <space> <json>
     lrcli spelling [-d <db>] update <mincount>
     lrcli resetmigration [-d <db>] <version>
     lrcli env
@@ -81,6 +86,7 @@ Options:
     -p <page>      Search result page [default: 0]
     -d <db>        Override default or environment DB path
     -i             Interactive search
+    -a             Auto-assign document ID
     -g <groupsize> Force shard group size, do not discover
 `
 
@@ -105,20 +111,26 @@ Options:
 	if cmdline.Database != "" {
 		cfg.DB.Path = cmdline.Database
 	}
+	cfg.Index.Spaces = []string{}
 
-	if cmdline.Env {
+	switch {
+	case cmdline.Env:
 		letarette.Usage()
-	} else if cmdline.Search {
+	case cmdline.Search:
 		doSearch(cfg)
-	} else if cmdline.Index {
+	case cmdline.Index:
 		indexSubcommand(cfg)
-	} else if cmdline.Spelling {
+	case cmdline.Load:
+		cfg.Index.Spaces = []string{cmdline.Space}
+		logger.Debug.Printf("Loading into space %v", cfg.Index.Spaces)
+		indexSubcommand(cfg)
+	case cmdline.Spelling:
 		updateSpelling(cfg)
-	} else if cmdline.ResetMigration {
+	case cmdline.ResetMigration:
 		resetMigration(cfg, cmdline.Version)
-	} else if cmdline.SQL {
+	case cmdline.SQL:
 		doSQL(cfg)
-	} else if cmdline.Monitor {
+	case cmdline.Monitor:
 		doMonitor(cfg)
 	}
 }
@@ -142,6 +154,8 @@ func indexSubcommand(cfg letarette.Config) {
 	}
 
 	switch {
+	case cmdline.Load:
+		bulkLoad(db)
 	case cmdline.Check:
 		err = letarette.CheckStemmerSettings(db, cfg)
 		if err == letarette.ErrStemmerSettingsMismatch {
