@@ -10,8 +10,8 @@ sqlite.a
 internal/libsqlite.a
 internal/sqlite.o
 
-letarette
-lrcli
-lrload
-lrmon
-tinysrv
+/letarette
+/lrcli
+/lrload
+/lrmon
+/tinysrv
