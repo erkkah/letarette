@@ -178,7 +178,7 @@ static int ftsSnowballTokenize(
     ctx.instance = instance;
     ctx.xToken = xToken;
 
-    if (flags & (FTS5_TOKENIZE_QUERY | FTS5_TOKENIZE_PREFIX) == FTS5_TOKENIZE_QUERY) {
+    if ( (flags & (FTS5_TOKENIZE_QUERY | FTS5_TOKENIZE_PREFIX)) == FTS5_TOKENIZE_QUERY ) {
         ctx.removeStopwords = 1;
 
         for (int i = 0; i < nText; i++) {
