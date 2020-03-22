@@ -29,7 +29,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-// Init registers the spellfix extension with a connection.
+// Init registers the compress extension with a connection.
 func Init(conn *sqlite3.SQLiteConn) error {
 	db := dbFromConnection(conn)
 	var errorMessage *C.char

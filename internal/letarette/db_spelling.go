@@ -52,9 +52,28 @@ func (db *database) fixPhraseSpelling(ctx context.Context, phrases []Phrase) ([]
 	clone := append(phrases[:0:0], phrases...)
 	distances := float32(0.0)
 	fixed := false
+
+	nonStopwords, err := db.stopwordFilterPhrases(ctx, phrases)
+	if err != nil {
+		return []Phrase{}, 0, false, err
+	}
+
+	isStopword := func(phrase string) bool {
+		for _, sw := range nonStopwords {
+			if sw.Text == phrase {
+				return false
+			}
+		}
+		return true
+	}
+
 	for index, phrase := range phrases {
 		if strings.Contains(phrase.Text, " ") {
 			// Skip multi-term phrases
+			continue
+		}
+		if isStopword(phrase.Text) {
+			// Skip stopwords
 			continue
 		}
 		if fixedPhrase, fixedDistance, phraseFixed, err := db.spellFixTerm(ctx, phrase.Text); err == nil {
