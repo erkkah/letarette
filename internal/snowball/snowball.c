@@ -34,19 +34,19 @@ struct StemmerModuleData {
     const char** parentArgs;
     int nParentArgs;
     fts5_api *fts;
-    sqlite3_stmt *stopWordStatement;
 };
 
 struct StemmerInstance {
     struct StemmerModuleData* module;
 	fts5_tokenizer parentModule;
 	Fts5Tokenizer *parentInstance;
+    sqlite3_stmt *stopWordStatement;
 };
 
 struct StemmerContext {
     struct StemmerInstance* instance;
     void* callerContext;
-    int flags;
+    int removeStopwords;
     int (*xToken)(void*, int, const char*, int, int, int);
 };
 
@@ -71,10 +71,7 @@ static int ftsSnowballCreate(
         rc = instance->parentModule.xCreate(parentUserData, modData->parentArgs, modData->nParentArgs, &instance->parentInstance);
     }
 
-    if (rc == SQLITE_OK) {
-        const char* stopwordCheck = "select count(*) from stopwords where word=?";
-        rc = sqlite3_prepare_v2(modData->db, stopwordCheck, -1, &modData->stopWordStatement, 0);
-    }
+    instance->stopWordStatement = 0;
 
     if (rc == SQLITE_OK) {
         *ppOut = (Fts5Tokenizer*) instance;
@@ -91,20 +88,31 @@ static void ftsSnowballDelete(Fts5Tokenizer *pTok) {
     sqlite3_free(instance);
 }
 
-static int isStopWord(struct StemmerModuleData* modData, const char* word, int len) {
-    sqlite3_stmt *s = modData->stopWordStatement;
+static int isStopWord(struct StemmerInstance* instance, const char* word, int len) {
+    sqlite3_stmt *s = instance->stopWordStatement;
+
+    // Lazy init since stemmer is created before migrations are run
+    if (s == 0) {
+        static const char* const stopwordCheck = "select count(*) from stopwords where word=?";
+        int rc = sqlite3_prepare_v2(instance->module->db, stopwordCheck, -1, &instance->stopWordStatement, 0);
+        if (rc != SQLITE_OK) {
+            return -1;
+        }
+        s = instance->stopWordStatement;
+    }
+
     int rc = sqlite3_bind_text(s, 1, word, len, 0);
     if (rc != SQLITE_OK) {
-        return -1;
+        return -2;
     }
     rc = sqlite3_step(s);
     if (rc != SQLITE_ROW) {
-        return -2;
+        return -3;
     }
     int exists = sqlite3_column_int(s, 0);
     rc = sqlite3_reset(s);
     if (rc != SQLITE_OK) {
-        return -3;
+        return -4;
     }
     return exists;
 }
@@ -124,9 +132,9 @@ static int ftsSnowballCallback(
         return SQLITE_OK;
     }
 
-    if ( (ctx->flags & (FTS5_TOKENIZE_QUERY | FTS5_TOKENIZE_PREFIX)) == FTS5_TOKENIZE_QUERY) {
+    if (ctx->removeStopwords) {
         
-        int stopwordStatus = isStopWord(ctx->instance->module, pToken, nToken);
+        int stopwordStatus = isStopWord(ctx->instance, pToken, nToken);
         if (stopwordStatus < 0) {
             return SQLITE_ERROR;
         }
@@ -169,7 +177,20 @@ static int ftsSnowballTokenize(
     ctx.callerContext = pCtx;
     ctx.instance = instance;
     ctx.xToken = xToken;
-    ctx.flags = flags;
+
+    if (flags & (FTS5_TOKENIZE_QUERY | FTS5_TOKENIZE_PREFIX) == FTS5_TOKENIZE_QUERY) {
+        ctx.removeStopwords = 1;
+
+        for (int i = 0; i < nText; i++) {
+            // No stop word handling for quoted phrases
+            if (pText[i] == ' ') {
+                ctx.removeStopwords = 0;
+                break;
+            }
+        }
+    } else {
+        ctx.removeStopwords = 0;
+    }
 
     return instance->parentModule.xTokenize(
         instance->parentInstance, &ctx, flags, pText, nText, ftsSnowballCallback
