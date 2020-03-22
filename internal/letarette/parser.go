@@ -134,7 +134,7 @@ func reducePhrase(phrase string) string {
 	reduced := unquote(phrase)
 
 	// Cut single character phrase at once
-	if len(reduced) == 1 {
+	if len(reduced) == 1 && !unicode.IsNumber([]rune(reduced)[0]) {
 		return ""
 	}
 	reduced = singleChars.ReplaceAllString(reduced, " ")
@@ -153,9 +153,6 @@ func reducePhrase(phrase string) string {
 func ReducePhraseList(phrases []Phrase) []Phrase {
 	var result []Phrase
 	for _, phrase := range phrases {
-		if len(phrase.Text) < 2 {
-			continue
-		}
 		phrase.Text = reducePhrase(phrase.Text)
 		if len(phrase.Text) > 0 {
 			result = append(result, phrase)
