@@ -12,6 +12,8 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+-- Subquery - based strategy, trying to eliminate rows early.
+
 with
 matches as (
     select
@@ -58,5 +60,7 @@ from (
     limit :limit
     offset :offset
 ) joined
+-- re-joining on docs here is faster than pulling text and title into "joined" above
 left join docs using(id)
+-- Join in fts to get an fts handle to run "gettokens" on
 left join fts on fts.rowid = (select id from docs limit 1)
