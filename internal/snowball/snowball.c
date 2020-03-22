@@ -28,11 +28,13 @@
 #define MIN_TOKEN_LEN 3
 
 struct StemmerModuleData {
+    sqlite3 *db;
     struct sb_stemmer** stemmers;
     int minTokenLength;
     const char** parentArgs;
     int nParentArgs;
     fts5_api *fts;
+    sqlite3_stmt *stopWordStatement;
 };
 
 struct StemmerInstance {
@@ -44,6 +46,7 @@ struct StemmerInstance {
 struct StemmerContext {
     struct StemmerInstance* instance;
     void* callerContext;
+    int flags;
     int (*xToken)(void*, int, const char*, int, int, int);
 };
 
@@ -69,6 +72,11 @@ static int ftsSnowballCreate(
     }
 
     if (rc == SQLITE_OK) {
+        const char* stopwordCheck = "select count(*) from stopwords where word=?";
+        rc = sqlite3_prepare_v2(modData->db, stopwordCheck, -1, &modData->stopWordStatement, 0);
+    }
+
+    if (rc == SQLITE_OK) {
         *ppOut = (Fts5Tokenizer*) instance;
     } else {
         sqlite3_free(instance);
@@ -83,6 +91,24 @@ static void ftsSnowballDelete(Fts5Tokenizer *pTok) {
     sqlite3_free(instance);
 }
 
+static int isStopWord(struct StemmerModuleData* modData, const char* word, int len) {
+    sqlite3_stmt *s = modData->stopWordStatement;
+    int rc = sqlite3_bind_text(s, 1, word, len, 0);
+    if (rc != SQLITE_OK) {
+        return -1;
+    }
+    rc = sqlite3_step(s);
+    if (rc != SQLITE_ROW) {
+        return -2;
+    }
+    int exists = sqlite3_column_int(s, 0);
+    rc = sqlite3_reset(s);
+    if (rc != SQLITE_OK) {
+        return -3;
+    }
+    return exists;
+}
+
 static int ftsSnowballCallback(
 	void *pCtx,
 	int tflags,
@@ -93,12 +119,28 @@ static int ftsSnowballCallback(
 ){
     struct StemmerContext* ctx = (struct StemmerContext*) pCtx;
 
+    // Skip tokens below minTokenLength
     if (nToken < ctx->instance->module->minTokenLength) {
         return SQLITE_OK;
     }
+
+    if ( (ctx->flags & (FTS5_TOKENIZE_QUERY | FTS5_TOKENIZE_PREFIX)) == FTS5_TOKENIZE_QUERY) {
+        
+        int stopwordStatus = isStopWord(ctx->instance->module, pToken, nToken);
+        if (stopwordStatus < 0) {
+            return SQLITE_ERROR;
+        }
+
+        if (stopwordStatus != 0) {
+            return SQLITE_OK;
+        }
+    }
+
+    // Only call snowball for tokens withing the set interval
     if (nToken > MAX_TOKEN_LEN || nToken < MIN_TOKEN_LEN) {
         return ctx->xToken(ctx->callerContext, tflags, pToken, nToken, iStart, iEnd);
     }
+
     char buffer[MAX_TOKEN_LEN];
     memcpy(buffer, pToken, nToken);
     struct sb_stemmer** stemmer = ctx->instance->module->stemmers;
@@ -127,6 +169,7 @@ static int ftsSnowballTokenize(
     ctx.callerContext = pCtx;
     ctx.instance = instance;
     ctx.xToken = xToken;
+    ctx.flags = flags;
 
     return instance->parentModule.xTokenize(
         instance->parentInstance, &ctx, flags, pText, nText, ftsSnowballCallback
@@ -196,6 +239,7 @@ int initSnowballStemmer(
     if (!modData) {
         return SQLITE_ERROR;
     }
+    modData->db = db;
 
     struct sb_stemmer** stemmers = allocateStemmerList(languages, nLanguages);
     if (!stemmers) {
