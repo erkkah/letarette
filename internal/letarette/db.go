@@ -195,7 +195,10 @@ func (db *database) RawQuery(statement string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		colTypes, _ := res.ColumnTypes()
+		colTypes, err := res.ColumnTypes()
+		if err != nil {
+			return nil, err
+		}
 		var rowdata []string
 		for i, col := range row {
 			var coldata string
