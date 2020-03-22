@@ -77,15 +77,11 @@ func Init(conn *sqlite3.SQLiteConn, settings Settings) error {
 
 	var removeDiacritics = 0
 	if settings.RemoveDiacritics {
-		/*
-			??? Does not seem to work on OSX?
-			if C.SQLITE_VERSION_NUMBER < 3027001 {
-				cRemoveDiacritics = 1
-			} else {
-				cRemoveDiacritics = 2
-			}
-		*/
-		removeDiacritics = 1
+		if C.SQLITE_VERSION_NUMBER < 3027001 {
+			removeDiacritics = 1
+		} else {
+			removeDiacritics = 2
+		}
 	}
 
 	minTokenLength := 2

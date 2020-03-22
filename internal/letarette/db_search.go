@@ -65,16 +65,6 @@ func (db *database) search(
 		return protocol.SearchResult{}, fmt.Errorf("empty search phrase list")
 	}
 
-	if db.stopwords {
-		var err error
-		phrases, err = db.stopwordFilterPhrases(ctx, phrases)
-		if err != nil {
-			return protocol.SearchResult{}, err
-		}
-		if len(phrases) == 0 {
-			return protocol.SearchResult{}, nil
-		}
-	}
 	matchString := phrasesToMatchString(phrases)
 
 	query, err := loadSearchQuery(db.searchStrategy)
