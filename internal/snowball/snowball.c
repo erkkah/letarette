@@ -40,13 +40,15 @@ struct StemmerInstance {
     struct StemmerModuleData* module;
 	fts5_tokenizer parentModule;
 	Fts5Tokenizer *parentInstance;
-    sqlite3_stmt *stopWordStatement;
+    sqlite3_stmt *stopwordStatement;
+    sqlite3_stmt *synonymStatement;
 };
 
 struct StemmerContext {
     struct StemmerInstance* instance;
     void* callerContext;
     int removeStopwords;
+    int addSynonyms;
     int (*xToken)(void*, int, const char*, int, int, int);
 };
 
@@ -71,7 +73,8 @@ static int ftsSnowballCreate(
         rc = instance->parentModule.xCreate(parentUserData, modData->parentArgs, modData->nParentArgs, &instance->parentInstance);
     }
 
-    instance->stopWordStatement = 0;
+    instance->stopwordStatement = 0;
+    instance->synonymStatement = 0;
 
     if (rc == SQLITE_OK) {
         *ppOut = (Fts5Tokenizer*) instance;
@@ -89,16 +92,16 @@ static void ftsSnowballDelete(Fts5Tokenizer *pTok) {
 }
 
 static int isStopWord(struct StemmerInstance* instance, const char* word, int len) {
-    sqlite3_stmt *s = instance->stopWordStatement;
+    sqlite3_stmt *s = instance->stopwordStatement;
 
     // Lazy init since stemmer is created before migrations are run
     if (s == 0) {
         static const char* const stopwordCheck = "select count(*) from stopwords where word=?";
-        int rc = sqlite3_prepare_v2(instance->module->db, stopwordCheck, -1, &instance->stopWordStatement, 0);
+        int rc = sqlite3_prepare_v2(instance->module->db, stopwordCheck, -1, &instance->stopwordStatement, 0);
         if (rc != SQLITE_OK) {
             return -1;
         }
-        s = instance->stopWordStatement;
+        s = instance->stopwordStatement;
     }
 
     int rc = sqlite3_bind_text(s, 1, word, len, 0);
@@ -117,6 +120,55 @@ static int isStopWord(struct StemmerInstance* instance, const char* word, int le
     return exists;
 }
 
+static int addSynonyms(struct StemmerContext* ctx, const char* word, int len, int iStart, int iEnd) {
+    struct StemmerInstance* instance = ctx->instance;
+    sqlite3_stmt *s = instance->synonymStatement;
+
+    // Lazy init since stemmer is created before migrations are run
+    if (s == 0) {
+        static const char* const synonymQuery =
+            "select word from synonym_words where synonymID = "
+            "(select synonymID from synonym_words where word = ?1) "
+            "and word <> ?1";
+        int rc = sqlite3_prepare_v2(instance->module->db, synonymQuery, -1, &instance->synonymStatement, 0);
+        if (rc != SQLITE_OK) {
+            return -1;
+        }
+        s = instance->synonymStatement;
+    }
+
+    int rc = sqlite3_bind_text(s, 1, word, len, 0);
+    if (rc != SQLITE_OK) {
+        return -2;
+    }
+
+    for (rc = sqlite3_step(s); rc == SQLITE_ROW; rc = sqlite3_step(s)) {
+        const char* synonym = sqlite3_column_text(s, 0);
+        rc = ctx->xToken(ctx->callerContext, FTS5_TOKEN_COLOCATED, synonym, strlen(synonym), iStart, iEnd);
+        if (rc != SQLITE_OK) {
+            break;
+        }
+    }
+    if (rc != SQLITE_DONE) {
+        return -3;
+    }
+
+    rc = sqlite3_reset(s);
+    if (rc != SQLITE_OK) {
+        return -4;
+    }
+}
+
+static int isNumerical(const char* word, int len) {
+    for(int i = 0; i < len; i++) {
+        char c = word[i];
+        if(c < '0' || c > '9') {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static int ftsSnowballCallback(
 	void *pCtx,
 	int tflags,
@@ -127,13 +179,13 @@ static int ftsSnowballCallback(
 ){
     struct StemmerContext* ctx = (struct StemmerContext*) pCtx;
 
-    // Skip tokens below minTokenLength
-    if (nToken < ctx->instance->module->minTokenLength) {
+    // Skip tokens below minTokenLength, unless they are decimal numbers
+    if (nToken < ctx->instance->module->minTokenLength && !isNumerical(pToken, nToken)) {
         return SQLITE_OK;
     }
 
     if (ctx->removeStopwords) {
-        
+
         int stopwordStatus = isStopWord(ctx->instance, pToken, nToken);
         if (stopwordStatus < 0) {
             return SQLITE_ERROR;
@@ -144,25 +196,38 @@ static int ftsSnowballCallback(
         }
     }
 
-    // Only call snowball for tokens withing the set interval
+    // Only call snowball for tokens within the set interval
     if (nToken > MAX_TOKEN_LEN || nToken < MIN_TOKEN_LEN) {
-        return ctx->xToken(ctx->callerContext, tflags, pToken, nToken, iStart, iEnd);
+        int rc = ctx->xToken(ctx->callerContext, tflags, pToken, nToken, iStart, iEnd);
+        if (rc != SQLITE_OK) {
+            return rc;
+        }
+    } else {
+        char buffer[MAX_TOKEN_LEN];
+        memcpy(buffer, pToken, nToken);
+        struct sb_stemmer** stemmer = ctx->instance->module->stemmers;
+        const sb_symbol* stemmed = (const sb_symbol*) pToken;
+        int stemmedLength = nToken;
+        while (*stemmer) {
+            stemmed = sb_stemmer_stem(*stemmer, (unsigned char*) buffer, nToken);
+            stemmedLength = sb_stemmer_length(*stemmer);
+            if (stemmedLength != nToken) {
+                break;
+            }
+            stemmer++;
+        }
+        int rc = ctx->xToken(ctx->callerContext, tflags, (const char*) stemmed, stemmedLength, iStart, iEnd);
+        if (rc != SQLITE_OK) {
+            return rc;
+        }
     }
 
-    char buffer[MAX_TOKEN_LEN];
-    memcpy(buffer, pToken, nToken);
-    struct sb_stemmer** stemmer = ctx->instance->module->stemmers;
-    const sb_symbol* stemmed = (const sb_symbol*) pToken;
-    int stemmedLength = nToken;
-    while (*stemmer) {
-        stemmed = sb_stemmer_stem(*stemmer, (unsigned char*) buffer, nToken);
-        stemmedLength = sb_stemmer_length(*stemmer);
-        if (stemmedLength != nToken) {
-            break;
-        }
-        stemmer++;
+    if (ctx->addSynonyms) {
+        int rc = addSynonyms(ctx, pToken, nToken, iStart, iEnd);
+        return rc;
     }
-    return ctx->xToken(ctx->callerContext, tflags, (const char*) stemmed, stemmedLength, iStart, iEnd);
+
+    return SQLITE_OK;
 }
 
 static int ftsSnowballTokenize(
@@ -180,6 +245,7 @@ static int ftsSnowballTokenize(
 
     if ( (flags & (FTS5_TOKENIZE_QUERY | FTS5_TOKENIZE_PREFIX)) == FTS5_TOKENIZE_QUERY ) {
         ctx.removeStopwords = 1;
+        ctx.addSynonyms = 1;
 
         for (int i = 0; i < nText; i++) {
             // No stop word handling for quoted phrases
@@ -190,10 +256,11 @@ static int ftsSnowballTokenize(
         }
     } else {
         ctx.removeStopwords = 0;
+        ctx.addSynonyms = 0;
     }
 
     return instance->parentModule.xTokenize(
-        instance->parentInstance, &ctx, flags, pText, nText, ftsSnowballCallback
+        instance->parentInstance, &ctx, 0, pText, nText, ftsSnowballCallback
     );
 }
 
