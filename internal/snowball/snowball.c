@@ -132,31 +132,33 @@ static int addSynonyms(struct StemmerContext* ctx, const char* word, int len, in
             "and word <> ?1";
         int rc = sqlite3_prepare_v2(instance->module->db, synonymQuery, -1, &instance->synonymStatement, 0);
         if (rc != SQLITE_OK) {
-            return -1;
+            return rc;
         }
         s = instance->synonymStatement;
     }
 
     int rc = sqlite3_bind_text(s, 1, word, len, 0);
     if (rc != SQLITE_OK) {
-        return -2;
+        return rc;
     }
 
     for (rc = sqlite3_step(s); rc == SQLITE_ROW; rc = sqlite3_step(s)) {
-        const char* synonym = sqlite3_column_text(s, 0);
+        const char* synonym = (const char*) sqlite3_column_text(s, 0);
         rc = ctx->xToken(ctx->callerContext, FTS5_TOKEN_COLOCATED, synonym, strlen(synonym), iStart, iEnd);
         if (rc != SQLITE_OK) {
             break;
         }
     }
     if (rc != SQLITE_DONE) {
-        return -3;
+        return rc;
     }
 
     rc = sqlite3_reset(s);
     if (rc != SQLITE_OK) {
-        return -4;
+        return rc;
     }
+
+    return SQLITE_OK;
 }
 
 static int isNumerical(const char* word, int len) {
