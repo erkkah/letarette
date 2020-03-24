@@ -24,5 +24,3 @@ create table if not exists synonym_words (
     foreign key(synonymID) references synonyms(id) on delete cascade
 );
 
-insert into synonyms(description) values("one");
-insert into synonym_words(synonymID, word) values (1, "1"), (1, "one");
