@@ -52,6 +52,8 @@ var cmdline struct {
 	JSON       string `docopt:"<json>"`
 	AutoAssign bool   `docopt:"-a"`
 
+	Synonyms bool
+
 	Spelling      bool
 	Update        bool
 	SpellingLimit int `docopt:"<mincount>"`
@@ -77,6 +79,7 @@ Usage:
     lrcli index [-d <db>] rebuild
     lrcli index [-d <db>] forcestemmer
     lrcli load [-d <db>] [-l <limit>] [-a] <space> <json>
+    lrcli synonyms [-d <db>] [<json>]
     lrcli spelling [-d <db>] update <mincount>
     lrcli resetmigration [-d <db>] <version>
     lrcli env
@@ -119,11 +122,13 @@ Options:
 	case cmdline.Search:
 		doSearch(cfg)
 	case cmdline.Index:
-		indexSubcommand(cfg)
+		dbSubcommand(cfg)
 	case cmdline.Load:
 		cfg.Index.Spaces = []string{cmdline.Space}
 		logger.Debug.Printf("Loading into space %v", cfg.Index.Spaces)
-		indexSubcommand(cfg)
+		dbSubcommand(cfg)
+	case cmdline.Synonyms:
+		dbSubcommand(cfg)
 	case cmdline.Spelling:
 		updateSpelling(cfg)
 	case cmdline.ResetMigration:
@@ -135,7 +140,7 @@ Options:
 	}
 }
 
-func indexSubcommand(cfg letarette.Config) {
+func dbSubcommand(cfg letarette.Config) {
 	db, err := letarette.OpenDatabase(cfg)
 	defer func() {
 		if db == nil {
@@ -156,6 +161,12 @@ func indexSubcommand(cfg letarette.Config) {
 	switch {
 	case cmdline.Load:
 		bulkLoad(db)
+	case cmdline.Synonyms:
+		if cmdline.JSON != "" {
+			loadSynonyms(db)
+		} else {
+			dumpSynonyms(db)
+		}
 	case cmdline.Check:
 		err = letarette.CheckStemmerSettings(db, cfg)
 		if err == letarette.ErrStemmerSettingsMismatch {
