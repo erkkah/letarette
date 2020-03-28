@@ -173,7 +173,7 @@ func StartSearcher(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Search
 	}
 
 	subscription, err := ec.QueueSubscribe(
-		cfg.Nats.Topic+".q", cfg.Nats.SearchGroup,
+		cfg.Nats.Topic+".q", cfg.Shardgroup,
 		func(sub, reply string, query *protocol.SearchRequest) {
 			workChannel <- searchWork{
 				req:   *query,
