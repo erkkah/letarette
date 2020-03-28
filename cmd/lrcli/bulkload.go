@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/erkkah/letarette/internal/letarette"
+	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
 	"github.com/erkkah/letarette/pkg/spinner"
 )
@@ -79,6 +80,7 @@ func bulkLoad(db letarette.Database) {
 	}()
 
 	numID := 0
+	epoch := time.Unix(0, 0)
 
 	for cmdline.Limit == 0 || numRead < cmdline.Limit {
 		var e entry
@@ -89,6 +91,10 @@ func bulkLoad(db letarette.Database) {
 			numID++
 		}
 		if readErr == nil {
+			if e.Date.Before(epoch) {
+				logger.Info.Printf("Resetting invalid date to epoch")
+				e.Date = epoch
+			}
 			if e.ID == "" {
 				s.Stop("Cannot load document without ID, use -a for auto-assign?\n")
 				return

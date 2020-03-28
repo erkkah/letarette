@@ -16,7 +16,10 @@ package letarette
 
 import (
 	"encoding/binary"
+	"fmt"
 	"hash/fnv"
+	"strconv"
+	"strings"
 
 	"github.com/erkkah/letarette/pkg/protocol"
 )
@@ -29,4 +32,27 @@ func shardIndexFromDocumentID(docID protocol.DocumentID, shardGroupSize int) int
 	sum := shardHasher.Sum(nil)
 	intPart := binary.BigEndian.Uint32(sum)
 	return int(intPart % uint32(shardGroupSize))
+}
+
+func parseShardGroupString(shardGroup string) (group, size int, err error) {
+	parts := strings.SplitN(shardGroup, "/", 2)
+	parseError := fmt.Errorf("invalid shard group setting")
+	if len(parts) != 2 {
+		err = parseError
+		return
+	}
+	group, err = strconv.Atoi(parts[0])
+	if err != nil {
+		err = parseError
+		return
+	}
+	size, err = strconv.Atoi(parts[1])
+	if err != nil {
+		err = parseError
+		return
+	}
+	if group > size || group < 1 {
+		err = parseError
+	}
+	return
 }
