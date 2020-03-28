@@ -74,7 +74,7 @@ func getPackedMetrics() (string, error) {
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
 	_, err = w.Write(json)
-	w.Close()
+	_ = w.Close()
 	if err != nil {
 		return "", err
 	}
