@@ -106,7 +106,7 @@ func StartProfiler(cfg Config) (*Profiler, error) {
 func (p *Profiler) Close() error {
 	if p.cpuWriter != nil {
 		pprof.StopCPUProfile()
-		p.cpuWriter.Close()
+		_ = p.cpuWriter.Close()
 	}
 
 	if p.memWriter != nil {
@@ -114,7 +114,7 @@ func (p *Profiler) Close() error {
 		if err := pprof.WriteHeapProfile(p.memWriter); err != nil {
 			return fmt.Errorf("could not write memory profile: %v", err)
 		}
-		p.memWriter.Close()
+		_ = p.memWriter.Close()
 	}
 
 	if p.blockProfile != nil {
