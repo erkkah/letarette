@@ -255,7 +255,7 @@ func initDB(db *sqlx.DB, spaces []string) error {
 	}
 
 	if dirty {
-		return fmt.Errorf("Database has a dirty migration at level %v", version)
+		return fmt.Errorf("database has a dirty migration at level %v", version)
 	}
 
 	runMigration := version == 0

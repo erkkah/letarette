@@ -23,7 +23,7 @@ import (
 )
 
 // ErrStemmerSettingsMismatch is returned when config and index state does not match
-var ErrStemmerSettingsMismatch = fmt.Errorf("Config does not match index state")
+var ErrStemmerSettingsMismatch = fmt.Errorf("config does not match index state")
 
 // CheckStemmerSettings verifies that the index stemmer settings match the
 // current config. If there are no index settings, they will be set from the

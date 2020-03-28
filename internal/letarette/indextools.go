@@ -236,7 +236,7 @@ func StartIndexOptimization(dbo Database, pageIncrement int) (*IndexOptimizer, e
 
 	_, err = conn.ExecContext(ctx, `insert into fts(fts, rank) values("merge", ?);`, -pageIncrement)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, err
 	}
 

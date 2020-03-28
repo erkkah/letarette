@@ -19,12 +19,14 @@ import (
 	"fmt"
 )
 
-type Synonym struct {
+// Synonyms is a named list of words that are considered synonyms
+type Synonyms struct {
 	Description string
 	Words       []string
 }
 
-func SetSynonyms(ctx context.Context, dbo Database, synonyms []Synonym) error {
+// SetSynonyms replaces the current list of synonyms in the index
+func SetSynonyms(ctx context.Context, dbo Database, synonyms []Synonyms) error {
 	db := dbo.(*database)
 
 	tx, err := db.wdb.BeginTxx(ctx, nil)
