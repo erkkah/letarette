@@ -37,13 +37,20 @@ func StartBulkLoad(dbo Database, space string) (*BulkLoader, error) {
 		return nil, err
 	}
 	statement := tx.StmtxContext(ctx, db.addDocumentStatement)
-	return &BulkLoader{spaceID, tx, statement, 0}, nil
+	return &BulkLoader{
+		spaceID,
+		tx,
+		statement,
+		sql,
+		0,
+	}, nil
 }
 
 type BulkLoader struct {
 	spaceID     int
 	tx          *sqlx.Tx
 	statement   *sqlx.Stmt
+	db          *sqlx.DB
 	loadedBytes uint32
 }
 
@@ -78,7 +85,18 @@ func (bl *BulkLoader) Load(doc protocol.Document) error {
 }
 
 func (bl *BulkLoader) Commit() error {
-	return bl.tx.Commit()
+
+	err := bl.tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	_, err = bl.db.Exec(`vacuum`)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (bl *BulkLoader) Rollback() error {
