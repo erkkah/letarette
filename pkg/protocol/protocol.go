@@ -85,13 +85,13 @@ type IndexUpdateRequest struct {
 	Limit         uint16
 }
 
-// DocumentReference corresponds to one document at one point in time
+// A DocumentReference corresponds to one document at one point in time
 type DocumentReference struct {
 	ID      DocumentID
 	Updated time.Time
 }
 
-// IndexUpdate is a list of updated documents, sent in response to
+// A IndexUpdate is a list of updated documents, sent in response to
 // the IndexUpdateRequest above.
 type IndexUpdate struct {
 	Space   string
@@ -107,20 +107,32 @@ type Document struct {
 	Alive   bool
 }
 
-// DocumentUpdate is sent in response to DocumentRequest
+// A DocumentUpdate is sent in response to DocumentRequest
 type DocumentUpdate struct {
 	Space     string
 	Documents []Document
 }
 
-// DocumentRequest is a request for a list of documents.
+// A DocumentRequest is a request for a list of documents.
 // Returned documents are broadcasted to all workers.
 type DocumentRequest struct {
 	Space  string
 	Wanted []DocumentID
 }
 
-// SearchRequest is sent from a search handler to search the index.
+// A CloneRequest is sent by freshly started workers that
+// want to initialize by cloning another index.
+type CloneRequest struct {
+	TargetShardgroup string
+}
+
+// CloneStream is sent in response to a CloneRequest.
+// The returned URL can be read only once and is valid for a limited time.
+type CloneStream struct {
+	URL string
+}
+
+// A SearchRequest is sent from a search handler to search the index.
 type SearchRequest struct {
 	// Spaces to search
 	Spaces []string

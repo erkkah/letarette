@@ -56,7 +56,7 @@ func loadSynonyms(db letarette.Database) {
 
 	decoder := json.NewDecoder(fileReader)
 	var voidSynonym []interface{}
-	var synonyms []letarette.Synonym
+	var synonyms []letarette.Synonyms
 
 	count := 0
 
@@ -76,7 +76,7 @@ func loadSynonyms(db letarette.Database) {
 		for _, r := range voidSynonyms {
 			synonymWords = append(synonymWords, r.(string))
 		}
-		synonyms = append(synonyms, letarette.Synonym{
+		synonyms = append(synonyms, letarette.Synonyms{
 			Description: description,
 			Words:       synonymWords,
 		})

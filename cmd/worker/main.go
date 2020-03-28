@@ -141,6 +141,12 @@ func main() {
 		}
 	}
 
+	cloner, err := letarette.StartCloner(conn, db, cfg)
+	if err != nil {
+		logger.Error.Printf("Failed to start cloner: %v", err)
+		os.Exit(1)
+	}
+
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT)
 
@@ -158,6 +164,9 @@ func main() {
 	}
 	if indexer != nil {
 		indexer.Close()
+	}
+	if cloner != nil {
+		_ = cloner.Close()
 	}
 }
 

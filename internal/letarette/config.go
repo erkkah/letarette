@@ -17,8 +17,6 @@ package letarette
 import (
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -30,11 +28,10 @@ import (
 // Config holds the main configuration
 type Config struct {
 	Nats struct {
-		URLS        []string `default:"nats://localhost:4222"`
-		SeedFile    string
-		RootCAs     []string
-		Topic       string `default:"leta"`
-		SearchGroup string `ignored:"true"`
+		URLS     []string `default:"nats://localhost:4222"`
+		SeedFile string
+		RootCAs  []string
+		Topic    string `default:"leta"`
 	}
 	DB struct {
 		Path           string `default:"letarette.db"`
@@ -78,7 +75,8 @@ type Config struct {
 	Shardgroup      string `default:"1/1"`
 	ShardgroupSize  uint16 `ignored:"true"`
 	ShardgroupIndex uint16 `ignored:"true"`
-	MetricsPort     uint16 `split_words:"true" default:"8000" desc:"internal"`
+	CloningPort     uint16 `default:"8192"`
+	CloningHost     string
 	Profile         struct {
 		HTTP  int    `desc:"internal"`
 		CPU   string `desc:"internal"`
@@ -126,7 +124,6 @@ func LoadConfig() (cfg Config, err error) {
 	cfg.ShardgroupIndex = uint16(group - 1)
 	cfg.ShardgroupSize = uint16(size)
 
-	cfg.Nats.SearchGroup = fmt.Sprintf("%v", cfg.ShardgroupIndex)
 	return
 }
 
@@ -155,27 +152,4 @@ func Usage() {
 	var cfg Config
 	tabs := tabwriter.NewWriter(os.Stdout, 1, 0, 4, ' ', 0)
 	_ = envconfig.Usagef(prefix, &cfg, tabs, usageFormat)
-}
-
-func parseShardGroupString(shardGroup string) (group, size int, err error) {
-	parts := strings.SplitN(shardGroup, "/", 2)
-	parseError := fmt.Errorf("invalid shard group setting")
-	if len(parts) != 2 {
-		err = parseError
-		return
-	}
-	group, err = strconv.Atoi(parts[0])
-	if err != nil {
-		err = parseError
-		return
-	}
-	size, err = strconv.Atoi(parts[1])
-	if err != nil {
-		err = parseError
-		return
-	}
-	if group > size || group < 1 {
-		err = parseError
-	}
-	return
 }
