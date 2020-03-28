@@ -523,8 +523,8 @@ func handleDownload(target string, url string, checksum ...string) error {
 		return err
 	}
 	defer func() {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
 	}()
 
 	if _, err = io.Copy(tmpFile, response.Body); err != nil {

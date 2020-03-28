@@ -93,7 +93,7 @@ linters-settings:
     local-prefixes: github.com/org/project
   golint:
     # minimal confidence for issues, default is 0.8
-    min-confidence: 0.8
+    min-confidence: 0.2
   gomnd:
     settings:
       mnd:
@@ -186,6 +186,7 @@ linters-settings:
 
 linters:
   enable:
+    - golint
     - govet
     - depguard
     - dogsled
@@ -252,16 +253,19 @@ issues:
         - lll
       source: "{{.*}}"
 
-    
     - linters:
         - errcheck
       source: "\\sdefer\\s|\\stx.Rollback"
+
+    - linters:
+        - golint
+      text: "package comment|ALL_CAPS"
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all
   # excluded by default patterns execute `golangci-lint run --help`.
   # Default value for this option is true.
-  exclude-use-default: true
+  exclude-use-default: false
 
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 20
