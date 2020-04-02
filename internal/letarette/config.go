@@ -72,12 +72,12 @@ type Config struct {
 		Disable        bool          `default:"false"`
 		Strategy       int           `default:"1" desc:"internal"`
 	}
-	Shardgroup      string `default:"1/1"`
-	ShardgroupSize  uint16 `ignored:"true"`
-	ShardgroupIndex uint16 `ignored:"true"`
-	CloningPort     uint16 `default:"8192"`
-	CloningHost     string
-	Profile         struct {
+	Shard          string `default:"1/1"`
+	ShardgroupSize uint16 `ignored:"true"`
+	ShardIndex     uint16 `ignored:"true"`
+	CloningPort    uint16 `default:"8192"`
+	CloningHost    string
+	Profile        struct {
 		HTTP  int    `desc:"internal"`
 		CPU   string `desc:"internal"`
 		Mem   string `desc:"internal"`
@@ -117,11 +117,11 @@ func LoadConfig() (cfg Config, err error) {
 		return Config{}, fmt.Errorf("invalid index timing settings")
 	}
 
-	group, size, err := parseShardGroupString(cfg.Shardgroup)
+	group, size, err := parseShardString(cfg.Shard)
 	if err != nil {
 		return
 	}
-	cfg.ShardgroupIndex = uint16(group - 1)
+	cfg.ShardIndex = uint16(group - 1)
 	cfg.ShardgroupSize = uint16(size)
 
 	return

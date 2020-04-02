@@ -82,7 +82,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Indexer
 		filtered := make([]protocol.Document, 0, len(update.Documents))
 		for _, doc := range update.Documents {
 			index := shardIndexFromDocumentID(doc.ID, int(cfg.ShardgroupSize))
-			if index == int(cfg.ShardgroupIndex) {
+			if index == int(cfg.ShardIndex) {
 				filtered = append(filtered, doc)
 			}
 		}
@@ -302,7 +302,7 @@ func (idx *indexer) requestNextChunk(space string) error {
 			continue
 		}
 		index := shardIndexFromDocumentID(u.ID, int(idx.cfg.ShardgroupSize))
-		if index == int(idx.cfg.ShardgroupIndex) {
+		if index == int(idx.cfg.ShardIndex) {
 			filtered = append(filtered, u)
 		}
 	}

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -26,9 +27,25 @@ import (
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
-// StatusMonitor communicates worker status with the cluster
+// StatusMonitor communicates worker status with the cluster,
+// and listens to status broadcasts from other workers.
+//
+// It identifies the shard configurations in the cluster and
+// their corresponding status. The cluster is considered
+// healthy as long as one shard config is healthy.
+//
 type StatusMonitor interface {
 	Close()
+	GetHealthyShards() []ShardInfo
+	ShardInitDone()
+}
+
+// ShardInfo holds info about a healthy shard as a source
+// for cloning.
+type ShardInfo struct {
+	ShardgroupSize uint16
+	ShardIndex     uint16
+	DocCount       uint64
 }
 
 // StartStatusMonitor creates a new StatusMonitor, listening to status broadcasts
@@ -59,13 +76,15 @@ func StartStatusMonitor(nc *nats.Conn, db Database, cfg Config) (StatusMonitor, 
 		version:        protocol.Version,
 		workerStatus:   map[string]protocol.IndexStatus{},
 		workerPingtime: map[string]time.Time{},
+		healthRequests: make(chan chan []ShardInfo),
+		shardInitDone:  make(chan interface{}),
 	}
 
 	self.workerStatus[indexID] = protocol.IndexStatus{
 		IndexID:        indexID,
 		Version:        protocol.Version.String(),
 		ShardgroupSize: cfg.ShardgroupSize,
-		Shardgroup:     cfg.ShardgroupIndex,
+		ShardIndex:     cfg.ShardIndex,
 		Status:         protocol.IndexStatusStartingUp,
 	}
 
@@ -77,6 +96,9 @@ func StartStatusMonitor(nc *nats.Conn, db Database, cfg Config) (StatusMonitor, 
 	if err != nil {
 		return nil, err
 	}
+
+	self.starting.Add(1)
+	started := false
 
 	go func() {
 		checkpoint := time.After(time.Second * 5)
@@ -90,7 +112,25 @@ func StartStatusMonitor(nc *nats.Conn, db Database, cfg Config) (StatusMonitor, 
 				return
 			case <-checkpoint:
 				self.checkpoint()
+				if !started {
+					started = true
+					self.starting.Done()
+				}
 				checkpoint = time.After(time.Second * 2)
+			case healthChan := <-self.healthRequests:
+				healthyGroups := []ShardInfo{}
+
+				for _, status := range self.workerStatus {
+					if status.Status <= protocol.IndexStatusSyncing && status.IndexID != indexID {
+						healthyGroups = append(healthyGroups, ShardInfo{
+							ShardIndex:     status.ShardIndex,
+							ShardgroupSize: status.ShardgroupSize,
+							DocCount:       status.DocCount,
+						})
+					}
+				}
+
+				healthChan <- healthyGroups
 			}
 		}
 	}()
@@ -110,19 +150,39 @@ type monitor struct {
 	statusCode     protocol.IndexStatusCode
 	workerStatus   map[string]protocol.IndexStatus
 	workerPingtime map[string]time.Time
+	healthRequests chan chan []ShardInfo
+	shardInitDone  chan interface{}
+	starting       sync.WaitGroup
 }
 
 func (m *monitor) Close() {
 	m.close()
 }
 
+func (m *monitor) GetHealthyShards() []ShardInfo {
+	m.starting.Wait()
+	healthChan := make(chan []ShardInfo)
+	m.healthRequests <- healthChan
+	return <-healthChan
+}
+
+func (m *monitor) ShardInitDone() {
+	close(m.shardInitDone)
+}
+
 func (m *monitor) checkpoint() {
 	workersPerShard := map[uint16][]string{
-		m.cfg.ShardgroupIndex: {m.indexID},
+		m.cfg.ShardIndex: {m.indexID},
 	}
 	staleTime := time.Now().Add(-1 * time.Minute)
 	var numWorkers int
 	newStatus := protocol.IndexStatusInSync
+
+	select {
+	case <-m.shardInitDone:
+	default:
+		newStatus = protocol.IndexStatusStartingUp
+	}
 
 	setStatus := func(status protocol.IndexStatusCode) {
 		if status > newStatus {
@@ -147,9 +207,9 @@ func (m *monitor) checkpoint() {
 				)
 				setStatus(protocol.IndexStatusIncompatible)
 			}
-			workers := workersPerShard[v.Shardgroup]
+			workers := workersPerShard[v.ShardIndex]
 			workers = append(workers, v.IndexID)
-			workersPerShard[v.Shardgroup] = workers
+			workersPerShard[v.ShardIndex] = workers
 			numWorkers++
 		}
 	}

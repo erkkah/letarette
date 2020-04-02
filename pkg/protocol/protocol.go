@@ -37,8 +37,8 @@ type IndexStatusCode uint8
 // valued codes overriding lower valued codes.
 const (
 	IndexStatusInSync IndexStatusCode = iota + 72
-	IndexStatusStartingUp
 	IndexStatusSyncing
+	IndexStatusStartingUp
 	IndexStatusIncompleteShardgroup
 	IndexStatusIncompatible
 )
@@ -46,8 +46,8 @@ const (
 func (isc IndexStatusCode) String() string {
 	strings := map[IndexStatusCode]string{
 		IndexStatusInSync:               "in sync",
-		IndexStatusStartingUp:           "starting up",
 		IndexStatusSyncing:              "syncing",
+		IndexStatusStartingUp:           "starting up",
 		IndexStatusIncompleteShardgroup: "incomplete shard group",
 		IndexStatusIncompatible:         "incompatible protocol versions",
 	}
@@ -65,13 +65,13 @@ type IndexStatus struct {
 	DocCount       uint64
 	LastUpdate     time.Time
 	ShardgroupSize uint16
-	Shardgroup     uint16
+	ShardIndex     uint16
 	Status         IndexStatusCode
 }
 
 func (status IndexStatus) String() string {
 	return fmt.Sprintf("Index@%s(%d/%d): %d docs, last update: %v, status: %v",
-		status.IndexID, status.Shardgroup+1, status.ShardgroupSize,
+		status.IndexID, status.ShardIndex+1, status.ShardgroupSize,
 		status.DocCount, status.LastUpdate, status.Status)
 }
 
@@ -123,7 +123,8 @@ type DocumentRequest struct {
 // A CloneRequest is sent by freshly started workers that
 // want to initialize by cloning another index.
 type CloneRequest struct {
-	TargetShardgroup string
+	SourceShard string
+	TargetShard string
 }
 
 // CloneStream is sent in response to a CloneRequest.
