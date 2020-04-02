@@ -120,6 +120,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = letarette.InitializeShard(conn, db, cfg, monitor)
+	if err != nil {
+		logger.Error.Printf("Failed to initialize shard: %v", err)
+		os.Exit(1)
+	}
+
 	maxSize := cfg.Search.CacheMaxsizeMB * 1000 * 1000
 	cache := letarette.NewCache(cfg.Search.CacheTimeout, maxSize)
 

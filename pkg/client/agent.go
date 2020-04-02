@@ -70,7 +70,9 @@ func NewSearchAgent(URLs []string, options ...Option) (SearchAgent, error) {
 		agent.monitor, err = NewMonitor(
 			URLs,
 			func(status protocol.IndexStatus) {
-				atomic.SwapInt32(&agent.volatileNumShards, int32(status.ShardgroupSize))
+				if status.Status == protocol.IndexStatusInSync || status.Status == protocol.IndexStatusSyncing {
+					atomic.SwapInt32(&agent.volatileNumShards, int32(status.ShardgroupSize))
+				}
 			},
 			WithTopic(agent.topic),
 			WithSeedFile(agent.seedFile),

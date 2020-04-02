@@ -34,7 +34,7 @@ func shardIndexFromDocumentID(docID protocol.DocumentID, shardGroupSize int) int
 	return int(intPart % uint32(shardGroupSize))
 }
 
-func parseShardGroupString(shardGroup string) (group, size int, err error) {
+func parseShardString(shardGroup string) (group, size int, err error) {
 	parts := strings.SplitN(shardGroup, "/", 2)
 	parseError := fmt.Errorf("invalid shard group setting")
 	if len(parts) != 2 {
