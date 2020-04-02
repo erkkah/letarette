@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/erkkah/letarette/pkg/logger"
@@ -59,6 +58,7 @@ func CloneTest(db Database, shard string) error {
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 
 	cloner, err := StartShardClone(ctx, db.(*database), shard, file)
 	if err != nil {
@@ -82,7 +82,12 @@ func CloneTest(db Database, shard string) error {
 	logger.Info.Printf("Shard clone: %v of %v docs created in %v\n", file, count, dumpDuration)
 
 	loadStart := time.Now()
-	err = LoadShardClone(ctx, db.(*database), file.Name())
+	_, err = file.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+
+	err = LoadShardClone(ctx, db.(*database), file)
 	loadDuration := time.Since(loadStart)
 	logger.Info.Printf("Loaded in %v\n", loadDuration)
 	return err
@@ -95,7 +100,7 @@ const (
 // StartShardClone starts the process of cloning all documents in the index for loading
 // into a specified shard group.
 func StartShardClone(ctx context.Context, db *database, shardGroup string, dest io.Writer) (*ShardCloner, error) {
-	group, size, err := parseShardGroupString(shardGroup)
+	group, size, err := parseShardString(shardGroup)
 	if err != nil {
 		return nil, err
 	}
@@ -214,14 +219,9 @@ func (s *ShardCloner) Close() (int, error) {
 	return s.count, nil
 }
 
-func LoadShardClone(ctx context.Context, db Database, path string) error {
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	uncompressor, err := gzip.NewReader(file)
+// LoadShardClone loads a clone from a reader source
+func LoadShardClone(ctx context.Context, db Database, source io.Reader) error {
+	uncompressor, err := gzip.NewReader(source)
 	if err != nil {
 		return err
 	}
@@ -258,7 +258,7 @@ func LoadShardClone(ctx context.Context, db Database, path string) error {
 				}
 				return nil
 			}
-			return err
+			return fmt.Errorf("failed to read space: %w", err)
 		}
 
 		if space != "" {
@@ -270,7 +270,7 @@ func LoadShardClone(ctx context.Context, db Database, path string) error {
 			}
 			loader, err = StartBulkLoad(db, space)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to start bulk load: %w", err)
 			}
 		}
 
@@ -281,7 +281,12 @@ func LoadShardClone(ctx context.Context, db Database, path string) error {
 		var doc protocol.Document
 		err = decoder.Decode(&doc)
 		if err != nil {
-			return err
+			if err == io.EOF {
+				err = loader.Commit()
+				loader = nil
+				return err
+			}
+			return fmt.Errorf("failed to read doc: %w", err)
 		}
 
 		err = loader.Load(doc)

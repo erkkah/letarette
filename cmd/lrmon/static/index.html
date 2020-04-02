@@ -37,7 +37,7 @@
                 <div class="col">
                     <table>
                         <thead>
-                            <tr><th>Index ID</th><th class="hide-xs">Shardgroup</th><th class="hide-xs">Documents</th><th>Status</th><th class="hide-xs hide-sm">Updated</th></tr>
+                            <tr><th>Index ID</th><th class="hide-xs">Shard</th><th class="hide-xs">Documents</th><th>Status</th><th class="hide-xs hide-sm">Updated</th></tr>
                         </thead>
                         <tbody>
                             {{range .State.IndexStatus}}
@@ -93,7 +93,7 @@
                                         </form>
                                     </details>
                                 </td>
-                                <td class="hide-xs">{{.Shardgroup | add 1}}/{{.ShardgroupSize}}</td>
+                                <td class="hide-xs">{{.ShardIndex | add 1}}/{{.ShardgroupSize}}</td>
                                 <td class="hide-xs">{{.DocCount}}</td>
                                 <td>{{.Status}}</td>
                                 <td class="hide-xs hide-sm">{{.Updated | time "iso"}}</td>
