@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -107,4 +108,14 @@ func handleRemovePlot(vars url.Values) error {
 	err = removePlot(id)
 
 	return err
+}
+
+func handleSearch(vars url.Values) searchResponse {
+	query := vars.Get("query")
+	spaces := vars["space"]
+	limit, _ := strconv.Atoi(vars.Get("limit"))
+	if query == "" {
+		return searchResponse{}
+	}
+	return search(query, spaces, limit)
 }
