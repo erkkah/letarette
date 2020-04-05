@@ -1,0 +1,84 @@
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <style>
+            @import url('https://fonts.googleapis.com/css?family=Fira+Sans&display=swap&subset=latin-ext');
+            @import url(/chota.min.css);
+            :root {
+                --font-family: "Fira Sans", sans-serif;
+            }
+        </style>
+        <title>Letarette monitor</title>
+    </head>
+    <body>
+        <div class="container">
+            <nav class="nav">
+                <div class="nav-left">
+                    <span class="text-grey">Monitor {{.State.Version}}</span>
+                </div>
+                <div class="nav-center">
+                    <a class="brand" href="#">Letarette</a>
+                </div>
+                <div class="nav-right">
+                    <div class="tabs">
+                        <a href="/index.html">Status</a>
+                        <a href="/metrics.html">Metrics</a>
+                        <a class="active">Search</a>
+                    </div>
+                </div>
+            </nav>
+            <div class="row"><div class="col"><h4>Search</h4></div></div>
+
+            <form method="POST">
+                <div class="row reverse">
+                    <label class="col-2">Limit
+                        <select tabindex="2" name="limit">
+                            {{$limits := list "10" "50" "100"}}
+                            {{$limit := .Request.Form.Get "limit"}}
+                            {{range $limits}}
+                            <option value="{{.}}" {{if eq . $limit}}selected{{end}}>{{.}}</option>
+                            {{end}}
+                        </select>
+                    </label>
+                    <label class="col-3">Space
+                        <input tabindex="1" type="text" name="space" value='{{with .Request.Form.Get "space"}}{{.}}{{else}}docs{{end}}'/>
+                    </label>
+                    <button tabindex="-1" type="submit" class="button clear icon-only"></button>                            
+                </div>
+                <div class="row">
+                    <label class="col">Query
+                        {{$query := .Request.Form.Get "query"}}
+                        <input tabindex="3" autofocus type="text" name="query" value="{{$query}}"/>
+                    </label>
+                </div>
+            </form>
+            
+            {{if $query}}
+            {{with .Response}}
+                {{if .Error}}
+                    {{.Error}}
+                {{else}}
+                    {{with .Response}}
+                        <div class="row">
+                            <table class="col">
+                                <thead>
+                                    <tr><th class="hide-xs">Doc ID</th><th>Snippet</th><th class="hide-sm hide-xs">Rank</th></tr>
+                                </thead>
+                                <tbody>
+                                    {{range .Result.Hits}}
+                                    <tr><td class="hide-xs">{{.ID}}</td><td>{{.Snippet}}</td><td class="hide-sm hide-xs">{{.Rank}}</td></tr>
+                                    {{end}}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="row">
+                            <span class="col bd-light">Status: {{.Status}}, Execution time: {{.Duration | SI}}s, Total hits: {{.Result.TotalHits}}, Capped: {{.Result.Capped}}</span>
+                        </div>
+                    {{end}}
+                {{end}}
+            {{end}}
+            {{end}}
+        </div>
+    </body>
+</html>

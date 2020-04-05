@@ -67,14 +67,19 @@ func (s *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		redirect(w, "/metrics.html")
 		return
 	}
+	var response searchResponse
+	if path == "/search.html" {
+		response = handleSearch(req.Form)
+	}
 	if path == "/" {
 		path = "/index.html"
 	}
 	if template := s.lookupTemplate(path); template != nil {
 		state := getState()
 		ctx := Context{
-			State:   state,
-			Request: req,
+			State:    state,
+			Request:  req,
+			Response: response,
 		}
 		setContentTypeFromPath(w, path)
 		err = template.Execute(w, ctx)
@@ -88,6 +93,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // Context is the template rendering context
 type Context struct {
-	State   State
-	Request *http.Request
+	State    State
+	Request  *http.Request
+	Response searchResponse
 }

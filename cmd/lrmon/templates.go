@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 )
@@ -48,5 +49,35 @@ var templateFunctions = map[string]interface{}{
 		default:
 		}
 		return t.Format(formatString)
+	},
+	"SI": func(input interface{}) string {
+		number := anyToFloat(input)
+		siPrefixes := map[int]string{
+			-15: "f",
+			-12: "p",
+			-9:  "n",
+			-6:  "µ",
+			-3:  "m",
+			0:   "",
+			3:   "k",
+			6:   "M",
+			9:   "G",
+			12:  "T",
+			15:  "P",
+		}
+		exp := math.Log10(number)
+		exp = math.Floor(exp / 3)
+		if exp > 5 {
+			exp = 5
+		}
+		if exp < -5 {
+			exp = -5
+		}
+
+		quantizedExponent := int(exp) * 3
+		divider := math.Pow10(quantizedExponent)
+		prefix := siPrefixes[quantizedExponent]
+
+		return fmt.Sprintf("%.2f%s", number/divider, prefix)
 	},
 }
