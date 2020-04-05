@@ -36,10 +36,7 @@ func main() {
 	}
 	defer monitor.Close()
 
-	if err != nil {
-		logger.Error.Printf("Template error: %v", err)
-		return
-	}
+	startSearchClient([]string{"localhost"}, "", []string{})
 
 	server := &server{
 		lookupTemplate: lookupTemplate,
