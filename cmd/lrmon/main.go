@@ -15,6 +15,8 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/erkkah/letarette/pkg/client"
@@ -27,8 +29,22 @@ import (
 */
 
 func main() {
+	if len(os.Args) > 1 {
+		Usage()
+		os.Exit(0)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		logger.Error.Printf("Failed to load config: %v", err)
+		os.Exit(1)
+	}
+
 	monitor, err := client.NewMonitor(
-		[]string{"localhost"}, listener, client.WithMetricsCollector(collector, time.Second),
+		cfg.Nats.URLS, listener, client.WithMetricsCollector(collector, time.Second),
+		client.WithTopic(cfg.Nats.Topic),
+		client.WithRootCAs(cfg.Nats.RootCAs...),
+		client.WithSeedFile(cfg.Nats.SeedFile),
 	)
 	if err != nil {
 		logger.Error.Printf("Failed to create monitor: %v", err)
@@ -36,12 +52,21 @@ func main() {
 	}
 	defer monitor.Close()
 
-	startSearchClient([]string{"localhost"}, "", []string{})
+	err = startSearchClient(
+		cfg.Nats.URLS,
+		cfg.Nats.SeedFile,
+		cfg.Nats.RootCAs,
+	)
+	if err != nil {
+		logger.Error.Printf("Failed to start search client: %v", err)
+		return
+	}
 
 	server := &server{
 		lookupTemplate: lookupTemplate,
+		serveRaw:       serveRaw,
 	}
-	server.run(":8080")
+	server.run(fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))
 }
 
 func listener(status protocol.IndexStatus) {
