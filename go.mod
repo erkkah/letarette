@@ -9,9 +9,9 @@ require (
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mattn/go-sqlite3 v1.13.0
-	github.com/nats-io/nats-server/v2 v2.1.4 // indirect
-	github.com/nats-io/nats.go v1.9.1
-	golang.org/x/sys v0.0.0-20200317113312-5766fd39f98d
+	github.com/nats-io/nats-server/v2 v2.1.6 // indirect
+	github.com/nats-io/nats.go v1.9.2
+	golang.org/x/sys v0.0.0-20200409092240-59c9f1ba88fa
 	gotest.tools v2.2.0+incompatible
 )
 
