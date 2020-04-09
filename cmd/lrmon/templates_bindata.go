@@ -19,8 +19,11 @@
 package main
 
 import (
+	"bytes"
 	"html/template"
+	"io"
 	"log"
+	"strings"
 
 	"github.com/erkkah/letarette/pkg/logger"
 )
@@ -29,6 +32,16 @@ var loadedTemplates *template.Template
 
 func lookupTemplate(path string) *template.Template {
 	return loadedTemplates.Lookup(path)
+}
+
+func serveRaw(path string, writer io.Writer) error {
+	data, err := Asset(path)
+	if err != nil {
+		return err
+	}
+	reader := bytes.NewReader(data)
+	_, err = io.Copy(writer, reader)
+	return err
 }
 
 func init() {
@@ -42,6 +55,9 @@ func init() {
 func parseTemplates() (*template.Template, error) {
 	result := template.New("").Funcs(templateFunctions)
 	for _, file := range AssetNames() {
+		if strings.HasPrefix(file, "/raw") {
+			continue
+		}
 		logger.Debug.Printf("Parsing template %q", file)
 		templateData, err := Asset(file)
 		if err != nil {

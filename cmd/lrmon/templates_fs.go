@@ -19,7 +19,9 @@ package main
 import (
 	"fmt"
 	"html/template"
+	"io"
 	"io/ioutil"
+	"os"
 	"path"
 )
 
@@ -41,4 +43,14 @@ func lookupTemplate(templatePath string) *template.Template {
 		return errorTemplate(templatePath, err)
 	}
 	return result
+}
+
+func serveRaw(rawPath string, writer io.Writer) error {
+	file, err := os.Open(path.Join("static", rawPath))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = io.Copy(writer, file)
+	return err
 }
