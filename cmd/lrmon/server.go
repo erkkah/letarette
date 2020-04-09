@@ -77,8 +77,8 @@ func (s *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if path == "/" {
 		path = "/index.html"
 	}
-	if strings.HasPrefix(path, "/raw") {
-		path = strings.TrimPrefix(path, "/raw")
+	if strings.HasPrefix(path, "/raw/") {
+		path = strings.TrimPrefix(path, "/raw/")
 		setContentTypeFromPath(w, path)
 		err = s.serveRaw(path, w)
 		if err == io.EOF {
