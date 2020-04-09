@@ -16,9 +16,11 @@ package main
 
 import (
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/erkkah/letarette/pkg/logger"
 )
@@ -26,6 +28,7 @@ import (
 type server struct {
 	http.Server
 	lookupTemplate func(path string) *template.Template
+	serveRaw       func(path string, writer io.Writer) error
 }
 
 func (s *server) run(addr string) {
@@ -74,7 +77,15 @@ func (s *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if path == "/" {
 		path = "/index.html"
 	}
-	if template := s.lookupTemplate(path); template != nil {
+	if strings.HasPrefix(path, "/raw") {
+		path = strings.TrimPrefix(path, "/raw")
+		setContentTypeFromPath(w, path)
+		err = s.serveRaw(path, w)
+		if err == io.EOF {
+			_ = textResponse(w, 404, "Not found")
+			return
+		}
+	} else if template := s.lookupTemplate(path); template != nil {
 		state := getState()
 		ctx := Context{
 			State:    state,
