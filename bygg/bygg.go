@@ -46,11 +46,11 @@ var config struct {
 	verbose bool
 	dryRun  bool
 	baseDir string
+	byggFil string
 }
 
-const byggfil = "byggfil"
-
 func main() {
+	flag.StringVar(&config.byggFil, "f", "byggfil", "Bygg file")
 	flag.BoolVar(&config.dryRun, "n", false, "Performs a dry run")
 	flag.BoolVar(&config.verbose, "v", false, "Verbose")
 	flag.StringVar(&config.baseDir, "C", ".", "Base dir")
@@ -83,6 +83,7 @@ type target struct {
 	buildCommands []string
 	dependencies  []string
 	resolved      bool
+	force         bool
 	modifiedAt    time.Time
 }
 
@@ -112,11 +113,16 @@ func newBygg(dir string) (*bygge, error) {
 		dir:     dir,
 	}
 
+	for _, pair := range os.Environ() {
+		parts := strings.Split(pair, "=")
+		result.env[parts[0]] = parts[1]
+	}
+
 	getFunctions := func(b *bygge) template.FuncMap {
 		return template.FuncMap{
 			"exec": func(prog string, args ...string) string {
 				cmd := exec.Command(prog, args...)
-				cmd.Env = b.combinedEnv()
+				cmd.Env = b.envList()
 				var output []byte
 				output, b.lastError = cmd.Output()
 				return string(output)
@@ -133,16 +139,16 @@ func newBygg(dir string) (*bygge, error) {
 		}
 	}
 
-	result.tmpl = template.New(byggfil)
+	result.tmpl = template.New(config.byggFil)
 	result.tmpl.Funcs(getFunctions(result))
 
 	verbose("Parsing template")
-	if !exists(byggfil) {
-		return nil, fmt.Errorf("bygg file %q not found", byggfil)
+	if !exists(config.byggFil) {
+		return nil, fmt.Errorf("bygg file %q not found", config.byggFil)
 	}
 	var err error
 
-	if result.tmpl, err = result.tmpl.ParseFiles(byggfil); err != nil {
+	if result.tmpl, err = result.tmpl.ParseFiles(config.byggFil); err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %w", err)
 	}
 	return result, nil
@@ -162,16 +168,10 @@ func (b *bygge) buildTarget(tgt string) error {
 	goCache := filepath.Join(cacheDir, "go-build")
 	goVersion := runtime.Version()
 
-	env := map[string]string{}
-	for _, pair := range os.Environ() {
-		parts := strings.Split(pair, "=")
-		env[parts[0]] = parts[1]
-	}
-
 	data := map[string]interface{}{
 		"GO_CACHE":   goCache,
 		"GO_VERSION": goVersion,
-		"env":        env,
+		"env":        b.env,
 	}
 
 	verbose("Executing template")
@@ -263,6 +263,11 @@ func (b *bygge) loadBuildScript(scriptSource io.Reader) error {
 func (b *bygge) handleDependencies(lvalue, rvalue string) error {
 	t := b.targets[lvalue]
 	t.name = lvalue
+	rvalue = strings.TrimLeft(rvalue, " \t")
+	if strings.HasPrefix(rvalue, "!") {
+		t.force = true
+		rvalue = strings.TrimLeft(rvalue, "!")
+	}
 	dependencies, err := splitQuoted(rvalue)
 	if err != nil {
 		return err
@@ -279,8 +284,8 @@ func (b *bygge) handleAssignment(lvalue, rvalue string, add bool) error {
 		context := parts[0]
 		name := parts[1]
 		if context == "env" {
-			if add {
-				rvalue = b.env[name] + " " + rvalue
+			if oldValue, isSet := b.env[name]; isSet && add {
+				rvalue = oldValue + " " + rvalue
 			}
 			b.env[name] = rvalue
 		} else {
@@ -363,7 +368,7 @@ func (b *bygge) resolve(t target) error {
 		}
 	}
 
-	if !exists(t.name) || getFileDate(t.name).Before(mostRecentUpdate) {
+	if t.force || !exists(t.name) || getFileDate(t.name).Before(mostRecentUpdate) {
 		for _, cmd := range t.buildCommands {
 			if err := b.build(t.name, cmd); err != nil {
 				return err
@@ -425,18 +430,18 @@ func (b *bygge) build(tgt, command string) error {
 		return handleDownload(tgt, prog, args...)
 	}
 	cmd := exec.Command(prog, args...)
-	cmd.Env = b.combinedEnv()
+	cmd.Env = b.envList()
 	output, err := cmd.CombinedOutput()
 	fmt.Print(string(output))
 	return err
 }
 
-func (b *bygge) combinedEnv() []string {
-	localEnv := []string{}
+func (b *bygge) envList() []string {
+	env := []string{}
 	for k, v := range b.env {
-		localEnv = append(localEnv, fmt.Sprintf("%s=%s", k, v))
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
-	return append(os.Environ(), localEnv...)
+	return env
 }
 
 func verbose(pattern string, args ...interface{}) {
