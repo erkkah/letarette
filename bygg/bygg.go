@@ -14,9 +14,7 @@
 
 /*
 "bygg" is an attempt to replace the roles of "make" and "bash" in building
-letarette, making it easier to maintain a portable build environment.
-
-It only uses go builtins and is small enough to be run using "go run".
+go projects, making it easier to maintain a portable build environment.
 */
 package main
 
@@ -34,7 +32,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -161,32 +158,26 @@ func (b *bygge) buildTarget(tgt string) error {
 	}
 	defer os.Chdir(pwd)
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user cache dir: %v", err)
-	}
-	goCache := filepath.Join(cacheDir, "go-build")
 	goVersion := runtime.Version()
 
 	data := map[string]interface{}{
-		"GO_CACHE":   goCache,
-		"GO_VERSION": goVersion,
-		"env":        b.env,
+		"GOVERSION": goVersion,
+		"env":       b.env,
 	}
 
 	verbose("Executing template")
 	var buf bytes.Buffer
-	if err = b.tmpl.Execute(&buf, data); err != nil {
+	if err := b.tmpl.Execute(&buf, data); err != nil {
 		return err
 	}
 
 	verbose("Loading build script")
-	if err = b.loadBuildScript(&buf); err != nil {
+	if err := b.loadBuildScript(&buf); err != nil {
 		return err
 	}
 
 	if tgt, ok := b.targets[tgt]; ok {
-		if err = b.resolve(tgt); err != nil {
+		if err := b.resolve(tgt); err != nil {
 			return err
 		}
 		return nil
@@ -206,7 +197,7 @@ func (b *bygge) loadBuildScript(scriptSource io.Reader) error {
 	// all <- gcc -o all all.c
 	// bar=baz
 	// bar += yes
-	commandExp := regexp.MustCompile(`([\w._\-/${}]+)\s*([:=]|\+=|<-)\s*(.*)`)
+	commandExp := regexp.MustCompile(`([\w._\-/${}]+)\s*([:=]|\+=|<-|<<)\s*(.*)`)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -246,6 +237,9 @@ func (b *bygge) loadBuildScript(scriptSource io.Reader) error {
 			err = b.handleAssignment(lvalue, rvalue, false)
 		case "+=":
 			err = b.handleAssignment(lvalue, rvalue, true)
+		case "<<":
+			rvalue = operator + " " + rvalue
+			fallthrough
 		case "<-":
 			b.handleBuildCommand(lvalue, rvalue)
 		default:
@@ -513,11 +507,35 @@ func getFileDate(target string) time.Time {
 }
 
 func handleDownload(target string, url string, checksum ...string) error {
-	response, err := http.Get(url)
+	verbose("Downloading %s", url)
+	req, err := http.NewRequest(http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return err
+	}
+
+	targetDate := getFileDate(target).In(time.FixedZone("GMT", 0))
+	if !targetDate.IsZero() {
+		req.Header.Set("If-Modified-Since", targetDate.Format(time.RFC1123))
+	}
+
+	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer response.Body.Close()
+	if response.StatusCode == http.StatusNotModified {
+		verbose("%s unmodified, skipping download", url)
+		return nil
+	}
+
+	modified := response.Header.Get("Last-Modified")
+	var modificationDate time.Time
+	if modified != "" {
+		modificationDate, err = time.Parse(time.RFC1123, modified)
+		if err != nil {
+			modificationDate = time.Time{}
+		}
+	}
 
 	if err = os.MkdirAll(target, 0770); err != nil {
 		return err
@@ -586,6 +604,10 @@ func handleDownload(target string, url string, checksum ...string) error {
 		}
 	} else {
 		return fmt.Errorf("unsupported file: %v", url)
+	}
+
+	if !modificationDate.IsZero() {
+		_ = os.Chtimes(target, modificationDate, modificationDate)
 	}
 
 	return nil

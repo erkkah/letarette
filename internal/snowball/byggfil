@@ -1,5 +1,5 @@
 #
-# bygg-file for building libsnowball, adapted from the Makefile
+# bygg-fil for building libsnowball, adapted from the Makefile
 # in the libstemmer_c project.
 #
 # NOTE: Needs to be verified and manually updated when updating the
