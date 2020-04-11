@@ -1,22 +1,22 @@
 #
-# bygg-file for building letarette
+# byggfil for building Letarette
 #
 
 all: letarette lrcli lrload lrmon tinysrv
 
 REV = dev
 
-{{if (exec "git" "status" "--porcelain") | eq "" -}}
+{{if (exec "git" "status" "--porcelain") | eq "" }}
     repoState = Clean repo, tagging with git rev
-    rev = {{slice (exec "git" "rev-parse" "HEAD") 0 7 -}}
-{{else -}}
+    REV = {{slice (exec "git" "rev-parse" "HEAD") 0 7 }}
+{{else}}
     repoState = Dirty repo, tagging as dev build
-{{end -}}
+{{end}}
 
-{{$tag := (exec "git" "tag" "--contains") -}}
-{{if eq $tag "" -}}
-    {{$tag = date "2006-01-02" -}}
-{{end -}}
+{{$tag := (exec "git" "tag" "--contains")}}
+{{if eq $tag ""}}
+    {{$tag = date "2006-01-02"}}
+{{end}}
 
 TAG = {{$tag}}
 
@@ -43,20 +43,18 @@ letarette: generate snowball $LIBSQLITE
 letarette <- << $repoState
 letarette <- go build -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS -o letarette${EXE} ./cmd/worker
 
-lrcli: client snowball $LIBSQLITE
+lrcli: snowball $LIBSQLITE
 lrcli <- go build -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS,dbstats ./cmd/lrcli
 
-tinysrv: client
+tinysrv:!
 tinysrv <- go build -ldflags=$LDFLAGS -mod=readonly -v ./cmd/tinysrv
 
-lrload: client
+lrload:!
 lrload <- go build -ldflags=$LDFLAGS -mod=readonly -v ./cmd/lrload
 
-lrmon: client
+lrmon:!
 lrmon <- go generate -tags "prod" ./cmd/lrmon
 lrmon <- go build -ldflags="$STAMP $LDFLAGS" -v -tags "prod" ./cmd/lrmon
-
-client <- go build -v ./pkg/client
 
 libsqlite: $GO_SQLITE/sqlite3-binding.c
 libsqlite <- gcc -I$GO_SQLITE -c $GO_SQLITE/sqlite3-binding.c -o internal/sqlite.o
@@ -75,4 +73,4 @@ clean <- go clean github.com/erkkah/letarette/...
 
 tidy <- go mod tidy
 
-gocache <- << ::set-env name=GOCACHE::{{.GO_CACHE}}
+gocache <- << ::set-env name=GOCACHE::{{exec "go" "env" "GOCACHE"}}
