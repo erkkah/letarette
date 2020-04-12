@@ -1,10 +1,12 @@
 FROM golang:1.14-alpine as builder
 
-RUN apk update && apk add --no-cache make gcc libc-dev tzdata git perl bash
+RUN apk update && apk add --no-cache make gcc libc-dev tzdata git bash
 RUN adduser -D -g '' letarette
 
 WORKDIR /go/src/app
 COPY . .
+
+ENV GOSUMDB=off
 RUN go generate
 
 FROM scratch
