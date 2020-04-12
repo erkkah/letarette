@@ -2,7 +2,7 @@ module github.com/erkkah/letarette
 
 require (
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
-	github.com/erkkah/bygg v0.0.0-20200411134500-9f50e4ec459a // indirect
+	github.com/erkkah/bygg v0.1.4 // indirect
 	github.com/erkkah/immutable v0.0.2
 	github.com/erkkah/margaid v0.0.2
 	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
