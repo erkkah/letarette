@@ -32,7 +32,7 @@ jobs:
         restore-keys: ${{ runner.os }}-go-
 
     - name: Get GOCACHE
-      run: go run ./bygg gocache
+      run: go run github.com/erkkah/bygg gocache
     
     - name: Cache go build cache
       uses: actions/cache@v1
@@ -42,10 +42,10 @@ jobs:
         restore-keys: ${{ runner.os }}-gocache-
 
     - name: Build
-      run: go run ./bygg
+      run: go run github.com/erkkah/bygg
 
     - name: Test
-      run: go run ./bygg test
+      run: go run github.com/erkkah/bygg test
 
     - name: Test-build Docker image
       if: startsWith(matrix.os, 'ubuntu')
