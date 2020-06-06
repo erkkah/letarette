@@ -15,8 +15,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/docopt/docopt-go"
 
 	"github.com/erkkah/letarette/internal/letarette"
@@ -54,7 +52,6 @@ var cmdline struct {
 	JSON       string `docopt:"<json>"`
 	AutoAssign bool   `docopt:"-a"`
 
-	Clone bool
 	Shard string `docopt:"<shard>"`
 
 	Synonyms bool
@@ -87,7 +84,6 @@ Usage:
     lrcli synonyms [-d <db>] [<json>]
     lrcli spelling [-d <db>] update <mincount>
     lrcli resetmigration [-d <db>] <version>
-    lrcli clone [-d <db>] <shard>
     lrcli env
 
 Options:
@@ -127,8 +123,6 @@ Options:
 		letarette.Usage()
 	case cmdline.Search:
 		doSearch(cfg)
-	case cmdline.Clone:
-		dbSubcommand(cfg)
 	case cmdline.Index:
 		dbSubcommand(cfg)
 	case cmdline.Load:
@@ -174,12 +168,6 @@ func dbSubcommand(cfg letarette.Config) {
 			loadSynonyms(db)
 		} else {
 			dumpSynonyms(db)
-		}
-	case cmdline.Clone:
-		fmt.Printf("CLONING!\n")
-		err = letarette.CloneTest(db, cmdline.Shard)
-		if err != nil {
-			logger.Error.Printf("%v", err)
 		}
 	case cmdline.Check:
 		err = letarette.CheckStemmerSettings(db, cfg)
