@@ -20,10 +20,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"time"
 
-	"github.com/erkkah/letarette/pkg/logger"
 	"github.com/erkkah/letarette/pkg/protocol"
 	"github.com/jmoiron/sqlx"
 )
@@ -47,50 +45,6 @@ type cloneDocument struct {
 	RowID        int64 `db:"rowid"`
 	Space        string
 	UpdatedNanos int64 `db:"updatedNanos"`
-}
-
-func CloneTest(db Database, shard string) error {
-	ctx := context.Background()
-
-	dumpStart := time.Now()
-
-	file, err := ioutil.TempFile("", "letarette_*_dump.gz")
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	cloner, err := StartShardClone(ctx, db.(*database), shard, file)
-	if err != nil {
-		return err
-	}
-	for {
-		ok, err := cloner.Step(ctx)
-		if err != nil {
-			logger.Info.Printf("%v\n", err)
-			break
-		}
-		if !ok {
-			break
-		}
-	}
-	count, err := cloner.Close()
-	if err != nil {
-		return err
-	}
-	dumpDuration := time.Since(dumpStart)
-	logger.Info.Printf("Shard clone: %v of %v docs created in %v\n", file, count, dumpDuration)
-
-	loadStart := time.Now()
-	_, err = file.Seek(0, 0)
-	if err != nil {
-		return err
-	}
-
-	err = LoadShardClone(ctx, db.(*database), file)
-	loadDuration := time.Since(loadStart)
-	logger.Info.Printf("Loaded in %v\n", loadDuration)
-	return err
 }
 
 const (
