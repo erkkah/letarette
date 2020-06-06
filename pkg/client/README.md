@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	agent, err := client.NewSearchAgent("nats://localhost:4222")
+	agent, err := client.NewSearchAgent([]string{"nats://localhost:4222"})
 	if err != nil {
 		fmt.Printf("NATS connection failed: %v", err)
 		return
