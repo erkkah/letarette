@@ -58,7 +58,7 @@ func setIndexPageSize(db letarette.Database, pageSize int) {
 }
 
 const statsTemplate = `
-Index contains {{.Docs}} documents and {{.Terms}} unique terms.
+Index contains {{.Docs}} documents and {{.UniqueTerms}} unique terms of {{.TotalTerms}} in total.
 
 Settings:
 ========
@@ -132,7 +132,11 @@ func optimizeIndex(db letarette.Database) {
 			break
 		}
 	}
-	optimizer.Close()
+	err = optimizer.Close()
+	if err != nil {
+		s.Stop(fmt.Sprintf("Failed to close optimizer: %v\n", err))
+		return
+	}
 	err = letarette.VacuumIndex(db)
 	if err != nil {
 		s.Stop(fmt.Sprintf("Failed to vacuum after optimize: %v\n", err))
