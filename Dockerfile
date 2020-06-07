@@ -7,6 +7,7 @@ WORKDIR /go/src/app
 COPY . .
 
 ENV GOSUMDB=off
+ENV STATIC=1
 RUN go generate
 
 FROM scratch
