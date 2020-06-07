@@ -38,7 +38,7 @@ import (
 
 func main() {
 	if len(os.Args) > 1 {
-		letarette.Usage()
+		letarette.Usage(false)
 		fmt.Printf("Stemmer languages: %v\n", strings.Join(snowball.ListStemmers(), ", "))
 		os.Exit(99)
 	}
@@ -46,7 +46,7 @@ func main() {
 	cfg, err := letarette.LoadConfig()
 	if err != nil {
 		logger.Error.Printf("Failed to load config: %v", err)
-		letarette.Usage()
+		letarette.Usage(false)
 		os.Exit(1)
 	}
 

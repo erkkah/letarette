@@ -63,7 +63,8 @@ var cmdline struct {
 	ResetMigration bool `docopt:"resetmigration"`
 	Version        int  `docopt:"<version>"`
 
-	Env bool
+	Env     bool
+	Verbose bool `docopt:"-v"`
 }
 
 func main() {
@@ -84,7 +85,7 @@ Usage:
     lrcli synonyms [-d <db>] [<json>]
     lrcli spelling [-d <db>] update <mincount>
     lrcli resetmigration [-d <db>] <version>
-    lrcli env
+    lrcli env [-v]
 
 Options:
     -l <limit>     Search result page limit [default: 10]
@@ -93,6 +94,7 @@ Options:
     -i             Interactive search
     -a             Auto-assign document ID
     -g <groupsize> Force shard group size, do not discover
+    -v             Verbose, lists advanced options
 `
 
 	args, err := docopt.ParseDoc(usage)
@@ -120,7 +122,7 @@ Options:
 
 	switch {
 	case cmdline.Env:
-		letarette.Usage()
+		letarette.Usage(cmdline.Verbose)
 	case cmdline.Search:
 		doSearch(cfg)
 	case cmdline.Index:
