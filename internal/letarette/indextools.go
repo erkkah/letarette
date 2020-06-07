@@ -42,9 +42,10 @@ type Stats struct {
 		Term  string
 		Count int
 	}
-	Terms   int
-	Docs    int
-	Stemmer snowball.Settings
+	TotalTerms  int
+	UniqueTerms int
+	Docs        int
+	Stemmer     snowball.Settings
 }
 
 // GetIndexStats collects statistics about the index,
@@ -90,7 +91,15 @@ func GetIndexStats(dbo Database) (Stats, error) {
 
 	_, err = conn.ExecContext(
 		ctx,
-		`create virtual table temp.stats using fts5vocab(main, 'fts', 'row');`,
+		`create virtual table temp.rowstats using fts5vocab(main, 'fts', 'row');`,
+	)
+	if err != nil {
+		return s, err
+	}
+
+	_, err = conn.ExecContext(
+		ctx,
+		`create virtual table temp.instancestats using fts5vocab(main, 'fts', 'instance');`,
 	)
 	if err != nil {
 		return s, err
@@ -98,7 +107,7 @@ func GetIndexStats(dbo Database) (Stats, error) {
 
 	rows, err = conn.QueryContext(
 		ctx,
-		`select term, cnt from temp.stats order by cnt desc limit 15;`,
+		`select term, cnt from temp.rowstats order by cnt desc limit 15;`,
 	)
 	if err != nil {
 		return s, err
@@ -123,9 +132,15 @@ func GetIndexStats(dbo Database) (Stats, error) {
 
 	row := conn.QueryRowContext(
 		ctx,
-		`select count(distinct term) from temp.stats`,
+		`select count(term) from temp.rowstats`,
 	)
-	_ = row.Scan(&s.Terms)
+	_ = row.Scan(&s.UniqueTerms)
+
+	row = conn.QueryRowContext(
+		ctx,
+		`select count(term) from temp.instancestats`,
+	)
+	_ = row.Scan(&s.TotalTerms)
 
 	row = conn.QueryRowContext(
 		ctx,
