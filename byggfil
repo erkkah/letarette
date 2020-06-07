@@ -36,7 +36,7 @@ EXE = .exe
 LIBSQLITE = libsqlite
 {{end}}{{end}}
 
-LDFLAGS = ${env.LDFLAGS}{{if .env.STATIC}}-linkmode external -extldflags -static{{end}}
+LDFLAGS = ${env.LDFLAGS}{{if .env.STATIC}}-linkmode external -extldflags=-static{{end}}
 SQLITE_TAGS = fts5,sqlite_omit_load_extension,json1
 
 letarette: generate snowball $LIBSQLITE
@@ -47,10 +47,10 @@ lrcli: snowball $LIBSQLITE
 lrcli <- go build -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS,dbstats ./cmd/lrcli
 
 tinysrv:!
-tinysrv <- go build -ldflags=$LDFLAGS -mod=readonly -v ./cmd/tinysrv
+tinysrv <- go build -ldflags="$LDFLAGS" -mod=readonly -v ./cmd/tinysrv
 
 lrload:!
-lrload <- go build -ldflags=$LDFLAGS -mod=readonly -v ./cmd/lrload
+lrload <- go build -ldflags="$LDFLAGS" -mod=readonly -v ./cmd/lrload
 
 lrmon:!
 lrmon <- go generate -tags "prod" ./cmd/lrmon
