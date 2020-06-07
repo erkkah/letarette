@@ -35,41 +35,41 @@ type Config struct {
 	}
 	DB struct {
 		Path           string `default:"letarette.db"`
-		CacheSizeMB    uint32 `default:"1024" desc:"internal"` // default 1G cache
-		MMapSizeMB     uint32 `default:"0" desc:"internal"`    // no mmap by default
+		CacheSizeMB    uint32 `default:"1024" desc:"advanced"` // default 1G DB cache
+		MMapSizeMB     uint32 `default:"0" desc:"internal"`    // no DB mmap by default
 		ToolConnection bool   `ignored:"true"`
 	}
 	Index struct {
 		Spaces         []string `required:"true" default:"docs"`
-		ListSize       uint16   `default:"250"`
-		ReqSize        uint16   `default:"25"`
-		MaxOutstanding uint16   `split_words:"true" default:"2"`
+		ListSize       uint16   `default:"250" desc:"advanced"`
+		ReqSize        uint16   `default:"25" desc:"advanced"`
+		MaxOutstanding uint16   `split_words:"true" default:"2" desc:"advanced"`
 		Wait           struct {
-			Cycle      time.Duration `default:"500ms"`
-			EmptyCycle time.Duration `default:"5s"`
-			Interest   time.Duration `default:"5s"`
-			Document   time.Duration `default:"30s"`
-			Refetch    time.Duration `default:"3s"`
+			Cycle      time.Duration `default:"500ms" desc:"advanced"`
+			EmptyCycle time.Duration `default:"5s" desc:"advanced"`
+			Interest   time.Duration `default:"5s" desc:"advanced"`
+			Document   time.Duration `default:"30s" desc:"advanced"`
+			Refetch    time.Duration `default:"3s" desc:"advanced"`
 		}
-		Disable  bool `default:"false"`
+		Disable  bool `default:"false" desc:"advanced"`
 		Compress bool `default:"false"`
 	}
 	Spelling struct {
-		MinFrequency int `split_words:"true" default:"5"`
-		MaxLag       int `split_words:"true" default:"100"`
+		MinFrequency int `split_words:"true" default:"5" desc:"advanced"`
+		MaxLag       int `split_words:"true" default:"100" desc:"advanced"`
 	}
 	Stemmer struct {
 		Languages        []string `split_words:"true" required:"true" default:"english"`
-		RemoveDiacritics bool     `split_words:"true" default:"true"`
-		TokenCharacters  string
-		Separators       string
+		RemoveDiacritics bool     `split_words:"true" default:"true" desc:"advanced"`
+		TokenCharacters  string   `desc:"advanced"`
+		Separators       string   `desc:"advanced"`
 	}
 	Search struct {
 		Timeout        time.Duration `default:"4s"`
 		Cap            int           `default:"10000"`
 		CacheTimeout   time.Duration `split_words:"true" default:"10m"`
 		CacheMaxsizeMB uint64        `split_words:"true" default:"250"`
-		Disable        bool          `default:"false"`
+		Disable        bool          `default:"false" desc:"advanced"`
 		Strategy       int           `default:"1" desc:"internal"`
 	}
 	Shard          string `default:"1/1"`
@@ -143,13 +143,26 @@ Configuration environment variables:
 VARIABLE{{$t}}TYPE{{$t}}DEFAULT
 ========{{$t}}===={{$t}}=======
 LOG_LEVEL{{$t}}String{{$t}}INFO
-{{range .}}{{if usage_description . | eq "internal" | not}}{{usage_key .}}{{$t}}{{usage_type .}}{{$t}}{{usage_default .}}
+{{range .}}{{if usage_description . | eq ""}}{{usage_key .}}{{$t}}{{usage_type .}}{{$t}}{{usage_default .}}
+{{end}}{{end}}
+`
+
+var advancedFormat = `
+Advanced configuration:
+
+VARIABLE{{$t}}TYPE{{$t}}DEFAULT
+========{{$t}}===={{$t}}=======
+{{range .}}{{if usage_description . | eq "advanced"}}{{usage_key .}}{{$t}}{{usage_type .}}{{$t}}{{usage_default .}}
 {{end}}{{end}}
 `
 
 // Usage prints usage help to stdout
-func Usage() {
+func Usage(advanced bool) {
 	var cfg Config
 	tabs := tabwriter.NewWriter(os.Stdout, 1, 0, 4, ' ', 0)
-	_ = envconfig.Usagef(prefix, &cfg, tabs, usageFormat)
+	format := usageFormat
+	if advanced {
+		format += advancedFormat
+	}
+	_ = envconfig.Usagef(prefix, &cfg, tabs, format)
 }
