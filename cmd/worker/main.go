@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -86,44 +87,60 @@ func main() {
 	}
 	defer conn.Close()
 
+	// Start trapping signals
+	var done sync.WaitGroup
+	done.Add(1)
+
+	go func() {
+		signals := make(chan os.Signal, 1)
+		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+		s := <-signals
+		logger.Info.Printf("Received signal %v...", s)
+		done.Done()
+	}()
+
 	db, err := letarette.OpenDatabase(cfg)
 	if err != nil {
 		logger.Error.Printf("Failed to connect to DB: %v", err)
 		os.Exit(1)
 	}
-	defer func() {
+
+	closeDB := func() {
 		err := db.Close()
 		if err != nil {
 			logger.Error.Printf("Failed to close DB: %v", err)
 		}
-	}()
+	}
+
+	defer closeDB()
+
+	die := func(msg string, args ...interface{}) {
+		closeDB()
+		logger.Error.Printf(msg, args...)
+		os.Exit(1)
+	}
 
 	err = letarette.CheckStemmerSettings(db, cfg)
 	if err == letarette.ErrStemmerSettingsMismatch {
-		logger.Error.Printf("Index and config stemmer settings mismatch. Re-build index or force changes.")
-		os.Exit(1)
+		die("Index and config stemmer settings mismatch. Re-build index or force changes.")
 	}
 	if err != nil {
-		logger.Error.Printf("Failed to check stemmer config: %w", err)
-		os.Exit(1)
+		die("Failed to check stemmer config: %w", err)
 	}
 
 	monitor, err := letarette.StartStatusMonitor(conn, db, cfg)
 	if err != nil {
-		logger.Error.Printf("Failed to start status monitor: %v", err)
-		os.Exit(1)
+		die("Failed to start status monitor: %v", err)
 	}
 
 	metrics, err := letarette.StartMetricsCollector(conn, db, cfg)
 	if err != nil {
-		logger.Error.Printf("Failed to start metrics collector: %v", err)
-		os.Exit(1)
+		die("Failed to start metrics collector: %v", err)
 	}
 
 	err = letarette.InitializeShard(conn, db, cfg, monitor)
 	if err != nil {
-		logger.Error.Printf("Failed to initialize shard: %v", err)
-		os.Exit(1)
+		die("Failed to initialize shard: %v", err)
 	}
 
 	maxSize := cfg.Search.CacheMaxsizeMB * 1000 * 1000
@@ -133,8 +150,7 @@ func main() {
 	if !cfg.Index.Disable {
 		indexer, err = letarette.StartIndexer(conn, db, cfg, cache)
 		if err != nil {
-			logger.Error.Printf("Failed to start indexer: %v", err)
-			os.Exit(1)
+			die("Failed to start indexer: %v", err)
 		}
 	}
 
@@ -142,22 +158,16 @@ func main() {
 	if !cfg.Search.Disable {
 		searcher, err = letarette.StartSearcher(conn, db, cfg, cache)
 		if err != nil {
-			logger.Error.Printf("Failed to start searcher: %v", err)
-			os.Exit(1)
+			die("Failed to start searcher: %v", err)
 		}
 	}
 
 	cloner, err := letarette.StartCloner(conn, db, cfg)
 	if err != nil {
-		logger.Error.Printf("Failed to start cloner: %v", err)
-		os.Exit(1)
+		die("Failed to start cloner: %v", err)
 	}
 
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT)
-
-	s := <-signals
-	logger.Info.Printf("Received signal %v\n", s)
+	done.Wait()
 
 	if metrics != nil {
 		metrics.Close()
