@@ -128,19 +128,17 @@ func (cache *Cache) update() {
 				mappedEntries = mappedEntries.Delete(entry.key)
 			}
 
-			if reduced == cache.size {
-				break
-			}
-
-			docToElements := docElementsMap{}
-			for e := cache.sortedEntries.Front(); e != nil; e = e.Next() {
-				entry := e.Value.(cacheEntry)
-				for _, h := range entry.result.Hits {
-					docToElements[h.ID] = append(docToElements[h.ID], e)
+			if reduced != cache.size {
+				docToElements := docElementsMap{}
+				for e := cache.sortedEntries.Front(); e != nil; e = e.Next() {
+					entry := e.Value.(cacheEntry)
+					for _, h := range entry.result.Hits {
+						docToElements[h.ID] = append(docToElements[h.ID], e)
+					}
 				}
+				cache.docToElements = docToElements
+				cache.size = reduced
 			}
-			cache.docToElements = docToElements
-			cache.size = reduced
 
 			cleanup = time.After(cleanupInterval)
 		}
