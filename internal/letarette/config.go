@@ -41,11 +41,11 @@ type Config struct {
 	}
 	Index struct {
 		Spaces         []string `required:"true" default:"docs"`
-		ListSize       uint16   `default:"250" desc:"advanced"`
-		ReqSize        uint16   `default:"25" desc:"advanced"`
-		MaxOutstanding uint16   `split_words:"true" default:"2" desc:"advanced"`
+		ListSize       uint16   `default:"500" desc:"advanced"`
+		ReqSize        uint16   `default:"50" desc:"advanced"`
+		MaxOutstanding uint16   `split_words:"true" default:"4" desc:"advanced"`
 		Wait           struct {
-			Cycle      time.Duration `default:"500ms" desc:"advanced"`
+			Cycle      time.Duration `default:"100ms" desc:"advanced"`
 			EmptyCycle time.Duration `default:"5s" desc:"advanced"`
 			Interest   time.Duration `default:"5s" desc:"advanced"`
 			Document   time.Duration `default:"30s" desc:"advanced"`
