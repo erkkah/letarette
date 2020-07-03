@@ -10,8 +10,9 @@ There is a [client library](pkg/client) for Go as part of the Letarette main pro
 
 Read more on the [**Letarette main site**][Letarette].
 
-
 ## Building
+
+Letarette uses the `bygg` build system, just run `go generate` in the project root to build.
 
 Since Letarette uses cgo, gcc is required for building.
 On MacOS and Linux, this is usually not an issue.
@@ -21,8 +22,6 @@ choco install mingw
 ```
 
 Letarette requires go 1.13 or above to build.
-Letarette uses the `bygg` build system, just run `go generate` in the project root.
 
 [Letarette]: https://letarette.io
-[NATS]: https://nats.io
 [letarette.js]: https://github.com/erkkah/letarette.js
