@@ -131,6 +131,7 @@ func bulkLoad(db letarette.Database) {
 	loadedMegs := float64(loader.LoadedBytes()) / 1000 / 1000
 	performance := loadedMegs / elapsed.Seconds()
 
-	s.Stop(fmt.Sprintf("Loaded %v documents, %.2f Mbytes, %.2f Mbytes/s\n", numRead, loadedMegs, performance))
+	s.Stop(fmt.Sprintf("Loaded %v documents in %v, %.2f Mbytes, %.2f Mbytes/s\n",
+		numRead, elapsed.Seconds(), loadedMegs, performance))
 	loader = nil
 }

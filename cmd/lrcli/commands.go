@@ -189,7 +189,7 @@ func forceIndexStemmerState(state snowball.Settings, db letarette.Database) {
 func doMonitor(cfg letarette.Config) {
 	fmt.Printf("Listening to status broadcasts...\n")
 	listener := func(status protocol.IndexStatus) {
-		fmt.Printf("%v\n", status)
+		logger.Info.Printf("%v\n", status)
 	}
 	m, err := client.NewMonitor(
 		cfg.Nats.URLS,
