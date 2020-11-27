@@ -1,0 +1,30 @@
+version: '3.2'
+services:
+    natsserver:
+        image: nats:2-scratch
+    letarette:
+        build:
+            context: ..
+        image: letarette/letarette:0.1.1
+        volumes: 
+            - dbvolume:/db
+        depends_on:
+            - docserver
+    docserver:
+        image: letarette
+        depends_on:
+            - natsserver
+        volumes:
+            - type: bind
+              source: ../../wpslurp
+              target: /wp
+        entrypoint: ["./tinysrv", "-n", "nats://natsserver:4222", "-l", "10000", "docs", "/wp/1M.json.gz"]
+    monitor:
+        image: letarette
+        depends_on:
+            - natsserver
+        environment:
+            LRMON_NATS_URLS: nats://natsserver:4222
+        entrypoint: ["./lrcli", "monitor"]
+volumes:
+    dbvolume: {}
