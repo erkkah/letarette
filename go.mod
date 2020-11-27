@@ -12,6 +12,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.13.0
 	github.com/nats-io/nats-server/v2 v2.1.6 // indirect
 	github.com/nats-io/nats.go v1.9.2
+	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
 	golang.org/x/sys v0.0.0-20200409092240-59c9f1ba88fa
 	gotest.tools v2.2.0+incompatible
 )

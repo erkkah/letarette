@@ -12,12 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package spinner provides a simple progress spinner.
 package spinner
 
 import (
+	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // Spinner is a tiny spinner implementation
@@ -27,6 +32,7 @@ type Spinner struct {
 	writer       io.Writer
 	endWith      chan string
 	stopped      bool
+	isPiped      bool
 }
 
 // New creates a spinner for the given destination.
@@ -36,14 +42,21 @@ func New(writer io.Writer) *Spinner {
 		spinnerChars: []rune{'▖', '▘', '▝', '▗'},
 		writer:       writer,
 		endWith:      make(chan string),
+		isPiped:      !terminal.IsTerminal(int(os.Stdout.Fd())),
 	}
 }
 
 // Start makes the spinner go round.
 // Providing a prompt will print it before the spinner.
 func (s *Spinner) Start(prompt ...string) {
+	prefix := strings.Join(prompt, " ") + "  "
+
+	if s.isPiped {
+		fmt.Println(prefix)
+		return
+	}
+
 	go func() {
-		prefix := strings.Join(prompt, " ") + "  "
 		_, _ = s.writer.Write([]byte(prefix))
 		for {
 			select {
@@ -61,8 +74,15 @@ func (s *Spinner) Start(prompt ...string) {
 // Stop stops the spinner and optionally prints an ending
 // message.
 func (s *Spinner) Stop(message ...string) {
+	joined := strings.Join(message, " ")
+
+	if s.isPiped {
+		fmt.Println(joined)
+		return
+	}
+
 	if !s.stopped {
-		s.endWith <- (strings.Join(message, " "))
+		s.endWith <- joined
 	}
 	s.stopped = true
 }
