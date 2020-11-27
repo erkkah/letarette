@@ -9,6 +9,7 @@ licenses
 sqlite.a
 internal/libsqlite.a
 internal/sqlite.o
+db/**
 
 /letarette
 /lrcli
