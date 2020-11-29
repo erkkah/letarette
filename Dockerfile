@@ -23,6 +23,7 @@ COPY --from=builder /go/src/app/letarette /letarette
 COPY --from=builder /go/src/app/lrcli /lrcli
 COPY --from=builder /go/src/app/lrload /lrload
 COPY --from=builder /go/src/app/lrmon /lrmon
+COPY --from=builder /go/src/app/tinysrv /tinysrv
 
 RUN mkdir /db && chown letarette /db
 
