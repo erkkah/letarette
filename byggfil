@@ -70,6 +70,7 @@ test <- go test -tags $SQLITE_TAGS ./internal/letarette
 generate <-	go generate internal/letarette/db.go
 
 clean <- go clean github.com/erkkah/letarette/...
+clean <- rm -rf internal/snowball/ext
 
 tidy <- go mod tidy
 

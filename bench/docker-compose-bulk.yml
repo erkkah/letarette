@@ -6,9 +6,9 @@ services:
         image: letarette
         volumes:
             - type: bind
-              source: ../../wpslurp
-              target: /wp
-        entrypoint: ["./lrcli", "load", "-a", "-l", "10000", "docs", "/wp/1M.json.gz"]
+              source: ../testdata
+              target: /data
+        entrypoint: ["./lrcli", "load", "-a", "-l", "10000", "docs", "/data/1M.json.gz"]
         environment:
             LETARETTE_DB_PATH: /db/letarette.db
 volumes:
