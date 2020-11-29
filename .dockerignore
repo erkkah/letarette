@@ -9,3 +9,4 @@ lrcli
 lrmon
 lrload
 tinysrv
+internal/snowball/ext

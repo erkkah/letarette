@@ -6,23 +6,25 @@ services:
         build:
             context: ..
         image: letarette
+        depends_on:
+            - natsserver
         volumes: 
             - dbvolume:/db
-        depends_on:
-            - docserver
     docserver:
         image: letarette
         depends_on:
             - natsserver
+            - letarette
         volumes:
             - type: bind
-              source: ../../wpslurp
-              target: /wp
-        entrypoint: ["./tinysrv", "-n", "nats://natsserver:4222", "-l", "10000", "docs", "/wp/1M.json.gz"]
+              source: ../testdata
+              target: /data
+        entrypoint: ["./tinysrv", "-n", "nats://natsserver:4222", "-l", "10000", "docs", "/data/1M.json.gz"]
     monitor:
         image: letarette
         depends_on:
             - natsserver
+            - letarette
         environment:
             LRMON_NATS_URLS: nats://natsserver:4222
         entrypoint: ["./lrcli", "monitor"]
