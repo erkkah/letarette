@@ -82,7 +82,7 @@ func (state InterestListState) createdAtTime() time.Time {
 // providing access methods for all db interactions.
 type Database interface {
 	Close() error
-	RawQuery(string) ([]string, error)
+	RawQuery(q string, args ...interface{}) ([]string, error)
 }
 
 type database struct {
@@ -180,8 +180,8 @@ func (db *database) Close() error {
 	return nil
 }
 
-func (db *database) RawQuery(statement string) ([]string, error) {
-	res, err := db.rdb.Queryx(statement)
+func (db *database) RawQuery(statement string, args ...interface{}) ([]string, error) {
+	res, err := db.rdb.Queryx(statement, args...)
 	if err != nil {
 		return nil, err
 	}
