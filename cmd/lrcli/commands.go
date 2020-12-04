@@ -227,7 +227,13 @@ func doSQL(cfg letarette.Config) {
 		return
 	}
 
-	statement := strings.Join(cmdline.Statement, " ")
+	args := []string{}
+
+	if len(cmdline.Statement) > 1 {
+		args = cmdline.Statement[1:]
+	}
+
+	statement := cmdline.Statement[0]
 	if strings.HasPrefix(statement, "@") {
 		bytes, err := ioutil.ReadFile(strings.TrimLeft(statement, "@"))
 		if err != nil {
@@ -236,12 +242,16 @@ func doSQL(cfg letarette.Config) {
 		}
 		statement = string(bytes)
 	}
-	sql(db, statement)
+	sql(db, statement, args)
 }
 
-func sql(db letarette.Database, statement string) {
+func sql(db letarette.Database, statement string, stringArgs []string) {
+	args := make([]interface{}, len(stringArgs))
+	for i, v := range stringArgs {
+		args[i] = v
+	}
 	start := time.Now()
-	result, err := db.RawQuery(statement)
+	result, err := db.RawQuery(statement, args...)
 	if err != nil {
 		logger.Error.Printf("Failed to execute query: %v", err)
 		return
