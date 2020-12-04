@@ -17,12 +17,14 @@ package letarette
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 )
 
 func (db *database) spellFixTerm(ctx context.Context, term string) (string, float32, bool, error) {
 	var exists bool
-	err := db.rdb.GetContext(ctx, &exists, `select exists(select rowid from fts where fts match ? limit 1)`, term)
+	quotedTerm := fmt.Sprintf("%q", term)
+	err := db.rdb.GetContext(ctx, &exists, `select exists(select rowid from fts where fts match ? limit 1)`, quotedTerm)
 	if err != nil {
 		return "", 0, false, err
 	}
