@@ -58,10 +58,10 @@ SQLITE_EXTENSION_INIT1
 ** mark following the variable-length integer size parameter.
 */
 static void compressFunc(
-  sqlite3_context *context,
-  int argc,
-  sqlite3_value **argv
-){
+    sqlite3_context *context,
+    int argc,
+    sqlite3_value **argv)
+{
   const unsigned char *pIn;
   unsigned char *pOut;
   unsigned int nIn;
@@ -72,32 +72,39 @@ static void compressFunc(
 
   pIn = sqlite3_value_blob(argv[0]);
   nIn = sqlite3_value_bytes(argv[0]);
-  nOut = 13 + nIn + (nIn+999)/1000;
-  pOut = sqlite3_malloc( nOut+1+5 );
+  nOut = 13 + nIn + (nIn + 999) / 1000;
+  pOut = sqlite3_malloc(nOut + 1 + 5);
 
-  for(i=4; i>=0; i--){
-    x[i] = (nIn >> (7*(4-i)))&0x7f;
+  for (i = 4; i >= 0; i--)
+  {
+    x[i] = (nIn >> (7 * (4 - i))) & 0x7f;
   }
 
-  for(i=0; i<4 && x[i]==0; i++){}
+  for (i = 0; i < 4 && x[i] == 0; i++)
+  {
+  }
 
   pOut[0] = 0xf8;
-  for(j=1; i<=4; i++, j++) pOut[j] = x[i];
-  pOut[j-1] |= 0x80;
+  for (j = 1; i <= 4; i++, j++)
+    pOut[j] = x[i];
+  pOut[j - 1] |= 0x80;
 
   rc = compress(&pOut[j], &nOut, pIn, nIn);
-  if( rc==Z_OK ){
-    sqlite3_result_blob(context, pOut, nOut+j, sqlite3_free);
-  }else{
+  if (rc == Z_OK)
+  {
+    sqlite3_result_blob(context, pOut, nOut + j, sqlite3_free);
+  }
+  else
+  {
     sqlite3_free(pOut);
     sqlite3_result_error_code(context, SQLITE_ERROR);
   }
 }
 
-static int isValidHeader(const unsigned char* data) {
-  return
-    (data[0] == 0x78 &&
-    ((data[0] * 256) + data[1]) % 31 == 0);
+static int isValidHeader(const unsigned char *data)
+{
+  return (data[0] == 0x78 &&
+          ((data[0] * 256) + data[1]) % 31 == 0);
 }
 
 /*
@@ -109,10 +116,10 @@ static int isValidHeader(const unsigned char* data) {
 ** the unmodified input is returned.
 */
 static void uncompressFunc(
-  sqlite3_context *context,
-  int argc,
-  sqlite3_value **argv
-){
+    sqlite3_context *context,
+    int argc,
+    sqlite3_value **argv)
+{
   const unsigned char *pIn;
   unsigned char *pOut;
   unsigned int nIn;
@@ -123,28 +130,41 @@ static void uncompressFunc(
   pIn = sqlite3_value_blob(argv[0]);
   nIn = sqlite3_value_bytes(argv[0]);
   nOut = 0;
-  if (pIn[0] == 0xf8) {
-    for(i=1; i<nIn && i<6; i++){
-      nOut = (nOut<<7) | (pIn[i]&0x7f);
-      if( (pIn[i]&0x80)!=0 ){ i++; break; }
+  if (nIn > 0 && pIn[0] == 0xf8)
+  {
+    for (i = 1; i < nIn && i < 6; i++)
+    {
+      nOut = (nOut << 7) | (pIn[i] & 0x7f);
+      if ((pIn[i] & 0x80) != 0)
+      {
+        i++;
+        break;
+      }
     }
   }
 
-  if ((nOut == 0) || !isValidHeader(&pIn[i])) {
+  if ((nOut == 0) || !isValidHeader(&pIn[i]))
+  {
     sqlite3_result_blob(context, pIn, nIn, 0);
     return;
   }
 
-  pOut = sqlite3_malloc( nOut+1 );
-  rc = uncompress(pOut, &nOut, &pIn[i], nIn-i);
-  if( rc == Z_OK ){
+  pOut = sqlite3_malloc(nOut + 1);
+  rc = uncompress(pOut, &nOut, &pIn[i], nIn - i);
+  if (rc == Z_OK)
+  {
     sqlite3_result_blob(context, pOut, nOut, sqlite3_free);
-  }else{
+  }
+  else
+  {
     sqlite3_free(pOut);
     // -10000 is MZ_PARAM_ERROR
-    if ( rc == Z_DATA_ERROR || rc == Z_STREAM_ERROR || rc == -10000) {
+    if (rc == Z_DATA_ERROR || rc == Z_STREAM_ERROR || rc == -10000)
+    {
       sqlite3_result_blob(context, pIn, nIn, 0);
-    } else {
+    }
+    else
+    {
       sqlite3_result_error_code(context, SQLITE_ERROR);
     }
   }
@@ -155,10 +175,10 @@ static void uncompressFunc(
 ** is a blob which was obtained from compress(Y), the output will be true.
 */
 static void isCompressedFunc(
-  sqlite3_context *context,
-  int argc,
-  sqlite3_value **argv
-){
+    sqlite3_context *context,
+    int argc,
+    sqlite3_value **argv)
+{
   const unsigned char *pIn;
   unsigned char *pOut;
   unsigned int nIn;
@@ -169,41 +189,49 @@ static void isCompressedFunc(
   pIn = sqlite3_value_blob(argv[0]);
   nIn = sqlite3_value_bytes(argv[0]);
   nOut = 0;
-  if (pIn[0] == 0xf8) {
-    for(i=1; i<nIn && i<6; i++){
-      nOut = (nOut<<7) | (pIn[i]&0x7f);
-      if( (pIn[i]&0x80)!=0 ){ i++; break; }
+  if (nIn > 0 && pIn[0] == 0xf8)
+  {
+    for (i = 1; i < nIn && i < 6; i++)
+    {
+      nOut = (nOut << 7) | (pIn[i] & 0x7f);
+      if ((pIn[i] & 0x80) != 0)
+      {
+        i++;
+        break;
+      }
     }
   }
 
   sqlite3_result_int(context, (nOut != 0) && isValidHeader(&pIn[i]));
 }
 
-
 #ifdef _WIN32
 __declspec(dllexport)
 #endif
-int sqlite3_compress_init(
-  sqlite3 *db, 
-  char **pzErrMsg, 
-  const sqlite3_api_routines *pApi
-){
+    int sqlite3_compress_init(
+        sqlite3 *db,
+        char **pzErrMsg,
+        const sqlite3_api_routines *pApi)
+{
   int rc = SQLITE_OK;
   SQLITE_EXTENSION_INIT2(pApi);
-  (void)pzErrMsg;  /* Unused parameter */
+  (void)pzErrMsg; /* Unused parameter */
   rc = sqlite3_create_function(db, "compress", 1, SQLITE_UTF8, 0,
                                compressFunc, 0, 0);
-  if( rc != SQLITE_OK ){
+  if (rc != SQLITE_OK)
+  {
     return rc;
   }
   rc = sqlite3_create_function(db, "uncompress", 1, SQLITE_UTF8, 0,
                                uncompressFunc, 0, 0);
-  if( rc != SQLITE_OK ){
+  if (rc != SQLITE_OK)
+  {
     return rc;
   }
   rc = sqlite3_create_function(db, "iscompressed", 1, SQLITE_UTF8, 0,
                                isCompressedFunc, 0, 0);
-  if( rc != SQLITE_OK ){
+  if (rc != SQLITE_OK)
+  {
     return rc;
   }
   return rc;
