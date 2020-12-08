@@ -51,14 +51,21 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Indexer
 		cfg:                 cfg,
 		conn:                ec,
 		db:                  db.(*database),
+		indexUpdates:        map[string]chan protocol.IndexUpdate{},
 		updateReceived:      make(chan struct{}, 50),
 	}
 
 	for _, space := range cfg.Index.Spaces {
+		self.indexUpdates[space] = make(chan protocol.IndexUpdate)
 		err := self.db.clearInterestList(context.Background(), space)
 		if err != nil {
 			return nil, fmt.Errorf("failed to clear interest list: %w", err)
 		}
+	}
+
+	err = self.startIndexFetcher()
+	if err != nil {
+		return nil, err
 	}
 
 	updates := make(chan protocol.DocumentUpdate, 50)
@@ -131,6 +138,8 @@ type indexer struct {
 	close   context.CancelFunc
 	context context.Context
 	waiter  sync.WaitGroup
+
+	indexUpdates map[string]chan protocol.IndexUpdate
 
 	updateReceived chan struct{}
 
@@ -228,7 +237,7 @@ func (idx *indexer) runUpdateCycle(space string) int {
 			return total
 		}
 
-		err = idx.requestNextChunk(space)
+		err = idx.getNextIndexUpdate(space)
 		if err != nil {
 			logger.Error.Printf("Failed to request next chunk: %v", err)
 			return total
@@ -271,26 +280,85 @@ func (idx *indexer) commitFetched(space string) error {
 	return idx.db.commitInterestList(idx.context, space)
 }
 
-func (idx *indexer) requestNextChunk(space string) error {
-	topic := idx.cfg.Nats.Topic + ".index.request"
-	state, err := idx.db.getInterestListState(idx.context, space)
-	if err != nil {
-		return fmt.Errorf("failed to get interest list state: %w", err)
+func (idx *indexer) startIndexFetcher() error {
+
+	for _, space := range idx.cfg.Index.Spaces {
+		state, err := idx.db.getInterestListState(idx.context, space)
+		if err != nil {
+			return fmt.Errorf("failed to get interest list state: %w", err)
+		}
+		go func(space string, state InterestListState) {
+			fromTime := state.lastUpdatedTime()
+			afterDocument := state.LastUpdatedDocID
+
+			for {
+				update, err := idx.requestIndexUpdate(space, fromTime, afterDocument)
+				if err != nil {
+					logger.Info.Printf("index update request failed: %v", err)
+					continue
+				}
+
+				numUpdates := len(update.Updates)
+				if numUpdates > 0 {
+					last := update.Updates[numUpdates-1]
+					fromTime = last.Updated
+					afterDocument = last.ID
+				}
+
+				select {
+				case idx.indexUpdates[space] <- update:
+					// Update read from channel
+				case <-idx.context.Done():
+					close(idx.indexUpdates[space])
+					return
+				}
+			}
+
+		}(space, state)
 	}
+
+	return nil
+}
+
+func (idx *indexer) getNextIndexUpdate(space string) error {
+	channel := idx.indexUpdates[space]
+	select {
+	case update := <-channel:
+		if len(update.Updates) > 0 {
+			logger.Debug.Printf("Received interest list of %v docs\n", len(update.Updates))
+			idx.updateReceived <- struct{}{}
+		}
+
+		err := idx.db.setInterestList(idx.context, update)
+		if err != nil {
+			return fmt.Errorf("failed to set interest list: %w", err)
+		}
+
+		return nil
+	case <-time.After(idx.cfg.Index.Wait.Interest):
+		return fmt.Errorf("timeout")
+	}
+}
+
+func (idx *indexer) requestIndexUpdate(
+	space string, fromTime time.Time, afterDocument protocol.DocumentID,
+) (protocol.IndexUpdate, error) {
+
+	topic := idx.cfg.Nats.Topic + ".index.request"
 	updateRequest := protocol.IndexUpdateRequest{
 		Space:         space,
-		FromTime:      state.lastUpdatedTime(),
-		AfterDocument: state.LastUpdatedDocID,
+		FromTime:      fromTime,
+		AfterDocument: afterDocument,
 		Limit:         idx.cfg.Index.ListSize,
 	}
 	timeout, cancel := context.WithTimeout(idx.context, idx.cfg.Index.Wait.Interest)
 
 	var update protocol.IndexUpdate
-	err = idx.conn.RequestWithContext(timeout, topic, updateRequest, &update)
+	err := idx.conn.RequestWithContext(timeout, topic, updateRequest, &update)
 	cancel()
 
 	if err != nil {
-		return fmt.Errorf("NATS request failed: %w", err)
+		return protocol.IndexUpdate{}, fmt.Errorf("NATS request failed: %w", err)
 	}
 
 	// Ignore documents from the future. We will get there eventually.
@@ -309,17 +377,7 @@ func (idx *indexer) requestNextChunk(space string) error {
 
 	update.Updates = filtered
 
-	if len(update.Updates) > 0 {
-		logger.Debug.Printf("Received interest list of %v docs\n", len(update.Updates))
-		idx.updateReceived <- struct{}{}
-	}
-
-	err = idx.db.setInterestList(idx.context, update)
-	if err != nil {
-		return fmt.Errorf("failed to set interest list: %w", err)
-	}
-
-	return nil
+	return update, nil
 }
 
 func (idx *indexer) requestDocuments(space string, wanted []Interest) error {
