@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	drv "database/sql/driver"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -166,16 +167,44 @@ func ResetMigration(cfg Config, version int) error {
 	return err
 }
 
+func multiError(message string, errorList []error) error {
+	var prev interface{} = message
+	var composed error
+
+	for _, err := range errorList {
+		composed = fmt.Errorf("%v: %w", prev, err)
+		prev = composed
+	}
+
+	return composed
+}
+
 func (db *database) Close() error {
+	var errs []error
+
+	if err := db.addDocumentStatement.Close(); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := db.updateInterestStatement.Close(); err != nil {
+		errs = append(errs, err)
+	}
+
 	logger.Debug.Printf("Closing database")
-	rErr := db.rdb.Close()
+	if err := db.rdb.Close(); err != nil {
+		errs = append(errs, err)
+	}
 
-	_, tErr := db.wdb.Exec("pragma wal_checkpoint(TRUNCATE);")
+	if _, err := db.wdb.Exec("pragma wal_checkpoint(TRUNCATE);"); err != nil {
+		errs = append(errs, err)
+	}
 
-	wErr := db.wdb.Close()
+	if err := db.wdb.Close(); err != nil {
+		errs = append(errs, err)
+	}
 
-	if rErr != nil || tErr != nil || wErr != nil {
-		return fmt.Errorf("failed to close db: %v, %v, %v", rErr, tErr, wErr)
+	if errs != nil {
+		return multiError("failed to close db: %w", errs)
 	}
 	return nil
 }
@@ -185,6 +214,8 @@ func (db *database) RawQuery(statement string, args ...interface{}) ([]string, e
 	if err != nil {
 		return nil, err
 	}
+	defer res.Close()
+
 	err = res.Err()
 	if err != nil {
 		return nil, err
@@ -250,7 +281,7 @@ func initDB(db *sqlx.DB, spaces []string) error {
 	}
 
 	version, dirty, err := m.Version()
-	if err != nil && err != migrate.ErrNilVersion {
+	if err != nil && errors.Is(err, migrate.ErrNilVersion) {
 		return err
 	}
 
@@ -266,9 +297,10 @@ func initDB(db *sqlx.DB, spaces []string) error {
 			runMigration = next > version
 		} else {
 			// The source driver should return ErrNotExist
-			_, isPathError := err.(*os.PathError)
+			var pathError *os.PathError
+			isPathError := errors.As(err, &pathError)
 
-			if !isPathError && err != os.ErrNotExist {
+			if !isPathError && !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
 		}
@@ -277,7 +309,7 @@ func initDB(db *sqlx.DB, spaces []string) error {
 	if runMigration {
 		logger.Info.Printf("Applying migrations")
 		err = m.Up()
-		if err != nil && err != migrate.ErrNoChange {
+		if err != nil && !errors.Is(err, migrate.ErrNoChange) {
 			return err
 		}
 	}
@@ -292,7 +324,7 @@ func initDB(db *sqlx.DB, spaces []string) error {
 
 	var indexID string
 	err = db.Get(&indexID, "select indexID from meta")
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("failed to get index id: %w", err)
 	}
 	if len(indexID) == 0 {
