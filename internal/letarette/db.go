@@ -281,7 +281,7 @@ func initDB(db *sqlx.DB, spaces []string) error {
 	}
 
 	version, dirty, err := m.Version()
-	if err != nil && errors.Is(err, migrate.ErrNilVersion) {
+	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
 		return err
 	}
 
