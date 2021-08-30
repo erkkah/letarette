@@ -16,6 +16,7 @@ package letarette
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -111,7 +112,8 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Indexer
 		if err != nil {
 			logger.Error.Printf("Failed to drain document subscription: %v", err)
 		} else {
-			self.waiter.Add(1)
+			var drainWaiter sync.WaitGroup
+			drainWaiter.Add(1)
 			go func() {
 				for {
 					messages, _, _ := subscription.Pending()
@@ -120,8 +122,9 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Indexer
 					}
 					time.Sleep(time.Millisecond * 20)
 				}
-				self.waiter.Done()
+				drainWaiter.Done()
 			}()
+			drainWaiter.Wait()
 		}
 		cancel()
 		close(updates)
@@ -233,7 +236,9 @@ func (idx *indexer) runUpdateCycle(space string) int {
 
 		err = idx.commitFetched(space)
 		if err != nil {
-			logger.Error.Printf("Failed to commit docs: %v", err)
+			if !errors.Is(err, context.Canceled) {
+				logger.Error.Printf("Failed to commit docs: %v", err)
+			}
 			return total
 		}
 
@@ -292,8 +297,13 @@ func (idx *indexer) startIndexFetcher() error {
 			afterDocument := state.LastUpdatedDocID
 
 			for {
+				logger.Debug.Printf("Requesting index update (%v, %v, %v)", space, fromTime, afterDocument)
 				update, err := idx.requestIndexUpdate(space, fromTime, afterDocument)
 				if err != nil {
+					if errors.Is(err, context.Canceled) {
+						return
+					}
+
 					logger.Info.Printf("index update request failed: %v", err)
 					continue
 				}
@@ -304,10 +314,21 @@ func (idx *indexer) startIndexFetcher() error {
 					fromTime = last.Updated
 					afterDocument = last.ID
 				}
-
 				select {
 				case idx.indexUpdates[space] <- update:
-					// Update read from channel
+					// Update written to channel
+				case <-idx.context.Done():
+					close(idx.indexUpdates[space])
+					return
+				}
+
+				cycleThrottle := idx.cfg.Index.Wait.Cycle
+				if numUpdates == 0 {
+					cycleThrottle = idx.cfg.Index.Wait.EmptyCycle
+				}
+
+				select {
+				case <-time.After(cycleThrottle):
 				case <-idx.context.Done():
 					close(idx.indexUpdates[space])
 					return
@@ -323,6 +344,9 @@ func (idx *indexer) startIndexFetcher() error {
 func (idx *indexer) getNextIndexUpdate(space string) error {
 	channel := idx.indexUpdates[space]
 	select {
+	case <-idx.context.Done():
+		return nil
+
 	case update := <-channel:
 		if len(update.Updates) > 0 {
 			logger.Debug.Printf("Received interest list of %v docs\n", len(update.Updates))
@@ -333,11 +357,10 @@ func (idx *indexer) getNextIndexUpdate(space string) error {
 		if err != nil {
 			return fmt.Errorf("failed to set interest list: %w", err)
 		}
-
-		return nil
-	case <-time.After(idx.cfg.Index.Wait.Interest):
-		return fmt.Errorf("timeout")
+	default:
 	}
+
+	return nil
 }
 
 func (idx *indexer) requestIndexUpdate(
@@ -437,7 +460,9 @@ func (idx *indexer) doHousekeeping() {
 func (idx *indexer) updateSpelling() {
 	lag, err := GetSpellfixLag(idx.context, idx.db, idx.cfg.Spelling.MinFrequency)
 	if err != nil {
-		logger.Error.Printf("Failed to get spelling index lag: %v", err)
+		if !errors.Is(err, context.Canceled) {
+			logger.Error.Printf("Failed to get spelling index lag: %v", err)
+		}
 		return
 	}
 	if lag < idx.cfg.Spelling.MaxLag {
@@ -457,7 +482,7 @@ func (idx *indexer) updateSpelling() {
 func (idx *indexer) updateStopwords() {
 	logger.Debug.Printf("Updating stopwords...")
 	err := idx.db.updateStopwords(idx.context)
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		logger.Error.Printf("Failed to update stop words: %v", err)
 	}
 	logger.Debug.Printf("Done updating stopwords")
