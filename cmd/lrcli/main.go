@@ -73,7 +73,7 @@ func main() {
 Usage:
     lrcli search [-l <limit>] [-p <page>] [-g <groupsize>] [-i] <space> [<phrase>...]
     lrcli monitor
-    lrcli sql [-d <db>] <sql>...
+    lrcli sql [-d <db>] <sql> [<arg>...]
     lrcli index [-d <db>] stats
     lrcli index [-d <db>] check
     lrcli index [-d <db>] pgsize <size>
@@ -92,7 +92,7 @@ Options:
     -p <page>      Search result page [default: 0]
     -d <db>        Override default or environment DB path
     -i             Interactive search
-    -a             Auto-assign document ID
+    -a             Auto-assign document ID on load
     -g <groupsize> Force shard group size, do not discover
     -v             Verbose, lists advanced options
 `
