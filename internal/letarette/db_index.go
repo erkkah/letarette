@@ -17,6 +17,7 @@ package letarette
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -271,7 +272,7 @@ func (db *database) setInterestList(ctx context.Context, indexUpdate protocol.In
 
 	tx, err := db.wdb.BeginTxx(ctx, nil)
 	defer func() {
-		if err != nil {
+		if tx != nil {
 			_ = tx.Rollback()
 		}
 	}()
@@ -279,6 +280,9 @@ func (db *database) setInterestList(ctx context.Context, indexUpdate protocol.In
 	var spaceID int
 	err = tx.GetContext(ctx, &spaceID, `select spaceID from spaces where space = ?`, indexUpdate.Space)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("Received interest list for unknown space %q", indexUpdate.Space)
+		}
 		return err
 	}
 	var interestCount int
@@ -324,6 +328,9 @@ func (db *database) setInterestList(ctx context.Context, indexUpdate protocol.In
 		return err
 	}
 	err = tx.Commit()
+	if err == nil {
+		tx = nil
+	}
 	return err
 }
 
