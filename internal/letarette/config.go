@@ -63,7 +63,7 @@ type Config struct {
 		RemoveDiacritics bool     `split_words:"true" default:"true" desc:"advanced"`
 		TokenCharacters  string   `desc:"advanced"`
 		Separators       string   `desc:"advanced"`
-		StopwordCutoff   float32  `split_words:"true" default:"1"`
+		StopwordCutoff   float32  `split_words:"true" default:"1" desc:"advanced"`
 	}
 	Search struct {
 		Timeout        time.Duration `default:"4s"`
