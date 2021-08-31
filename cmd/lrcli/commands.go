@@ -227,13 +227,7 @@ func doSQL(cfg letarette.Config) {
 		return
 	}
 
-	args := []string{}
-
-	if len(cmdline.Statement) > 1 {
-		args = cmdline.Statement[1:]
-	}
-
-	statement := cmdline.Statement[0]
+	statement := cmdline.Statement
 	if strings.HasPrefix(statement, "@") {
 		bytes, err := ioutil.ReadFile(strings.TrimLeft(statement, "@"))
 		if err != nil {
@@ -242,7 +236,7 @@ func doSQL(cfg letarette.Config) {
 		}
 		statement = string(bytes)
 	}
-	sql(db, statement, args)
+	sql(db, statement, cmdline.Args)
 }
 
 func sql(db letarette.Database, statement string, stringArgs []string) {
