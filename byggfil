@@ -19,6 +19,7 @@ REV = dev
 {{end}}
 
 TAG = {{$tag}}
+DEBUG = {{if .env.DEBUG}}-gcflags=all="-N -l"{{else}}""{{end}}
 
 PACKAGE = github.com/erkkah/letarette
 STAMP = -X '$PACKAGE.Revision=$REV' -X '$PACKAGE.Tag=$TAG'
@@ -41,10 +42,10 @@ SQLITE_TAGS = fts5,sqlite_omit_load_extension,json1
 
 letarette: generate snowball $LIBSQLITE
 letarette <- << $repoState
-letarette <- go build -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS -o letarette${EXE} ./cmd/worker
+letarette <- go build $DEBUG -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS -o letarette${EXE} ./cmd/worker
 
 lrcli: snowball $LIBSQLITE
-lrcli <- go build -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS,dbstats ./cmd/lrcli
+lrcli <- go build $DEBUG -ldflags="$STAMP $LDFLAGS" -mod=readonly -v -tags $SQLITE_TAGS,dbstats ./cmd/lrcli
 
 tinysrv:!
 tinysrv <- go build -ldflags="$LDFLAGS" -mod=readonly -v ./cmd/tinysrv
