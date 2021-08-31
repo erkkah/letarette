@@ -84,6 +84,7 @@ func (state InterestListState) createdAtTime() time.Time {
 type Database interface {
 	Close() error
 	RawQuery(q string, args ...interface{}) ([]string, error)
+	RawExec(q string, args ...interface{}) error
 }
 
 type database struct {
@@ -209,8 +210,16 @@ func (db *database) Close() error {
 	return nil
 }
 
+func (db *database) RawExec(statement string, args ...interface{}) error {
+	_, err := db.getRawDB().Exec(statement, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (db *database) RawQuery(statement string, args ...interface{}) ([]string, error) {
-	res, err := db.rdb.Queryx(statement, args...)
+	res, err := db.getRawDB().Queryx(statement, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -225,6 +234,9 @@ func (db *database) RawQuery(statement string, args ...interface{}) ([]string, e
 		row, err := res.SliceScan()
 		if err != nil {
 			return nil, err
+		}
+		if len(row) == 0 {
+			break
 		}
 		colTypes, err := res.ColumnTypes()
 		if err != nil {
