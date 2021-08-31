@@ -54,7 +54,7 @@ func (db *database) stopwordFilterPhrases(ctx context.Context, unfiltered []Phra
 	return filtered, nil
 }
 
-func (db *database) updateStopwords(ctx context.Context) error {
+func (db *database) updateStopwords(ctx context.Context, stopwordPercentageCutoff float32) error {
 	sql := db.getRawDB()
 
 	conn, err := sql.Conn(ctx)
@@ -81,6 +81,7 @@ func (db *database) updateStopwords(ctx context.Context) error {
 	_, err = tx.ExecContext(
 		ctx,
 		q,
+		stopwordPercentageCutoff/100,
 	)
 	if err != nil {
 		return err
