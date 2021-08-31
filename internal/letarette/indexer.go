@@ -304,46 +304,57 @@ func (idx *indexer) startIndexFetcher() error {
 			fromTime := state.lastUpdatedTime()
 			afterDocument := state.LastUpdatedDocID
 
+			idx.waiter.Add(1)
+
+		fetchLoop:
 			for {
+				cycleThrottle := idx.cfg.Index.Wait.Cycle
+
 				logger.Debug.Printf("Requesting index update (%v, %v, %v)", space, fromTime, afterDocument)
 				update, err := idx.requestIndexUpdate(space, fromTime, afterDocument)
 				if err != nil {
 					if errors.Is(err, context.Canceled) {
-						return
+						break fetchLoop
 					}
 
-					logger.Info.Printf("index update request failed: %v", err)
-					continue
-				}
+					if errors.Is(err, nats.ErrNoResponders) {
+						logger.Info.Printf("No Document Manager available for space %q", space)
+						cycleThrottle = idx.cfg.Index.Wait.EmptyCycle * 4
+					} else {
+						logger.Info.Printf("index update request failed: %v", err)
+						cycleThrottle = idx.cfg.Index.Wait.EmptyCycle
+					}
 
-				numUpdates := len(update.Updates)
-				if numUpdates > 0 {
-					last := update.Updates[numUpdates-1]
-					fromTime = last.Updated
-					afterDocument = last.ID
-				}
-				select {
-				case idx.indexUpdates[space] <- update:
-					// Update written to channel
-				case <-idx.context.Done():
-					close(idx.indexUpdates[space])
-					return
-				}
+				} else {
+					numUpdates := len(update.Updates)
+					if numUpdates > 0 {
+						last := update.Updates[numUpdates-1]
+						fromTime = last.Updated
+						afterDocument = last.ID
+					}
+					select {
+					case idx.indexUpdates[space] <- update:
+						// Update written to channel
+					case <-idx.context.Done():
+						close(idx.indexUpdates[space])
+						break fetchLoop
+					}
 
-				cycleThrottle := idx.cfg.Index.Wait.Cycle
-				if numUpdates == 0 {
-					logger.Debug.Printf("Indexer loop empty cycle wait")
-					cycleThrottle = idx.cfg.Index.Wait.EmptyCycle
+					if numUpdates == 0 {
+						logger.Debug.Printf("Indexer loop empty cycle wait")
+						cycleThrottle = idx.cfg.Index.Wait.EmptyCycle
+					}
 				}
 
 				select {
 				case <-time.After(cycleThrottle):
 				case <-idx.context.Done():
 					close(idx.indexUpdates[space])
-					return
+					break fetchLoop
 				}
 			}
 
+			idx.waiter.Done()
 		}(space, state)
 	}
 
