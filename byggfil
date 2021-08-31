@@ -75,4 +75,4 @@ clean <- rm -rf internal/snowball/ext
 
 tidy <- go mod tidy
 
-gocache <- << ::set-env name=GOCACHE::{{exec "go" "env" "GOCACHE"}}
+gocache <- << GOCACHE={{exec "go" "env" "GOCACHE"}}
