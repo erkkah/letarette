@@ -26,7 +26,7 @@ import (
 
 var shardHasher = fnv.New32a()
 
-func shardIndexFromDocumentID(docID protocol.DocumentID, shardGroupSize int) int {
+func ShardIndexFromDocumentID(docID protocol.DocumentID, shardGroupSize int) int {
 	shardHasher.Reset()
 	_, _ = shardHasher.Write([]byte(docID))
 	sum := shardHasher.Sum(nil)

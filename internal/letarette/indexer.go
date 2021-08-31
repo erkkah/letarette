@@ -89,7 +89,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Indexer
 	subscription, err := ec.Subscribe(cfg.Nats.Topic+".document.update", func(update *protocol.DocumentUpdate) {
 		filtered := make([]protocol.Document, 0, len(update.Documents))
 		for _, doc := range update.Documents {
-			index := shardIndexFromDocumentID(doc.ID, int(cfg.ShardgroupSize))
+			index := ShardIndexFromDocumentID(doc.ID, int(cfg.ShardgroupSize))
 			if index == int(cfg.ShardIndex) {
 				filtered = append(filtered, doc)
 			}
@@ -401,7 +401,7 @@ func (idx *indexer) requestIndexUpdate(
 			logger.Info.Printf("Ignoring future document: %v (%v)", u.ID, u.Updated)
 			continue
 		}
-		index := shardIndexFromDocumentID(u.ID, int(idx.cfg.ShardgroupSize))
+		index := ShardIndexFromDocumentID(u.ID, int(idx.cfg.ShardgroupSize))
 		if index == int(idx.cfg.ShardIndex) {
 			filtered = append(filtered, u)
 		}

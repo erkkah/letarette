@@ -165,7 +165,7 @@ func dbSubcommand(cfg letarette.Config) {
 
 	switch {
 	case cmdline.Load:
-		bulkLoad(db)
+		bulkLoad(db, int(cfg.ShardgroupSize), int(cfg.ShardIndex))
 	case cmdline.Synonyms:
 		if cmdline.JSON != "" {
 			loadSynonyms(db)
