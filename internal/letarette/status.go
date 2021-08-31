@@ -193,11 +193,10 @@ func (m *monitor) checkpoint() {
 	for _, v := range m.workerStatus {
 		if m.workerPingtime[v.IndexID].After(staleTime) {
 			if v.ShardgroupSize != m.cfg.ShardgroupSize {
-				logger.Error.Printf(
+				logger.Warning.Printf(
 					"Shard group size mismatch: worker@%v(%v) != local(%v)",
 					v.IndexID, v.ShardgroupSize, m.cfg.ShardgroupSize,
 				)
-				setStatus(protocol.IndexStatusIncompleteShardgroup)
 			}
 			version, _ := protocol.ParseSemver(v.Version)
 			if !version.CompatibleWith(m.version) {
@@ -223,7 +222,7 @@ func (m *monitor) checkpoint() {
 		}
 	}
 	if len(missingWorkers) > 0 {
-		logger.Error.Printf("No active workers for shards %s!", strings.Join(missingWorkers, ","))
+		logger.Error.Printf("No active workers for shard(s) %s!", strings.Join(missingWorkers, ","))
 		setStatus(protocol.IndexStatusIncompleteShardgroup)
 	}
 
