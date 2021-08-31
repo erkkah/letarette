@@ -13,12 +13,13 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest]
+        go-version: [1.14]
     steps:
 
-    - name: Set up Go 1.13
+    - name: Set up Go
       uses: actions/setup-go@v1
       with:
-        go-version: 1.13
+        go-version: ${{ matrix.go-version }}
       id: go
 
     - name: Check out code
@@ -32,7 +33,7 @@ jobs:
         restore-keys: ${{ runner.os }}-go-
 
     - name: Get GOCACHE
-      run: go run github.com/erkkah/bygg gocache
+      run: go run github.com/erkkah/bygg gocache >> $GITHUB_ENV
     
     - name: Cache go build cache
       uses: actions/cache@v1
@@ -83,10 +84,10 @@ jobs:
 
     steps:
       - name: Set TAG
-        run: echo ::set-env name=TAG::$(echo ${GITHUB_REF:10})
+        run: echo TAG=${GITHUB_REF:10} >> $GITHUB_ENV
 
       - name: Set ARCHIVE
-        run: echo ::set-env name=ARCHIVE::letarette-${TAG}.tgz
+        run: echo ARCHIVE=letarette-${TAG}.tgz >> $GITHUB_ENV
 
       - uses: actions/download-artifact@v1.0.0
         with:
