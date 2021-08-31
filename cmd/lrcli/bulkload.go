@@ -82,18 +82,18 @@ func bulkLoad(db letarette.Database, shardGroupSize int, shardIndex int) {
 	numID := 0
 	epoch := time.Unix(0, 0)
 
-	for cmdline.Limit == 0 || numLoaded < cmdline.Limit {
+	for cmdline.LoadLimit == 0 || numLoaded < cmdline.LoadLimit {
 		var e entry
 		readErr := decoder.Decode(&e)
 
 		if readErr == nil {
-			if e.ID == "" {
-				s.Stop("Cannot load document without ID, use -a for auto-assign?\n")
-				return
-			}
 			if cmdline.AutoAssign {
 				e.ID = strconv.Itoa(numID)
 				numID++
+			}
+			if e.ID == "" {
+				s.Stop("Cannot load document without ID, use -a for auto-assign?\n")
+				return
 			}
 			index := letarette.ShardIndexFromDocumentID(protocol.DocumentID(e.ID), shardGroupSize)
 			if index != shardIndex {
