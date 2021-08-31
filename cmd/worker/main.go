@@ -95,7 +95,7 @@ func main() {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 		s := <-signals
-		logger.Info.Printf("Received signal %v...", s)
+		logger.Info.Printf("Received signal %v, initiating graceful shutdown...", s)
 		done.Done()
 	}()
 
