@@ -52,6 +52,7 @@ var cmdline struct {
 	Load       bool
 	JSON       string `docopt:"<json>"`
 	AutoAssign bool   `docopt:"-a"`
+	LoadLimit  int    `docopt:"-m"`
 
 	Shard string `docopt:"<shard>"`
 
@@ -82,7 +83,7 @@ Usage:
     lrcli index [-d <db>] optimize
     lrcli index [-d <db>] rebuild
     lrcli index [-d <db>] forcestemmer
-    lrcli load [-d <db>] [-l <limit>] [-a] <space> <json>
+    lrcli load [-d <db>] [-m <max>] [-a] <space> <json>
     lrcli synonyms [-d <db>] [<json>]
     lrcli spelling [-d <db>] update <mincount>
     lrcli resetmigration [-d <db>] <version>
@@ -94,6 +95,7 @@ Options:
     -d <db>        Override default or environment DB path
     -i             Interactive search
     -a             Auto-assign document ID on load
+	-m <max>       Max documents loaded
     -g <groupsize> Force shard group size, do not discover
     -v             Verbose, lists advanced options
 `
