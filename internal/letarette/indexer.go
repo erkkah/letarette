@@ -53,7 +53,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Indexer
 		conn:                ec,
 		db:                  db.(*database),
 		indexUpdates:        map[string]chan protocol.IndexUpdate{},
-		updateReceived:      make(chan struct{}, 50),
+		updateReceived:      make(chan struct{}, 1),
 	}
 
 	for _, space := range cfg.Index.Spaces {
@@ -74,7 +74,7 @@ func StartIndexer(nc *nats.Conn, db Database, cfg Config, cache *Cache) (Indexer
 	self.waiter.Add(1)
 	go func() {
 		for update := range updates {
-			self.updateReceived <- struct{}{}
+			self.notifyUpdateReceived()
 			err := self.db.addDocumentUpdates(mainContext, update.Space, update.Documents)
 			if err != nil {
 				logger.Error.Printf("failed to add document update: %v", err)
@@ -170,6 +170,7 @@ func (idx *indexer) main(atExit func()) {
 		}
 
 		if totalInterests == 0 {
+			logger.Debug.Printf("main loop empty cycle wait")
 			cycleThrottle = time.After(idx.cfg.Index.Wait.EmptyCycle)
 			idx.doHousekeeping()
 		}
@@ -184,6 +185,13 @@ func (idx *indexer) main(atExit func()) {
 		}
 	}
 
+}
+
+func (idx *indexer) notifyUpdateReceived() {
+	select {
+	case idx.updateReceived <- struct{}{}:
+	default:
+	}
 }
 
 func (idx *indexer) runUpdateCycle(space string) int {
@@ -242,7 +250,7 @@ func (idx *indexer) runUpdateCycle(space string) int {
 			return total
 		}
 
-		err = idx.getNextIndexUpdate(space)
+		err = idx.processIndexUpdateQueue(space)
 		if err != nil {
 			logger.Error.Printf("Failed to request next chunk: %v", err)
 			return total
@@ -324,6 +332,7 @@ func (idx *indexer) startIndexFetcher() error {
 
 				cycleThrottle := idx.cfg.Index.Wait.Cycle
 				if numUpdates == 0 {
+					logger.Debug.Printf("Indexer loop empty cycle wait")
 					cycleThrottle = idx.cfg.Index.Wait.EmptyCycle
 				}
 
@@ -341,7 +350,7 @@ func (idx *indexer) startIndexFetcher() error {
 	return nil
 }
 
-func (idx *indexer) getNextIndexUpdate(space string) error {
+func (idx *indexer) processIndexUpdateQueue(space string) error {
 	channel := idx.indexUpdates[space]
 	select {
 	case <-idx.context.Done():
@@ -350,7 +359,7 @@ func (idx *indexer) getNextIndexUpdate(space string) error {
 	case update := <-channel:
 		if len(update.Updates) > 0 {
 			logger.Debug.Printf("Received interest list of %v docs\n", len(update.Updates))
-			idx.updateReceived <- struct{}{}
+			idx.notifyUpdateReceived()
 		}
 
 		err := idx.db.setInterestList(idx.context, update)
@@ -481,7 +490,8 @@ func (idx *indexer) updateSpelling() {
 
 func (idx *indexer) updateStopwords() {
 	logger.Debug.Printf("Updating stopwords...")
-	err := idx.db.updateStopwords(idx.context)
+	stopwordPercentageCutoff := idx.cfg.Stemmer.StopwordCutoff
+	err := idx.db.updateStopwords(idx.context, stopwordPercentageCutoff)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		logger.Error.Printf("Failed to update stop words: %v", err)
 	}
