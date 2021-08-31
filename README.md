@@ -21,7 +21,7 @@ On Windows, Letarette test builds use `mingw` from Chocolatey:
 choco install mingw
 ```
 
-Letarette requires go 1.13 or above to build.
+Letarette requires go 1.14 or above to build.
 
 [Letarette]: https://letarette.io
 [letarette.js]: https://github.com/erkkah/letarette.js
