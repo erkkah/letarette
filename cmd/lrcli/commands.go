@@ -70,13 +70,13 @@ Remove diacritics: {{if .Stemmer.RemoveDiacritics}}yes{{else}}no{{end}}
 Spaces:
 ======
 {{range .Spaces -}}
-{{printf "☆ %s\t" .Name}} - Last updated @ {{nanoDate .State.LastUpdated}} ({{.State.LastUpdatedDocID}})
+{{printf "* %s\t" .Name}} - Last updated @ {{nanoDate .State.LastUpdated}} ({{.State.LastUpdatedDocID}})
 {{else}}No spaces
 {{end}}
 Top terms:
 =========
 {{range .CommonTerms -}}
-{{printf "☆ %s\t%12d" .Term .Count}}
+{{printf "* %s\t%12d" .Term .Count}}
 {{end}}
 `
 
