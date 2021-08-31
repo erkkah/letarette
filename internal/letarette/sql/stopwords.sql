@@ -12,12 +12,10 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-
-
--- A quick stop word extractor, we can do better :)
-
 create virtual table if not exists temp.stats using fts5vocab(main, 'fts', 'row');
 delete from stopwords where not user;
 
 insert into stopwords (word, user)
-select term, 0 from temp.stats order by cnt desc limit 15;
+select term, 0 from temp.stats
+where cnt > (select sum(cnt) from temp.stats) * :1
+order by cnt desc limit 15;
