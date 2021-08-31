@@ -35,7 +35,8 @@ var cmdline struct {
 	Monitor bool
 
 	SQL       bool     `docopt:"sql"`
-	Statement []string `docopt:"<sql>"`
+	Statement string   `docopt:"<sql>"`
+	Args      []string `docopt:"<arg>"`
 
 	Index        bool
 	Database     string `docopt:"-d"`
