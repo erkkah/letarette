@@ -50,6 +50,9 @@ func (db *database) spellFixTerm(ctx context.Context, term string) (string, floa
 	return fixed.Word, fixed.Distance, true, nil
 }
 
+// fixPhraseSpelling tries to spell-fix a list of phrases.
+// Returns a list of possibly fixed phrases, the sum of edit distances of the fixes
+// and a "fixed" status.
 func (db *database) fixPhraseSpelling(ctx context.Context, phrases []Phrase) ([]Phrase, float32, bool, error) {
 	clone := append(phrases[:0:0], phrases...)
 	distances := float32(0.0)
