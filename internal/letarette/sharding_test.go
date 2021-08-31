@@ -28,7 +28,7 @@ func TestShardSpread(t *testing.T) {
 	shards := 5
 	for i := 0; i < docs; i++ {
 		docID := fmt.Sprintf("%d", i)
-		idx := shardIndexFromDocumentID(protocol.DocumentID(docID), shards)
+		idx := ShardIndexFromDocumentID(protocol.DocumentID(docID), shards)
 		count := spread[idx]
 		spread[idx] = count + 1
 	}

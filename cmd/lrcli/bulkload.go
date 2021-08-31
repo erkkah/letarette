@@ -37,7 +37,7 @@ type entry struct {
 	Date  time.Time `json:"date"`
 }
 
-func bulkLoad(db letarette.Database) {
+func bulkLoad(db letarette.Database, shardGroupSize int, shardIndex int) {
 	s := spinner.New(os.Stdout)
 	s.Start("Loading ")
 
@@ -66,7 +66,7 @@ func bulkLoad(db letarette.Database) {
 
 	decoder := json.NewDecoder(fileReader)
 
-	numRead := 0
+	numLoaded := 0
 
 	loader, err := letarette.StartBulkLoad(db, cmdline.Space)
 	if err != nil {
@@ -82,22 +82,30 @@ func bulkLoad(db letarette.Database) {
 	numID := 0
 	epoch := time.Unix(0, 0)
 
-	for cmdline.Limit == 0 || numRead < cmdline.Limit {
+	for cmdline.Limit == 0 || numLoaded < cmdline.Limit {
 		var e entry
 		readErr := decoder.Decode(&e)
 
-		if cmdline.AutoAssign {
-			e.ID = strconv.Itoa(numID)
-			numID++
-		}
 		if readErr == nil {
-			if e.Date.Before(epoch) {
-				logger.Info.Printf("Resetting invalid date to epoch")
-				e.Date = epoch
-			}
 			if e.ID == "" {
 				s.Stop("Cannot load document without ID, use -a for auto-assign?\n")
 				return
+			}
+			if cmdline.AutoAssign {
+				e.ID = strconv.Itoa(numID)
+				numID++
+			}
+			index := letarette.ShardIndexFromDocumentID(protocol.DocumentID(e.ID), shardGroupSize)
+			if index != shardIndex {
+				logger.Debug.Printf("Skipping document %q, not for the configured shard", e.ID)
+				continue
+			}
+
+			logger.Debug.Printf("Loading document %q", e.ID)
+
+			if e.Date.Before(epoch) {
+				logger.Info.Printf("Resetting invalid date to epoch")
+				e.Date = epoch
 			}
 			doc := protocol.Document{
 				ID:      protocol.DocumentID(e.ID),
@@ -111,6 +119,7 @@ func bulkLoad(db letarette.Database) {
 				s.Stop(fmt.Sprintf("Document load error: %v\n", err))
 				return
 			}
+			numLoaded++
 		} else {
 			if readErr != io.EOF {
 				s.Stop(fmt.Sprintf("Read error: %v\n", readErr))
@@ -118,7 +127,6 @@ func bulkLoad(db letarette.Database) {
 			}
 			break
 		}
-		numRead++
 	}
 
 	err = loader.Commit()
@@ -132,6 +140,6 @@ func bulkLoad(db letarette.Database) {
 	performance := loadedMegs / elapsed.Seconds()
 
 	s.Stop(fmt.Sprintf("Loaded %v documents in %v, %.2f Mbytes, %.2f Mbytes/s\n",
-		numRead, elapsed.Seconds(), loadedMegs, performance))
+		numLoaded, elapsed, loadedMegs, performance))
 	loader = nil
 }

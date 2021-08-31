@@ -120,7 +120,7 @@ func (s *ShardCloner) Step(ctx context.Context) (bool, error) {
 		if err != nil {
 			return true, err
 		}
-		index := shardIndexFromDocumentID(doc.ID, s.targetSize)
+		index := ShardIndexFromDocumentID(doc.ID, s.targetSize)
 		if index != s.targetIndex {
 			continue
 		}
