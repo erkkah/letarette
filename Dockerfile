@@ -17,7 +17,7 @@ COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /bin/sh /bin/sh
 COPY --from=builder /bin/mkdir /bin/mkdir
 COPY --from=builder /bin/chown /bin/chown
-COPY --from=builder /lib/ld-musl-x86_64.so.1 /lib/ld-musl-x86_64.so.1
+COPY --from=builder /lib/ld-musl* /lib/
 
 COPY --from=builder /go/src/app/letarette /letarette
 COPY --from=builder /go/src/app/lrcli /lrcli
