@@ -222,7 +222,7 @@ func (m *monitor) checkpoint() {
 		}
 	}
 	if len(missingWorkers) > 0 {
-		logger.Error.Printf("No active workers for shard(s) %s!", strings.Join(missingWorkers, ","))
+		logger.Warning.Printf("No active workers for shard(s) %s!", strings.Join(missingWorkers, ","))
 		setStatus(protocol.IndexStatusIncompleteShardgroup)
 	}
 
