@@ -84,7 +84,7 @@ func TestAddDocument_EmptySpace(t *testing.T) {
 
 	ctx := context.Background()
 	docs := []protocol.Document{
-		protocol.Document{},
+		{},
 	}
 	err := setup.db.addDocumentUpdates(ctx, "", docs)
 	gta.ErrorContains(t, err, "no such space", "Adding document with empty space should fail")
@@ -97,7 +97,7 @@ func TestAddDocument_NewDocument(t *testing.T) {
 	// "Cortex " below (note the space) is a "valid"
 	// compressed header in the original sqlite3 compress extension.
 	docs := []protocol.Document{
-		protocol.Document{
+		{
 			ID:      "myID",
 			Updated: time.Now(),
 			Text:    "Cortex and such",
@@ -115,7 +115,7 @@ func TestAddDocument_NewDocument_Compressed(t *testing.T) {
 	defer setup.cleanup()
 
 	docs := []protocol.Document{
-		protocol.Document{
+		{
 			ID:      "myID",
 			Updated: time.Now(),
 			Text:    "tjo och hej",
@@ -189,7 +189,7 @@ func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
 	docTime := time.Now()
 	docID := protocol.DocumentID("koko")
 	docs := []protocol.Document{
-		protocol.Document{
+		{
 			ID:      docID,
 			Updated: docTime,
 			Text:    "tjo och hej",
@@ -275,7 +275,7 @@ func TestSetInterestList_NonexistingSpace(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, list)
-	gta.ErrorContains(t, err, "sql: no rows", "Setting interest list for nonexisting space should fail!")
+	gta.ErrorContains(t, err, "Received interest list for unknown space", "Setting interest list for nonexisting space should fail!")
 }
 
 func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
