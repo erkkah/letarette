@@ -17,10 +17,10 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
     steps:
 
-    - name: Set up Go 1.13
+    - name: Set up Go 1.14
       uses: actions/setup-go@v1
       with:
-        go-version: 1.13
+        go-version: 1.14
       id: go
 
     - name: Check out code
@@ -38,7 +38,7 @@ jobs:
       run: choco install mingw
 
     - name: Get GOCACHE
-      run: go run github.com/erkkah/bygg gocache
+      run: go run github.com/erkkah/bygg gocache >> $GITHUB_ENV
     
     - name: Cache go build cache
       uses: actions/cache@v1
