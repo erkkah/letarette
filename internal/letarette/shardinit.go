@@ -26,31 +26,35 @@ import (
 )
 
 // InitializeShard tries to locate healthier shards to clone from, to cut down
-// start-up times and reducing load on the DocumentManager.
+// start-up times and reduce load on the DocumentManager.
 func InitializeShard(conn *nats.Conn, db Database, cfg Config, monitor StatusMonitor) error {
 	logger.Info.Printf("Looking for healthy shards to clone")
 	shardInfo := monitor.GetHealthyShards()
 	defer monitor.ShardInitDone()
 
 	var cloneSources []ShardInfo
-	var smallestGroup uint16
+	var smallestGroupSize uint16
 
 	for _, info := range shardInfo {
-		if info.ShardgroupSize == cfg.ShardgroupSize {
+		// Prefer cloning the same shard
+		if info.ShardgroupSize == cfg.ShardgroupSize && info.ShardIndex == cfg.ShardIndex {
 			cloneSources = []ShardInfo{info}
 			break
 		}
 
-		if smallestGroup == 0 || smallestGroup > info.ShardgroupSize {
-			smallestGroup = info.ShardgroupSize
+		if (smallestGroupSize == 0 || smallestGroupSize > info.ShardgroupSize) &&
+			// No point in cloning from other shards in same group
+			info.ShardgroupSize != cfg.ShardgroupSize {
+			smallestGroupSize = info.ShardgroupSize
 		}
 	}
 
+	// No same-shaped shard found, try to clone from smallest shard group
 	if len(cloneSources) == 0 {
 		indices := map[uint16]bool{}
 
 		for _, info := range shardInfo {
-			if info.ShardgroupSize == smallestGroup {
+			if info.ShardgroupSize == smallestGroupSize {
 				if _, found := indices[info.ShardIndex]; !found {
 					cloneSources = append(cloneSources, info)
 					indices[info.ShardIndex] = true
