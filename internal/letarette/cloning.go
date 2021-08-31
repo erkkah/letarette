@@ -22,6 +22,7 @@ import (
 	"io"
 	"time"
 
+	lrio "github.com/erkkah/letarette/pkg/io"
 	"github.com/erkkah/letarette/pkg/protocol"
 	"github.com/jmoiron/sqlx"
 )
@@ -175,7 +176,7 @@ func (s *ShardCloner) Close() (int, error) {
 
 // LoadShardClone loads a clone from a reader source
 func LoadShardClone(ctx context.Context, db Database, source io.Reader) error {
-	uncompressor, err := gzip.NewReader(source)
+	uncompressor, err := gzip.NewReader(lrio.NewReaderContext(ctx, source))
 	if err != nil {
 		return err
 	}
