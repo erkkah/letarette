@@ -71,8 +71,13 @@ jobs:
         name: changelog
         path: CHANGELOG.md
 
+    - name: Set executable extension
+      if: startsWith(matrix.os, 'windows')
+      shell: bash
+      run: echo EXE=.exe >> $GITHUB_ENV
+
     - name: Save artifacts
       uses: actions/upload-artifact@v1
       with:
         name: ${{ format('letarette-{0}', matrix.os) }}
-        path: letarette
+        path: letarette$EXE
