@@ -1,15 +1,15 @@
 # Changelog
 
-## [0.2.0] - 2020-06-??
+## [0.2.0] - 2021-09-01
 ### Fixed
 - Improved sync performance
 - Improved cache performance
 - Improved error handling
-- Bugs!
+- A bunch of bugs
 - Replaced Makefile builds with `bygg` build system to simplify multi-platform builds
 ### Added
 - Indexed documents are optionally zlib-compressed on disk. The index itself is not compressed.
-- Preliminary Windows support. Builds and runs! Needs testing.
+- Preliminary Windows support. Builds and runs! Needs more testing.
 - Static build support
 - Cloning
   - Index shard worker startup time is greatly reduced by automatically cloning existing shards. If no healthy workers are available for cloning, regular sync will be used.
