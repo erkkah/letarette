@@ -12,8 +12,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
-        go-version: [1.14]
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        go-version: [1.16]
     steps:
 
     - name: Set up Go
@@ -34,6 +34,7 @@ jobs:
 
     - name: Get GOCACHE
       run: go run github.com/erkkah/bygg gocache >> $GITHUB_ENV
+      shell: bash
     
     - name: Cache go build cache
       uses: actions/cache@v1
@@ -101,6 +102,11 @@ jobs:
 
       - uses: actions/download-artifact@v1.0.0
         with:
+          name: letarette-windows-latest
+          path: windows
+
+      - uses: actions/download-artifact@v1.0.0
+        with:
           name: licenses
           path: licenses
 
@@ -110,11 +116,11 @@ jobs:
           path: .
 
       - name: Unpack binaries
-        run: for os in linux macos; do (cd $os && tar xzf binaries.tgz && rm binaries.tgz); done
+        run: for os in linux macos windows; do (cd $os && tar xzf binaries.tgz && rm binaries.tgz); done
 
       - name: Pack release
         id: pack-release
-        run: tar czf $ARCHIVE linux macos licenses CHANGELOG.md
+        run: tar czf $ARCHIVE linux macos windows licenses CHANGELOG.md
 
       - name: Load changelog
         id: changelog
