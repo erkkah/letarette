@@ -18,6 +18,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -63,7 +64,7 @@ func loadSynonyms(db letarette.Database) {
 	for {
 		err := decoder.Decode(&voidSynonym)
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				s.Stop(fmt.Sprintf("Read error: %v\n", err))
 				return
 			}

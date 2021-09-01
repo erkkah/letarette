@@ -56,11 +56,11 @@ func StartProfiler(cfg Config) (*Profiler, error) {
 		logger.Info.Printf("Starting CPU profiler writer to %s", cfg.Profile.CPU)
 		f, err := os.Create(cfg.Profile.CPU)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create CPU profile: %v", err)
+			return nil, fmt.Errorf("failed to create CPU profile: %w", err)
 		}
 		profiler.cpuWriter = f
 		if err = pprof.StartCPUProfile(f); err != nil {
-			return nil, fmt.Errorf("failed to start CPU profile: %v", err)
+			return nil, fmt.Errorf("failed to start CPU profile: %w", err)
 		}
 	}
 
@@ -112,7 +112,7 @@ func (p *Profiler) Close() error {
 	if p.memWriter != nil {
 		runtime.GC()
 		if err := pprof.WriteHeapProfile(p.memWriter); err != nil {
-			return fmt.Errorf("could not write memory profile: %v", err)
+			return fmt.Errorf("could not write memory profile: %w", err)
 		}
 		_ = p.memWriter.Close()
 	}
