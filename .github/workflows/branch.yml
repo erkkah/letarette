@@ -39,6 +39,7 @@ jobs:
       run: choco install mingw
 
     - name: Get GOCACHE
+      shell: bash
       run: go run github.com/erkkah/bygg gocache >> $GITHUB_ENV
     
     - name: Cache go build cache
