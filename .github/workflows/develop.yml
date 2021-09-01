@@ -80,4 +80,4 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: ${{ format('letarette-{0}', matrix.os) }}
-        path: letarette$EXE
+        path: ${{ format('letarette{0}', env.EXE) }}
