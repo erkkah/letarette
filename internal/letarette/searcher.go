@@ -16,6 +16,7 @@ package letarette
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"strings"
@@ -104,11 +105,13 @@ func (s *searcher) parseAndExecute(ctx context.Context, query protocol.SearchReq
 	duration := float32(time.Since(start)) / float32(time.Second)
 
 	if err != nil {
-		sqliteError, ok := err.(sqlite3.Error)
+		var sqliteError sqlite3.Error
+		ok := errors.As(err, &sqliteError)
+
 		switch {
 		case ok && sqliteError.Code == sqlite3.ErrInterrupt:
 			status = protocol.SearchStatusTimeout
-		case err == context.DeadlineExceeded:
+		case errors.Is(err, context.DeadlineExceeded):
 			status = protocol.SearchStatusTimeout
 		default:
 			status = protocol.SearchStatusServerError

@@ -37,9 +37,8 @@ import (
 // The Cloner listens to clone requests over NATS and
 // responds with a URL to a clone stream.
 type Cloner struct {
-	close context.CancelFunc
-	conn  *nats.EncodedConn
-	db    *database
+	conn *nats.EncodedConn
+	db   *database
 
 	server       http.Server
 	cloneHost    string

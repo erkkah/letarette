@@ -18,6 +18,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -123,7 +124,7 @@ func loadDatabase(objFile string) error {
 				report()
 			}
 		} else {
-			if readErr != io.EOF {
+			if !errors.Is(readErr, io.EOF) {
 				return readErr
 			}
 			break

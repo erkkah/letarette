@@ -23,6 +23,8 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// StartBulkLoad creates a new BulkLoader instance for the specified
+// database and space.
 func StartBulkLoad(dbo Database, space string) (*BulkLoader, error) {
 	db := dbo.(*database)
 	sql := db.getRawDB()
@@ -46,6 +48,7 @@ func StartBulkLoad(dbo Database, space string) (*BulkLoader, error) {
 	}, nil
 }
 
+// BulkLoader performs transactional loading of documents into the index
 type BulkLoader struct {
 	spaceID     int
 	tx          *sqlx.Tx
@@ -54,6 +57,7 @@ type BulkLoader struct {
 	loadedBytes uint32
 }
 
+// Load loads one document into the current loading transaction
 func (bl *BulkLoader) Load(doc protocol.Document) error {
 	txt := ""
 	title := ""
@@ -84,6 +88,9 @@ func (bl *BulkLoader) Load(doc protocol.Document) error {
 	return nil
 }
 
+// Commit - commits the bulk load transaction and performs
+// vacuuming. The BulkLoader should not be used after
+// committing.
 func (bl *BulkLoader) Commit() error {
 
 	err := bl.tx.Commit()
@@ -99,10 +106,14 @@ func (bl *BulkLoader) Commit() error {
 	return nil
 }
 
+// Rollback - rolls back the complete bulk load transaction.
+// The BulkLoader should not be used after rolling back.
 func (bl *BulkLoader) Rollback() error {
 	return bl.tx.Rollback()
 }
 
+// LoadedBytes returns the number of bytes loaded by the
+// current BulkLoader instance
 func (bl *BulkLoader) LoadedBytes() uint32 {
 	return bl.loadedBytes
 }
