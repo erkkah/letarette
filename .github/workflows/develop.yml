@@ -12,8 +12,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
-        go-version: [1.14]
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        go-version: [1.16]
     steps:
 
     - name: Set up Go
@@ -34,6 +34,7 @@ jobs:
 
     - name: Get GOCACHE
       run: go run github.com/erkkah/bygg gocache >> $GITHUB_ENV
+      shell: bash
     
     - name: Cache go build cache
       uses: actions/cache@v1
