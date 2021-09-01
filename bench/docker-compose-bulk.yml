@@ -8,7 +8,7 @@ services:
             - type: bind
               source: ../testdata
               target: /data
-        entrypoint: ["./lrcli", "load", "-a", "-l", "10000", "docs", "/data/1M.json.gz"]
+        entrypoint: ["./lrcli", "load", "-a", "-m", "10000", "docs", "/data/1M.json.gz"]
         environment:
             LETARETTE_DB_PATH: /db/letarette.db
 volumes:
