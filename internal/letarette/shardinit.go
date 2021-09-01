@@ -15,6 +15,7 @@
 package letarette
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -27,7 +28,7 @@ import (
 
 // InitializeShard tries to locate healthier shards to clone from, to cut down
 // start-up times and reduce load on the DocumentManager.
-func InitializeShard(conn *nats.Conn, db Database, cfg Config, monitor StatusMonitor) error {
+func InitializeShard(ctx context.Context, conn *nats.Conn, db Database, cfg Config, monitor StatusMonitor) error {
 	logger.Info.Printf("Looking for healthy shards to clone")
 	shardInfo := monitor.GetHealthyShards()
 	defer monitor.ShardInitDone()
@@ -74,7 +75,6 @@ func InitializeShard(conn *nats.Conn, db Database, cfg Config, monitor StatusMon
 	}
 
 	sql := db.(*database)
-	ctx := context.Background()
 	count, err := sql.getDocumentCount(ctx)
 	if err != nil {
 		return err
@@ -109,7 +109,12 @@ func InitializeShard(conn *nats.Conn, db Database, cfg Config, monitor StatusMon
 			return err
 		}
 
-		httpResponse, err := http.DefaultClient.Get(res.URL)
+		httpReq, err := http.NewRequestWithContext(ctx, "GET", res.URL, bytes.NewBuffer([]byte{}))
+		if err != nil {
+			return err
+		}
+
+		httpResponse, err := http.DefaultClient.Do(httpReq)
 		if err != nil {
 			return err
 		}

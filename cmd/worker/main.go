@@ -20,13 +20,13 @@ package main
 */
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -89,15 +89,14 @@ func main() {
 	defer conn.Close()
 
 	// Start trapping signals
-	var done sync.WaitGroup
-	done.Add(1)
+	mainContext, done := context.WithCancel(context.Background())
 
 	go func() {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 		s := <-signals
 		logger.Info.Printf("Received signal %v, initiating graceful shutdown...", s)
-		done.Done()
+		done()
 	}()
 
 	db, err := letarette.OpenDatabase(cfg)
@@ -139,8 +138,11 @@ func main() {
 		die("Failed to start metrics collector: %v", err)
 	}
 
-	err = letarette.InitializeShard(conn, db, cfg, monitor)
+	err = letarette.InitializeShard(mainContext, conn, db, cfg, monitor)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			err = errors.New("interrupted")
+		}
 		die("Failed to initialize shard: %v", err)
 	}
 
@@ -168,7 +170,7 @@ func main() {
 		die("Failed to start cloner: %v", err)
 	}
 
-	done.Wait()
+	<-mainContext.Done()
 
 	if metrics != nil {
 		metrics.Close()
