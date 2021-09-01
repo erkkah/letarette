@@ -17,6 +17,7 @@ package main
 import (
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -121,7 +122,7 @@ func bulkLoad(db letarette.Database, shardGroupSize int, shardIndex int) {
 			}
 			numLoaded++
 		} else {
-			if readErr != io.EOF {
+			if !errors.Is(readErr, io.EOF) {
 				s.Stop(fmt.Sprintf("Read error: %v\n", readErr))
 				return
 			}

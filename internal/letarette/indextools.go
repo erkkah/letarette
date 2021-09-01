@@ -17,6 +17,7 @@ package letarette
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"unsafe"
@@ -350,7 +351,7 @@ func GetSpellfixLag(ctx context.Context, dbo Database, minCount int) (int, error
 
 	var lag int
 	err = row.Scan(&lag)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
 	}
 	if err != nil {

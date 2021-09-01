@@ -15,6 +15,7 @@
 package main
 
 import (
+	"errors"
 	"html/template"
 	"io"
 	"log"
@@ -81,7 +82,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		path = strings.TrimPrefix(path, "/raw/")
 		setContentTypeFromPath(w, path)
 		err = s.serveRaw(path, w)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			_ = textResponse(w, 404, "Not found")
 			return
 		}

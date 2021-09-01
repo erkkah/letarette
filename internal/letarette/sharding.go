@@ -26,6 +26,9 @@ import (
 
 var shardHasher = fnv.New32a()
 
+// ShardIndexFromDocumentID calculated a shard index based on a hash
+// of the document ID.
+// The hash algorithm is chosen for even distribution in a shard group.
 func ShardIndexFromDocumentID(docID protocol.DocumentID, shardGroupSize int) int {
 	shardHasher.Reset()
 	_, _ = shardHasher.Write([]byte(docID))

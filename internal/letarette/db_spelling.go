@@ -17,6 +17,7 @@ package letarette
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -41,7 +42,7 @@ func (db *database) spellFixTerm(ctx context.Context, term string) (string, floa
 	err = db.rdb.GetContext(ctx, &fixed,
 		`select word, distance, score from speling where word match ? limit 1`, unquotedTerm)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return term, 0, false, nil
 		}
 		return "", 0, false, err

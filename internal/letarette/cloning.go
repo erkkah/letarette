@@ -18,6 +18,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -205,7 +206,7 @@ func LoadShardClone(ctx context.Context, db Database, source io.Reader) error {
 		err = decoder.Decode(&space)
 
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				if loader != nil {
 					err = loader.Commit()
 					loader = nil
@@ -236,7 +237,7 @@ func LoadShardClone(ctx context.Context, db Database, source io.Reader) error {
 		var doc protocol.Document
 		err = decoder.Decode(&doc)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				err = loader.Commit()
 				loader = nil
 				return err
