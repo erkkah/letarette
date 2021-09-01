@@ -66,9 +66,14 @@ jobs:
       with:
         name: changelog
         path: CHANGELOG.md
+
+    - name: Set executable extension
+      if: startsWith(matrix.os, 'windows')
+      shell: bash
+      run: echo EXE=.exe >> $GITHUB_ENV
     
     - name: Pack binaries
-      run: tar czf binaries.tgz letarette lrcli lrload
+      run: tar czf binaries.tgz ${{ format('letarette{0}', env.EXE) }} ${{ format('lrcli{0}', env.EXE) }} ${{ format('lrload{0}', env.EXE) }}
 
     - name: Save artifacts
       uses: actions/upload-artifact@v1
