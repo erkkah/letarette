@@ -16,6 +16,7 @@ package letarette
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -31,7 +32,7 @@ var ErrStemmerSettingsMismatch = fmt.Errorf("config does not match index state")
 func CheckStemmerSettings(db Database, cfg Config) error {
 	internal := db.(*database)
 	state, _, err := internal.getStemmerState()
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		state = snowball.Settings{
 			Stemmers:         cfg.Stemmer.Languages,
 			RemoveDiacritics: cfg.Stemmer.RemoveDiacritics,

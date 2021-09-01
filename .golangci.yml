@@ -54,6 +54,14 @@ linters-settings:
     # default is false: such cases aren't reported by default.
     check-blank: false
 
+  exhaustive:
+    # check switch statements in generated files also
+    check-generated: false
+    # indicates that switch statements are to be considered exhaustive if a
+    # 'default' case is present, even if all enum members aren't listed in the
+    # switch
+    default-signifies-exhaustive: true
+    
   goconst:
     # minimal length of string constant, 3 by default
     min-len: 3
@@ -241,7 +249,7 @@ issues:
     - linters:
         - staticcheck
         - stylecheck
-      text: "SA9003:|SA5001:|ST1003:"
+      text: "SA9003:|SA5001:|ST1003:|ST1000"
 
     # Exclude lll issues for long lines with go:generate, #cgo
     - linters:
@@ -264,6 +272,7 @@ issues:
 
     - linters:
         - sqlclosecheck
+      source: ".*"
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all

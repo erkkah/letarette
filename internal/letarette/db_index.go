@@ -149,7 +149,7 @@ func (db *database) commitInterestList(ctx context.Context, space string) error 
 		order by docs.updatedNanos desc, docs.docID desc
 		limit 1;`, space, served)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 		return err
@@ -185,7 +185,7 @@ func (db *database) getSpaceID(ctx context.Context, space string) (int, error) {
 	var spaceID int
 	err := db.rdb.GetContext(ctx, &spaceID, `select spaceID from spaces where space = ?`, space)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			err = fmt.Errorf("no such space, %v", space)
 		}
 		return -1, err
@@ -271,6 +271,10 @@ func (db *database) hasDocument(ctx context.Context, space string, doc Interest)
 func (db *database) setInterestList(ctx context.Context, indexUpdate protocol.IndexUpdate) error {
 
 	tx, err := db.wdb.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
 	defer func() {
 		if tx != nil {
 			_ = tx.Rollback()
@@ -281,7 +285,7 @@ func (db *database) setInterestList(ctx context.Context, indexUpdate protocol.In
 	err = tx.GetContext(ctx, &spaceID, `select spaceID from spaces where space = ?`, indexUpdate.Space)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("Received interest list for unknown space %q", indexUpdate.Space)
+			return fmt.Errorf("received interest list for unknown space %q", indexUpdate.Space)
 		}
 		return err
 	}
@@ -373,7 +377,7 @@ func (db *database) getStemmerState() (snowball.Settings, time.Time, error) {
 func (db *database) setStemmerState(state snowball.Settings) error {
 	_, _, err := db.getStemmerState()
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		insert := `
 		insert into stemmerstate (languages, removeDiacritics, tokenCharacters, separators)
 		values ("", "false", "", "");

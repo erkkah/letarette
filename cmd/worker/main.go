@@ -20,6 +20,7 @@ package main
 */
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -121,7 +122,7 @@ func main() {
 	}
 
 	err = letarette.CheckStemmerSettings(db, cfg)
-	if err == letarette.ErrStemmerSettingsMismatch {
+	if errors.Is(err, letarette.ErrStemmerSettingsMismatch) {
 		die("Index and config stemmer settings mismatch. Re-build index or force changes.")
 	}
 	if err != nil {

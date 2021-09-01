@@ -15,6 +15,8 @@
 package main
 
 import (
+	"errors"
+
 	"github.com/docopt/docopt-go"
 
 	"github.com/erkkah/letarette/internal/letarette"
@@ -176,7 +178,7 @@ func dbSubcommand(cfg letarette.Config) {
 		}
 	case cmdline.Check:
 		err = letarette.CheckStemmerSettings(db, cfg)
-		if err == letarette.ErrStemmerSettingsMismatch {
+		if errors.Is(err, letarette.ErrStemmerSettingsMismatch) {
 			logger.Warning.Printf("Index and config stemmer settings mismatch. Re-build index or force changes.")
 		}
 		checkIndex(db)
