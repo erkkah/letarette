@@ -492,7 +492,9 @@ func (idx *indexer) updateSpelling() {
 	logger.Info.Printf("Housekeeping: Updating spelling index")
 	err = UpdateSpellfix(idx.context, idx.db, idx.cfg.Spelling.MinFrequency)
 	if err != nil {
-		logger.Error.Printf("Housekeeping: Failed to update spelling index: %v", err)
+		if !errors.Is(err, context.Canceled) {
+			logger.Error.Printf("Housekeeping: Failed to update spelling index: %v", err)
+		}
 		return
 	}
 	duration := time.Since(start)
