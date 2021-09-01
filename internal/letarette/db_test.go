@@ -275,7 +275,7 @@ func TestSetInterestList_NonexistingSpace(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, list)
-	gta.ErrorContains(t, err, "Received interest list for unknown space", "Setting interest list for nonexisting space should fail!")
+	gta.ErrorContains(t, err, "received interest list for unknown space", "Setting interest list for nonexisting space should fail!")
 }
 
 func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
