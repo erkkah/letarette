@@ -19,7 +19,7 @@ jobs:
         run: echo TAG=${GITHUB_REF:10} >> $GITHUB_ENV
 
       - name: Build docker image
-        run: docker build -t letarette/letarette:$TAG .
+        run: docker build -t letarette/letarette -t letarette/letarette:$TAG .
 
       - name: Push docker image
         run: |
