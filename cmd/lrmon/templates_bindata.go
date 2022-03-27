@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build prod
 // +build prod
-
-//go:generate go run github.com/go-bindata/go-bindata/go-bindata -pkg $GOPACKAGE -prefix static/ -o bindata.go static/...
 
 package main
 
 import (
-	"bytes"
+	"embed"
 	"html/template"
 	"io"
 	"log"
@@ -28,6 +27,8 @@ import (
 	"github.com/erkkah/letarette/pkg/logger"
 )
 
+//go:embed static
+var templateFS embed.FS
 var loadedTemplates *template.Template
 
 func lookupTemplate(path string) *template.Template {
@@ -35,12 +36,11 @@ func lookupTemplate(path string) *template.Template {
 }
 
 func serveRaw(path string, writer io.Writer) error {
-	data, err := Asset(path)
+	file, err := templateFS.Open("static/" + path)
 	if err != nil {
 		return err
 	}
-	reader := bytes.NewReader(data)
-	_, err = io.Copy(writer, reader)
+	_, err = io.Copy(writer, file)
 	return err
 }
 
@@ -54,16 +54,21 @@ func init() {
 
 func parseTemplates() (*template.Template, error) {
 	result := template.New("").Funcs(templateFunctions)
-	for _, file := range AssetNames() {
-		if strings.HasPrefix(file, "/raw") {
+	entries, err := templateFS.ReadDir("static")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range entries {
+		if !strings.HasSuffix(file.Name(), ".html") {
 			continue
 		}
 		logger.Debug.Printf("Parsing template %q", file)
-		templateData, err := Asset(file)
+		templateData, err := templateFS.ReadFile("static/" + file.Name())
 		if err != nil {
 			return nil, err
 		}
-		templateName := "/" + file
+		templateName := "/" + file.Name()
 		_, err = result.New(templateName).Parse(string(templateData))
 		if err != nil {
 			return nil, err
