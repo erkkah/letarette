@@ -2,7 +2,6 @@ module github.com/erkkah/letarette
 
 require (
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
-	github.com/erkkah/bygg v0.6.1 // indirect
 	github.com/erkkah/immutable v0.1.0
 	github.com/erkkah/margaid v0.0.2
 	github.com/golang-migrate/migrate/v4 v4.15.1
@@ -15,7 +14,7 @@ require (
 )
 
 require (
-	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
+	github.com/erkkah/bygg v0.6.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/klauspost/compress v1.15.1 // indirect
