@@ -28,7 +28,7 @@ import (
 	"github.com/erkkah/letarette/internal/snowball"
 	"github.com/erkkah/letarette/pkg/protocol"
 
-	gta "gotest.tools/assert"
+	xt "github.com/erkkah/letarette/pkg/xt"
 )
 
 type testSetup struct {
@@ -75,24 +75,30 @@ func TestOpen(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
-	gta.Assert(t, setup.db != nil, "Database is nil!")
+	xt := xt.X(t)
+
+	xt.Assertf(setup.db != nil, "Database is nil!")
 }
 
 func TestAddDocument_EmptySpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	ctx := context.Background()
 	docs := []protocol.Document{
 		{},
 	}
 	err := setup.db.addDocumentUpdates(ctx, "", docs)
-	gta.ErrorContains(t, err, "no such space", "Adding document with empty space should fail")
+	xt.Containsf(err, "no such space", "Adding document with empty space should fail")
 }
 
 func TestAddDocument_NewDocument(t *testing.T) {
 	setup := getTestSetup(t, false)
 	defer setup.cleanup()
+
+	xt := xt.X(t)
 
 	// "Cortex " below (note the space) is a "valid"
 	// compressed header in the original sqlite3 compress extension.
@@ -107,12 +113,14 @@ func TestAddDocument_NewDocument(t *testing.T) {
 	ctx := context.Background()
 	err := setup.db.addDocumentUpdates(ctx, "test", docs)
 
-	gta.NilError(t, err, "Failed to add new document")
+	xt.Nilf(err, "Failed to add new document")
 }
 
 func TestAddDocument_NewDocument_Compressed(t *testing.T) {
 	setup := getTestSetup(t, true)
 	defer setup.cleanup()
+
+	xt := xt.X(t)
 
 	docs := []protocol.Document{
 		{
@@ -125,25 +133,29 @@ func TestAddDocument_NewDocument_Compressed(t *testing.T) {
 	ctx := context.Background()
 	err := setup.db.addDocumentUpdates(ctx, "test", docs)
 
-	gta.NilError(t, err, "Failed to add new document")
+	xt.Nilf(err, "Failed to add new document")
 }
 
 func TestCommitInterestList_Empty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	ctx := context.Background()
 	err := setup.db.commitInterestList(ctx, "test")
-	gta.NilError(t, err, "Failed to commit empty list")
+	xt.Nilf(err, "Failed to commit empty list")
 }
 
 func TestCommitInterestList_NonEmptyNoUpdates(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	ctx := context.Background()
 	beforeState, err := setup.db.getInterestListState(ctx, "test")
-	gta.NilError(t, err, "Failed to get list state")
+	xt.Nilf(err, "Failed to get list state")
 
 	list := protocol.IndexUpdate{
 		Space: "test",
@@ -158,21 +170,23 @@ func TestCommitInterestList_NonEmptyNoUpdates(t *testing.T) {
 	}
 
 	err = setup.db.setInterestList(ctx, list)
-	gta.NilError(t, err, "Setting interest list failed")
+	xt.Nilf(err, "Setting interest list failed")
 
 	err = setup.db.commitInterestList(ctx, "test")
-	gta.NilError(t, err, "Failed to commit list")
+	xt.Nilf(err, "Failed to commit list")
 
 	afterState, err := setup.db.getInterestListState(ctx, "test")
-	gta.NilError(t, err, "Failed to get list state")
+	xt.Nilf(err, "Failed to get list state")
 
-	gta.Assert(t, beforeState.LastUpdated == afterState.LastUpdated, "Expected untouched state")
-	gta.Assert(t, beforeState.LastUpdatedDocID == afterState.LastUpdatedDocID, "Expected untouched state")
+	xt.Assertf(beforeState.LastUpdated == afterState.LastUpdated, "Expected untouched state")
+	xt.Assertf(beforeState.LastUpdatedDocID == afterState.LastUpdatedDocID, "Expected untouched state")
 }
 
 func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
+
+	xt := xt.X(t)
 
 	list := protocol.IndexUpdate{
 		Space: "test",
@@ -199,23 +213,20 @@ func TestCommitInterestList_NonEmptyWithUpdates(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, list)
-	gta.NilError(t, err, "Setting interest list failed: %v", err)
+	xt.Nilf(err, "Setting interest list failed: %v", err)
 
 	err = setup.db.addDocumentUpdates(ctx, "test", docs)
-	gta.NilError(t, err, "Failed to add document: %v", err)
+	xt.Nilf(err, "Failed to add document: %v", err)
 
 	err = setup.db.commitInterestList(ctx, "test")
-	gta.NilError(t, err, "Failed to commit list: %v", err)
+	xt.Nilf(err, "Failed to commit list: %v", err)
 
 	afterState, err := setup.db.getInterestListState(ctx, "test")
-	gta.NilError(t, err, "Failed to get list state: %v", err)
+	xt.Nilf(err, "Failed to get list state: %v", err)
 
-	if docTime.UnixNano() != afterState.LastUpdated {
-		t.Errorf("Expected last updated to be %v, was %v", docTime.UnixNano(), afterState.LastUpdated)
-	}
-	if docID != afterState.LastUpdatedDocID {
-		t.Errorf("Expected last updated ID to be %v, was %v", docID, afterState.LastUpdatedDocID)
-	}
+	xt.Equalf(docTime.UnixNano(), afterState.LastUpdated, "Expected last updated to be %v, was %v", docTime.UnixNano(), afterState.LastUpdated)
+
+	xt.Equalf(docID, afterState.LastUpdatedDocID, "Expected last updated ID to be %v, was %v", docID, afterState.LastUpdatedDocID)
 }
 
 func TestGetLastUpdateTime_ExistingSpace(t *testing.T) {
@@ -223,45 +234,53 @@ func TestGetLastUpdateTime_ExistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	ctx := context.Background()
 	last, err := setup.db.getLastUpdateTime(ctx, "test")
-	gta.NilError(t, err, "Failed to get last update time: %v", err)
-	if !last.Before(then) {
-		t.Errorf("Initial update time should be before %v, got %v", then, last)
-	}
+	xt.Nilf(err, "Failed to get last update time: %v", err)
+	xt.Assertf(last.Before(then), "Initial update time should be before %v, got %v", then, last)
 }
 
 func TestGetLastUpdateTime_NonExistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	ctx := context.Background()
 	_, err := setup.db.getLastUpdateTime(ctx, "popowkqd")
-	gta.ErrorContains(t, err, "sql: no rows", "Fetching last update time for unknown space should fail!")
+	xt.Containsf(err, "sql: no rows", "Fetching last update time for unknown space should fail!")
 }
 
 func TestGetInterestList_Empty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	ctx := context.Background()
 	list, err := setup.db.getInterestList(ctx, "test")
-	gta.NilError(t, err, "Failed to get interest list: %v", err)
-	gta.Assert(t, len(list) == 0, "Length should be empty")
+	xt.Nilf(err, "Failed to get interest list: %v", err)
+	xt.Assertf(len(list) == 0, "Length should be empty")
 }
 
 func TestGetInterestList_NonexistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	ctx := context.Background()
 	_, err := setup.db.getInterestList(ctx, "kawonka")
-	gta.ErrorContains(t, err, "no such space", "Fetching interest list for nonexisting space should fail!")
+	xt.Containsf(err, "no such space", "Fetching interest list for nonexisting space should fail!")
 }
 
 func TestSetInterestList_NonexistingSpace(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
+
+	xt := xt.X(t)
 
 	list := protocol.IndexUpdate{
 		Space: "kawonka",
@@ -275,12 +294,14 @@ func TestSetInterestList_NonexistingSpace(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, list)
-	gta.ErrorContains(t, err, "received interest list for unknown space", "Setting interest list for nonexisting space should fail!")
+	xt.Containsf(err, "received interest list for unknown space", "Setting interest list for nonexisting space should fail!")
 }
 
 func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
+
+	xt := xt.X(t)
 
 	list := protocol.IndexUpdate{
 		Space: "test",
@@ -296,21 +317,17 @@ func TestSetGetInterestList_CurrentListEmpty(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, list)
-	gta.NilError(t, err, "Setting interest list failed: %v", err)
+	xt.Nilf(err, "Setting interest list failed: %v", err)
 
 	fetchedSlice, err := setup.db.getInterestList(ctx, "test")
-	gta.NilError(t, err, "Getting interest list failed: %v", err)
+	xt.Nilf(err, "Getting interest list failed: %v", err)
 	sort.Slice(fetchedSlice, func(i int, j int) bool {
 		return fetchedSlice[i].DocID < fetchedSlice[j].DocID
 	})
 
 	for i, interest := range fetchedSlice {
-		if interest.State == served {
-			t.Errorf("New interest should be unserved")
-		}
-		if interest.DocID != list.Updates[i].ID {
-			t.Errorf("New list does not match")
-		}
+		xt.NotEqual(interest.State, served, "New interest should be unserved")
+		xt.Equalf(interest.DocID, list.Updates[i].ID, "New list does not match")
 	}
 }
 
@@ -318,6 +335,8 @@ func TestSetInterestList_CurrentListNonEmpty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	list := protocol.IndexUpdate{
 		Space: "test",
 		Updates: []protocol.DocumentReference{
@@ -332,41 +351,47 @@ func TestSetInterestList_CurrentListNonEmpty(t *testing.T) {
 
 	ctx := context.Background()
 	err := setup.db.setInterestList(ctx, list)
-	gta.NilError(t, err, "Setting interest list failed: %v", err)
+	xt.Nilf(err, "Setting interest list failed: %v", err)
 
 	err = setup.db.setInterestList(ctx, list)
-	gta.ErrorContains(t, err, "cannot overwrite", "Setting interest list with current list should fail!")
+	xt.Containsf(err, "cannot overwrite", "Setting interest list with current list should fail!")
 }
 
 func TestGetStemmerState_Empty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	_, _, err := setup.db.getStemmerState()
-	gta.Assert(t, err == sql.ErrNoRows, "Expected ErrNoRows, got %v", err)
+	xt.Assertf(err == sql.ErrNoRows, "Expected ErrNoRows, got %v", err)
 }
 
 func TestSetStemmerState_Empty(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	state := snowball.Settings{Stemmers: []string{}}
 	err := setup.db.setStemmerState(state)
-	gta.Assert(t, err == nil)
+	xt.Assert(err == nil)
 
 	fetched, _, err := setup.db.getStemmerState()
-	gta.Assert(t, err == nil)
+	xt.Assert(err == nil)
 
-	gta.DeepEqual(t, fetched, state)
+	xt.DeepEqual(fetched, state)
 }
 
 func TestSetStemmerState_Existing(t *testing.T) {
 	setup := getTestSetup(t)
 	defer setup.cleanup()
 
+	xt := xt.X(t)
+
 	state := snowball.Settings{Stemmers: []string{}}
 	err := setup.db.setStemmerState(state)
-	gta.Assert(t, err == nil)
+	xt.Assert(err == nil)
 
 	state = snowball.Settings{
 		Stemmers: []string{
@@ -377,13 +402,13 @@ func TestSetStemmerState_Existing(t *testing.T) {
 		Separators:       "zxc",
 	}
 	err = setup.db.setStemmerState(state)
-	gta.Assert(t, err == nil)
+	xt.Assert(err == nil)
 
 	fetched, updated, err := setup.db.getStemmerState()
-	gta.Assert(t, err == nil)
+	xt.Assert(err == nil)
 
-	gta.Assert(t, time.Now().After(updated))
-	gta.Assert(t, updated.Add(time.Second).After(time.Now()))
+	xt.Assert(time.Now().After(updated))
+	xt.Assert(updated.Add(time.Second).After(time.Now()))
 
-	gta.DeepEqual(t, fetched, state)
+	xt.DeepEqual(fetched, state)
 }
