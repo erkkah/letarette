@@ -5,7 +5,6 @@
 #
 
 devdeps="
-gotest.tools
 "
 
 manualdeps="

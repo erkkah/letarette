@@ -20,22 +20,26 @@ import (
 	"math/rand"
 	"testing"
 
-	gta "gotest.tools/assert"
+	xt "github.com/erkkah/letarette/pkg/xt"
 )
 
 func TestCreatePacker(t *testing.T) {
+	xt := xt.X(t)
+
 	p := NewPacker()
-	gta.Assert(t, p != nil)
+	xt.Assert(p != nil)
 }
 
 func TestPackAndUnpack_OneShort(t *testing.T) {
+	xt := xt.X(t)
+
 	p := NewPacker()
 	const msg = "Tjillevippen, plippen!"
 	packed, err := p.Pack(msg)
-	gta.NilError(t, err)
+	xt.Nil(err)
 	unpacked, err := p.Unpack(packed)
-	gta.NilError(t, err)
-	gta.Equal(t, msg, unpacked)
+	xt.Nil(err)
+	xt.Equal(msg, unpacked)
 }
 
 func randomString(length int) string {
@@ -49,25 +53,29 @@ func randomString(length int) string {
 }
 
 func TestPackAndUnpack_SeveralShort(t *testing.T) {
+	xt := xt.X(t)
+
 	p := NewPacker()
 
 	for i := 0; i < 10; i++ {
 		msg := randomString(512)
 		packed, err := p.Pack(msg)
-		gta.NilError(t, err)
+		xt.Nil(err)
 		unpacked, err := p.Unpack(packed)
-		gta.NilError(t, err)
-		gta.Equal(t, msg, unpacked)
+		xt.Nil(err)
+		xt.Equal(msg, unpacked)
 	}
 }
 
 func TestPackAndUnpack_Long(t *testing.T) {
+	xt := xt.X(t)
+
 	p := NewPacker()
 
 	msg := randomString(256 * 1024)
 	packed, err := p.Pack(msg)
-	gta.NilError(t, err)
+	xt.Nil(err)
 	unpacked, err := p.Unpack(packed)
-	gta.NilError(t, err)
-	gta.Equal(t, msg, unpacked)
+	xt.Nil(err)
+	xt.Equal(msg, unpacked)
 }
