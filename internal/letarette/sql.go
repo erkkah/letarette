@@ -15,6 +15,7 @@
 package letarette
 
 import (
+	"embed"
 	"fmt"
 	"strings"
 )
@@ -25,6 +26,9 @@ func loadSearchQuery(strategy int) (string, error) {
 	return SQL(fmt.Sprintf("search_%d.sql", strategy))
 }
 
+//go:embed sql
+var sqlFS embed.FS
+
 // SQL loads sql code from resources and strips away comments
 func SQL(path string) (string, error) {
 	if loaded, found := sqlCache[path]; found {
@@ -33,7 +37,7 @@ func SQL(path string) (string, error) {
 
 	path = strings.TrimLeft(path, "/")
 	sqlAsset := fmt.Sprintf("sql/%s", path)
-	sql, err := Asset(sqlAsset)
+	sql, err := sqlFS.ReadFile(sqlAsset)
 	if err != nil {
 		return "", err
 	}

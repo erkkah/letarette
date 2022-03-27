@@ -14,12 +14,11 @@
 
 package letarette
 
-//go:generate go run github.com/go-bindata/go-bindata/go-bindata -pkg $GOPACKAGE -o bindata.go migrations/ sql/
-
 import (
 	"crypto/rand"
 	"database/sql"
 	drv "database/sql/driver"
+	"embed"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -35,7 +34,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	sqlite3_migrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
-	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 
 	"github.com/erkkah/letarette/internal/auxiliary"
 	"github.com/erkkah/letarette/internal/compress"
@@ -268,16 +267,11 @@ func (db *database) getIndexID() (string, error) {
 	return indexID, err
 }
 
-func initDB(db *sqlx.DB, spaces []string) error {
-	migrations, err := AssetDir("migrations")
-	if err != nil {
-		return err
-	}
-	res := bindata.Resource(migrations, func(name string) ([]byte, error) {
-		return Asset("migrations/" + name)
-	})
+//go:embed migrations
+var migrations embed.FS
 
-	sourceDriver, err := bindata.WithInstance(res)
+func initDB(db *sqlx.DB, spaces []string) error {
+	sourceDriver, err := iofs.New(migrations, "migrations")
 	if err != nil {
 		return err
 	}
@@ -287,7 +281,7 @@ func initDB(db *sqlx.DB, spaces []string) error {
 		return err
 	}
 
-	m, err := migrate.NewWithInstance("go-bindata", sourceDriver, "letarette", dbDriver)
+	m, err := migrate.NewWithInstance("iofs", sourceDriver, "letarette", dbDriver)
 	if err != nil {
 		return err
 	}
