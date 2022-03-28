@@ -31,9 +31,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/docopt/docopt-go"
-
 	"github.com/erkkah/letarette/pkg/client"
+	"github.com/erkkah/letarette/pkg/pennant"
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
@@ -55,7 +54,7 @@ var id = 0
 var db = map[int]entry{}
 var ix = []ixentry{}
 
-func loadDatabase(objFile string) error {
+func loadDatabase(config Config, objFile string) error {
 	var fileReader io.Reader
 
 	file, err := os.Open(objFile)
@@ -297,7 +296,7 @@ func handleIndexRequest(ctx context.Context, req protocol.IndexUpdateRequest) (p
 	}, nil
 }
 
-func entryToDocument(id protocol.DocumentID, e entry) (protocol.Document, error) {
+func entryToDocument(id protocol.DocumentID, e entry, compress bool) (protocol.Document, error) {
 	doc := protocol.Document{
 		ID:      id,
 		Updated: e.Date,
@@ -305,7 +304,7 @@ func entryToDocument(id protocol.DocumentID, e entry) (protocol.Document, error)
 	}
 	if e.alive {
 		var text string
-		if config.Compress {
+		if compress {
 			packer := NewPacker()
 			var err error
 			text, err = packer.Unpack(e.Compressed)
@@ -328,7 +327,9 @@ func deadDocument(id protocol.DocumentID) protocol.Document {
 	}
 }
 
-func handleDocumentRequest(ctx context.Context, req protocol.DocumentRequest) (protocol.DocumentUpdate, error) {
+func handleDocumentRequest(
+	ctx context.Context, config Config, req protocol.DocumentRequest,
+) (protocol.DocumentUpdate, error) {
 	if req.Space != space {
 		return protocol.DocumentUpdate{}, fmt.Errorf("space %v not in db", req.Space)
 	}
@@ -344,7 +345,7 @@ func handleDocumentRequest(ctx context.Context, req protocol.DocumentRequest) (p
 		}
 
 		if found {
-			entry, err := entryToDocument(v, doc)
+			entry, err := entryToDocument(v, doc, config.Compress)
 			if err != nil {
 				return protocol.DocumentUpdate{}, err
 			}
@@ -363,16 +364,17 @@ func handleDocumentRequest(ctx context.Context, req protocol.DocumentRequest) (p
 	}, nil
 }
 
-var config struct {
-	Space      string        `docopt:"<space>"`
-	DBFile     string        `docopt:"<dbfile>"`
-	NatsURL    string        `docopt:"-n"`
-	UpdateFreq time.Duration `docopt:"-u"`
-	DeleteFreq time.Duration `docopt:"-d"`
-	Verbose    bool          `docopt:"-v"`
-	Compress   bool          `docopt:"-c"`
-	Limit      string        `docopt:"-l"`
-	NumLimit   int
+// Config holds the commandline config
+type Config struct {
+	Space      string `arg:"0"`
+	DBFile     string `arg:"1"`
+	NatsURL    string `name:"n"`
+	UpdateFreq int64  `name:"u"`
+	DeleteFreq int64  `name:"d"`
+	Verbose    bool   `name:"v"`
+	Compress   bool   `name:"c"`
+	Limit      string `name:"l"`
+	NumLimit   int    `name:""`
 }
 
 func main() {
@@ -389,15 +391,13 @@ Options:
     -c          Compress text in memory
     -v          Verbose
 `
+	if len(os.Args) < 2 {
+		fmt.Println(usage)
+		os.Exit(1)
+	}
 
-	args, err := docopt.ParseDoc(usage)
-	if err != nil {
-		log.Panicf("Failed to parse args: %v", err)
-	}
-	err = args.Bind(&config)
-	if err != nil {
-		log.Panicf("Failed to bind args: %v", err)
-	}
+	var config Config
+	pennant.MustParse(&config, os.Args[1:])
 
 	if config.Limit != "unlimited" {
 		config.NumLimit, _ = strconv.Atoi(config.Limit)
@@ -407,17 +407,17 @@ Options:
 	dbFile := config.DBFile
 
 	if config.UpdateFreq != 0 {
-		updateFreq = config.UpdateFreq * time.Second
+		updateFreq = time.Duration(config.UpdateFreq * int64(time.Second))
 		log.Printf("Auto-updating every %v\n", updateFreq)
 	}
 
 	if config.DeleteFreq != 0 {
-		deleteFreq = config.DeleteFreq * time.Second
+		deleteFreq = time.Duration(config.DeleteFreq * int64(time.Second))
 		log.Printf("Auto-deleting every %v\n", deleteFreq)
 	}
 
 	log.Println("Loading...")
-	err = loadDatabase(dbFile)
+	err := loadDatabase(config, dbFile)
 	if err != nil {
 		log.Panicf("Failed to load db: %v", err)
 	}
@@ -437,7 +437,10 @@ Options:
 	defer mgr.Close()
 
 	_ = mgr.StartIndexRequestHandler(handleIndexRequest)
-	_ = mgr.StartDocumentRequestHandler(handleDocumentRequest)
+	_ = mgr.StartDocumentRequestHandler(
+		func(ctx context.Context, req protocol.DocumentRequest) (protocol.DocumentUpdate, error) {
+			return handleDocumentRequest(ctx, config, req)
+		})
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT)
