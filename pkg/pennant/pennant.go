@@ -130,7 +130,9 @@ func parseStructFields(structPointer reflect.Value, fieldPath string, set *exten
 }
 
 func assignFromString(fieldPointer reflect.Value, stringValue string) error {
-	if fieldPointer.Elem().Type() == reflect.TypeOf(time.Second) {
+	if fieldPointer.Elem().Type().Kind() == reflect.String {
+		fieldPointer.Elem().Set(reflect.ValueOf(stringValue))
+	} else if fieldPointer.Elem().Type() == reflect.TypeOf(time.Second) {
 		duration, err := time.ParseDuration(stringValue)
 		if err != nil {
 			return err
