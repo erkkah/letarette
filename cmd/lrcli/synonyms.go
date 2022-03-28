@@ -110,6 +110,10 @@ func dumpSynonyms(db letarette.Database) {
 		fmt.Printf("Failed to dump synonyms: %v", err)
 		return
 	}
+	if len(lines) == 0 {
+		fmt.Fprintln(os.Stderr, "No synonyms")
+		return
+	}
 	for _, line := range lines {
 		fmt.Printf("%v\n", line)
 	}

@@ -48,6 +48,10 @@ func checkIndex(db letarette.Database) {
 }
 
 func setIndexPageSize(db letarette.Database, pageSize int) {
+	if pageSize <= 0 {
+		logger.Error.Printf("Invalid page size: %v", pageSize)
+		return
+	}
 	fmt.Printf("Setting page size to %v...\n", pageSize)
 	err := letarette.SetIndexPageSize(db, pageSize)
 	if err != nil {
@@ -210,7 +214,7 @@ func doMonitor(cfg letarette.Config) {
 
 type migrationOptions struct {
 	databaseOptions
-	Version int `arg:"0"`
+	Version int `arg:"0" default:"-1"`
 }
 
 func resetMigration(cfg letarette.Config, version int) {
@@ -269,10 +273,11 @@ func sql(db letarette.Database, statement string, stringArgs []string) {
 
 type spellingOptions struct {
 	databaseOptions
-	Limit int `name:"l"`
+	Command  string `arg:"0"`
+	MinCount int    `arg:"1"`
 }
 
-func updateSpelling(cfg letarette.Config, limit int) {
+func updateSpelling(cfg letarette.Config, minCount int) {
 	s := spinner.New(os.Stdout)
 	s.Start("Updating spelling ")
 
@@ -285,7 +290,7 @@ func updateSpelling(cfg letarette.Config, limit int) {
 	}
 
 	ctx := context.Background()
-	err = letarette.UpdateSpellfix(ctx, db, limit)
+	err = letarette.UpdateSpellfix(ctx, db, minCount)
 	if err != nil {
 		s.Stop(fmt.Sprintf("Failed to update spelling: %v", err))
 		return

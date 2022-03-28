@@ -35,7 +35,7 @@ type databaseOptions struct {
 	Database string `name:"d"`
 }
 
-func main() {
+func usage() {
 	usage := `Letarette
 
 Usage:
@@ -65,10 +65,14 @@ Options:
     -g <groupsize> Force shard group size, do not discover
     -v             Verbose, lists advanced options
 `
+	fmt.Println(usage)
+	os.Exit(1)
+}
+
+func main() {
 
 	if len(os.Args) < 2 {
-		fmt.Println(usage)
-		os.Exit(1)
+		usage()
 	}
 
 	cmd := os.Args[1]
@@ -113,6 +117,11 @@ Options:
 			var options bulkLoadOptions
 			pennant.MustParse(&options, args)
 			updateFromFromOptions(&options.databaseOptions)
+
+			if len(options.Space) == 0 || len(options.JSON) == 0 {
+				usage()
+			}
+
 			cfg.Index.Spaces = []string{options.Space}
 			logger.Debug.Printf("Loading into space %v", cfg.Index.Spaces)
 			doLoad(cfg, options)
@@ -129,13 +138,22 @@ Options:
 			var options spellingOptions
 			pennant.MustParse(&options, args)
 			updateFromFromOptions(&options.databaseOptions)
-			updateSpelling(cfg, options.Limit)
+			if options.Command != "update" {
+				usage()
+			}
+			if options.MinCount <= 1 {
+				usage()
+			}
+			updateSpelling(cfg, options.MinCount)
 		}
 
 	case "resetmigration":
 		{
 			var options migrationOptions
 			pennant.MustParse(&options, args)
+			if options.Version < 1 {
+				usage()
+			}
 			updateFromFromOptions(&options.databaseOptions)
 			resetMigration(cfg, options.Version)
 		}
@@ -149,8 +167,7 @@ Options:
 	case "monitor":
 		doMonitor(cfg)
 	default:
-		fmt.Printf("Unknown command %q\n", cmd)
-		os.Exit(1)
+		usage()
 	}
 }
 
@@ -197,7 +214,7 @@ func doLoad(cfg letarette.Config, options bulkLoadOptions) {
 
 type synonymOptions struct {
 	databaseOptions
-	file string `arg:"0"`
+	File string `arg:"0"`
 }
 
 func doSynonyms(cfg letarette.Config, options synonymOptions) {
@@ -209,8 +226,8 @@ func doSynonyms(cfg letarette.Config, options synonymOptions) {
 	defer scoped.close()
 	db := scoped.db
 
-	if options.file != "" {
-		loadSynonyms(db, options.file)
+	if options.File != "" {
+		loadSynonyms(db, options.File)
 	} else {
 		dumpSynonyms(db)
 	}
@@ -251,5 +268,7 @@ func indexSubcommand(cfg letarette.Config, options indexOptions) {
 			TokenCharacters:  cfg.Stemmer.TokenCharacters,
 		}
 		forceIndexStemmerState(settings, db)
+	default:
+		usage()
 	}
 }
