@@ -29,12 +29,11 @@ import (
 	"github.com/erkkah/letarette/pkg/spinner"
 )
 
-func loadSynonyms(db letarette.Database) {
+func loadSynonyms(db letarette.Database, objFile string) {
 	s := spinner.New(os.Stdout)
 	s.Start("Loading ")
 	defer s.Stop()
 
-	objFile := cmdline.JSON
 	var fileReader io.Reader
 
 	file, err := os.Open(objFile)

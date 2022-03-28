@@ -115,7 +115,7 @@ func (x XT) Nilf(a interface{}, fmt string, msg ...interface{}) {
 }
 
 // NotNil verifies that the argument is not nil
-func (x XT) NotNil(a interface{}, fmt string, msg ...interface{}) {
+func (x XT) NotNil(a interface{}) {
 	x.NotNilf(a, "Expected non-nil")
 }
 

@@ -38,13 +38,21 @@ type entry struct {
 	Date  time.Time `json:"date"`
 }
 
-func bulkLoad(db letarette.Database, shardGroupSize int, shardIndex int) {
+type bulkLoadOptions struct {
+	databaseOptions
+	Space      string `arg:"0"`
+	JSON       string `arg:"1"`
+	AutoAssign bool   `name:"a"`
+	LoadLimit  int    `name:"m"`
+}
+
+func bulkLoad(db letarette.Database, options bulkLoadOptions, shardGroupSize int, shardIndex int) {
 	s := spinner.New(os.Stdout)
 	s.Start("Loading ")
 
 	start := time.Now()
 
-	objFile := cmdline.JSON
+	objFile := options.JSON
 	var fileReader io.Reader
 
 	file, err := os.Open(objFile)
@@ -69,7 +77,7 @@ func bulkLoad(db letarette.Database, shardGroupSize int, shardIndex int) {
 
 	numLoaded := 0
 
-	loader, err := letarette.StartBulkLoad(db, cmdline.Space)
+	loader, err := letarette.StartBulkLoad(db, options.Space)
 	if err != nil {
 		s.Stop(fmt.Sprintf("Failed to init bulkloader: %v", err))
 		return
@@ -83,12 +91,12 @@ func bulkLoad(db letarette.Database, shardGroupSize int, shardIndex int) {
 	numID := 0
 	epoch := time.Unix(0, 0)
 
-	for cmdline.LoadLimit == 0 || numLoaded < cmdline.LoadLimit {
+	for options.LoadLimit == 0 || numLoaded < options.LoadLimit {
 		var e entry
 		readErr := decoder.Decode(&e)
 
 		if readErr == nil {
-			if cmdline.AutoAssign {
+			if options.AutoAssign {
 				e.ID = strconv.Itoa(numID)
 				numID++
 			}

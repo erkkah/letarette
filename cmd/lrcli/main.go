@@ -16,59 +16,23 @@ package main
 
 import (
 	"errors"
-
-	"github.com/docopt/docopt-go"
+	"fmt"
+	"os"
 
 	"github.com/erkkah/letarette/internal/letarette"
 	"github.com/erkkah/letarette/internal/snowball"
 
 	"github.com/erkkah/letarette/pkg/logger"
+	"github.com/erkkah/letarette/pkg/pennant"
 )
 
-var cmdline struct {
-	Search      bool
-	Space       string   `docopt:"<space>"`
-	Phrases     []string `docopt:"<phrase>"`
-	Limit       int      `docopt:"-l"`
-	Offset      int      `docopt:"-p"`
-	GroupSize   int32    `docopt:"-g"`
-	Interactive bool     `docopt:"-i"`
+type globalOptions struct {
+	Verbose bool `name:"v"`
+}
 
-	Monitor bool
-
-	SQL       bool     `docopt:"sql"`
-	Statement string   `docopt:"<sql>"`
-	Args      []string `docopt:"<arg>"`
-
-	Index        bool
-	Database     string `docopt:"-d"`
-	Stats        bool
-	Check        bool
-	Pgsize       bool
-	Compress     bool
-	Size         int `docopt:"<size>"`
-	Rebuild      bool
-	Optimize     bool
-	ForceStemmer bool `docopt:"forcestemmer"`
-
-	Load       bool
-	JSON       string `docopt:"<json>"`
-	AutoAssign bool   `docopt:"-a"`
-	LoadLimit  int    `docopt:"-m"`
-
-	Shard string `docopt:"<shard>"`
-
-	Synonyms bool
-
-	Spelling      bool
-	Update        bool
-	SpellingLimit int `docopt:"<mincount>"`
-
-	ResetMigration bool `docopt:"resetmigration"`
-	Version        int  `docopt:"<version>"`
-
-	Env     bool
-	Verbose bool `docopt:"-v"`
+type databaseOptions struct {
+	globalOptions
+	Database string `name:"d"`
 }
 
 func main() {
@@ -102,17 +66,13 @@ Options:
     -v             Verbose, lists advanced options
 `
 
-	args, err := docopt.ParseDoc(usage)
-	if err != nil {
-		logger.Error.Printf("Failed to parse args: %v", err)
-		return
+	if len(os.Args) < 2 {
+		fmt.Println(usage)
+		os.Exit(1)
 	}
 
-	err = args.Bind(&cmdline)
-	if err != nil {
-		logger.Error.Printf("Failed to bind args: %v", err)
-		return
-	}
+	cmd := os.Args[1]
+	args := os.Args[2:]
 
 	cfg, err := letarette.LoadConfig()
 	if err != nil {
@@ -120,79 +80,170 @@ Options:
 		return
 	}
 	cfg.DB.ToolConnection = true
-	if cmdline.Database != "" {
-		cfg.DB.Path = cmdline.Database
-	}
 	cfg.Index.Spaces = []string{}
 
-	switch {
-	case cmdline.Env:
-		letarette.Usage(cmdline.Verbose)
-	case cmdline.Search:
-		doSearch(cfg)
-	case cmdline.Index:
-		dbSubcommand(cfg)
-	case cmdline.Load:
-		cfg.Index.Spaces = []string{cmdline.Space}
-		logger.Debug.Printf("Loading into space %v", cfg.Index.Spaces)
-		dbSubcommand(cfg)
-	case cmdline.Synonyms:
-		dbSubcommand(cfg)
-	case cmdline.Spelling:
-		updateSpelling(cfg)
-	case cmdline.ResetMigration:
-		resetMigration(cfg, cmdline.Version)
-	case cmdline.SQL:
-		doSQL(cfg)
-	case cmdline.Monitor:
+	updateFromFromOptions := func(options *databaseOptions) {
+		if options.Database != "" {
+			cfg.DB.Path = options.Database
+		}
+	}
+
+	switch cmd {
+	case "search":
+		{
+			var options searchOptions
+			pennant.MustParse(&options, args)
+			doSearch(cfg, options)
+		}
+	case "env":
+		{
+			var options globalOptions
+			pennant.MustParse(&options, args)
+			letarette.Usage(options.Verbose)
+		}
+	case "index":
+		{
+			var options indexOptions
+			pennant.MustParse(&options, args)
+			updateFromFromOptions(&options.databaseOptions)
+			indexSubcommand(cfg, options)
+		}
+	case "load":
+		{
+			var options bulkLoadOptions
+			pennant.MustParse(&options, args)
+			updateFromFromOptions(&options.databaseOptions)
+			cfg.Index.Spaces = []string{options.Space}
+			logger.Debug.Printf("Loading into space %v", cfg.Index.Spaces)
+			doLoad(cfg, options)
+		}
+	case "synonyms":
+		{
+			var options synonymOptions
+			pennant.MustParse(&options, args)
+			updateFromFromOptions(&options.databaseOptions)
+			doSynonyms(cfg, options)
+		}
+	case "spelling":
+		{
+			var options spellingOptions
+			pennant.MustParse(&options, args)
+			updateFromFromOptions(&options.databaseOptions)
+			updateSpelling(cfg, options.Limit)
+		}
+
+	case "resetmigration":
+		{
+			var options migrationOptions
+			pennant.MustParse(&options, args)
+			updateFromFromOptions(&options.databaseOptions)
+			resetMigration(cfg, options.Version)
+		}
+	case "sql":
+		{
+			var options sqlOptions
+			pennant.MustParse(&options, args)
+			updateFromFromOptions(&options.databaseOptions)
+			doSQL(cfg, options.Statement, options.Args)
+		}
+	case "monitor":
 		doMonitor(cfg)
+	default:
+		fmt.Printf("Unknown command %q\n", cmd)
+		os.Exit(1)
 	}
 }
 
-func dbSubcommand(cfg letarette.Config) {
-	db, err := letarette.OpenDatabase(cfg)
-	defer func() {
-		if db == nil {
-			return
-		}
-		logger.Debug.Printf("Closing db...")
-		err := db.Close()
-		if err != nil {
-			logger.Error.Printf("Failed to close db: %v", err)
-		}
-	}()
+type indexOptions struct {
+	databaseOptions
+	Subcommand string `arg:"0"`
+	Size       int    `arg:"1"`
+}
 
+type scopedDatabase struct {
+	db letarette.Database
+}
+
+func openDatabase(cfg letarette.Config) (scopedDatabase, error) {
+	db, err := letarette.OpenDatabase(cfg)
+	if err != nil {
+		return scopedDatabase{}, err
+	}
+	return scopedDatabase{db}, nil
+}
+
+func (db scopedDatabase) close() {
+	if db.db == nil {
+		return
+	}
+	logger.Debug.Printf("Closing db...")
+	err := db.db.Close()
+	if err != nil {
+		logger.Error.Printf("Failed to close db: %v", err)
+	}
+}
+
+func doLoad(cfg letarette.Config, options bulkLoadOptions) {
+	scoped, err := openDatabase(cfg)
 	if err != nil {
 		logger.Error.Printf("Failed to open db: %v", err)
 		return
 	}
+	defer scoped.close()
+	db := scoped.db
 
-	switch {
-	case cmdline.Load:
-		bulkLoad(db, int(cfg.ShardgroupSize), int(cfg.ShardIndex))
-	case cmdline.Synonyms:
-		if cmdline.JSON != "" {
-			loadSynonyms(db)
-		} else {
-			dumpSynonyms(db)
-		}
-	case cmdline.Check:
+	bulkLoad(db, options, int(cfg.ShardgroupSize), int(cfg.ShardIndex))
+}
+
+type synonymOptions struct {
+	databaseOptions
+	file string `arg:"0"`
+}
+
+func doSynonyms(cfg letarette.Config, options synonymOptions) {
+	scoped, err := openDatabase(cfg)
+	if err != nil {
+		logger.Error.Printf("Failed to open db: %v", err)
+		return
+	}
+	defer scoped.close()
+	db := scoped.db
+
+	if options.file != "" {
+		loadSynonyms(db, options.file)
+	} else {
+		dumpSynonyms(db)
+	}
+}
+
+func indexSubcommand(cfg letarette.Config, options indexOptions) {
+	scoped, err := openDatabase(cfg)
+	if err != nil {
+		logger.Error.Printf("Failed to open db: %v", err)
+		return
+	}
+	defer scoped.close()
+	db := scoped.db
+
+	switch options.Subcommand {
+
+	case "check":
 		err = letarette.CheckStemmerSettings(db, cfg)
 		if errors.Is(err, letarette.ErrStemmerSettingsMismatch) {
 			logger.Warning.Printf("Index and config stemmer settings mismatch. Re-build index or force changes.")
 		}
 		checkIndex(db)
-	case cmdline.Compress:
+	case "compress":
 		compressIndex(db)
-	case cmdline.Pgsize:
-		setIndexPageSize(db, cmdline.Size)
-	case cmdline.Stats:
+	case "pgsize":
+		setIndexPageSize(db, options.Size)
+	case "stats":
 		printIndexStats(db)
-	case cmdline.Optimize:
+	case "optimize":
 		optimizeIndex(db)
-	case cmdline.Rebuild:
+	case "rebuild":
 		rebuildIndex(db)
-	case cmdline.ForceStemmer:
+	case "forcestemmer":
 		settings := snowball.Settings{
 			Stemmers:         cfg.Stemmer.Languages,
 			RemoveDiacritics: cfg.Stemmer.RemoveDiacritics,
