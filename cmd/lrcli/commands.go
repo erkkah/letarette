@@ -208,6 +208,11 @@ func doMonitor(cfg letarette.Config) {
 	<-signals
 }
 
+type migrationOptions struct {
+	databaseOptions
+	Version int `arg:"0"`
+}
+
 func resetMigration(cfg letarette.Config, version int) {
 	fmt.Printf("Resetting migration to version %v...\n", version)
 	err := letarette.ResetMigration(cfg, version)
@@ -218,7 +223,13 @@ func resetMigration(cfg letarette.Config, version int) {
 	fmt.Println("OK")
 }
 
-func doSQL(cfg letarette.Config) {
+type sqlOptions struct {
+	databaseOptions
+	Statement string   `arg:"0"`
+	Args      []string `args:"1"`
+}
+
+func doSQL(cfg letarette.Config, statement string, args []string) {
 	db, err := letarette.OpenDatabase(cfg)
 	defer db.Close()
 
@@ -227,7 +238,6 @@ func doSQL(cfg letarette.Config) {
 		return
 	}
 
-	statement := cmdline.Statement
 	if strings.HasPrefix(statement, "@") {
 		bytes, err := ioutil.ReadFile(strings.TrimLeft(statement, "@"))
 		if err != nil {
@@ -236,7 +246,7 @@ func doSQL(cfg letarette.Config) {
 		}
 		statement = string(bytes)
 	}
-	sql(db, statement, cmdline.Args)
+	sql(db, statement, args)
 }
 
 func sql(db letarette.Database, statement string, stringArgs []string) {
@@ -257,7 +267,12 @@ func sql(db letarette.Database, statement string, stringArgs []string) {
 	}
 }
 
-func updateSpelling(cfg letarette.Config) {
+type spellingOptions struct {
+	databaseOptions
+	Limit int `name:"l"`
+}
+
+func updateSpelling(cfg letarette.Config, limit int) {
 	s := spinner.New(os.Stdout)
 	s.Start("Updating spelling ")
 
@@ -270,7 +285,7 @@ func updateSpelling(cfg letarette.Config) {
 	}
 
 	ctx := context.Background()
-	err = letarette.UpdateSpellfix(ctx, db, cmdline.SpellingLimit)
+	err = letarette.UpdateSpellfix(ctx, db, limit)
 	if err != nil {
 		s.Stop(fmt.Sprintf("Failed to update spelling: %v", err))
 		return

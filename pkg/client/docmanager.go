@@ -16,6 +16,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/erkkah/letarette/pkg/protocol"
@@ -103,7 +104,7 @@ func (m *manager) StartDocumentRequestHandler(handler DocumentRequestHandler) er
 
 			err = m.conn.Publish(m.topic+".document.update", current)
 			if err != nil {
-				if err == nats.ErrMaxPayload {
+				if errors.Is(err, nats.ErrMaxPayload) {
 					length := len(current.Documents)
 					if length > 1 {
 						mid := length / 2

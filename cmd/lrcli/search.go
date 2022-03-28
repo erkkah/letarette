@@ -27,11 +27,25 @@ import (
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
-func doSearch(cfg letarette.Config) {
+type searchOptions struct {
+	Space       string   `arg:"0"`
+	Phrases     []string `args:"1"`
+	Limit       int      `name:"l" default:"10"`
+	Offset      int      `name:"p" default:"0"`
+	GroupSize   int32    `name:"g"`
+	Interactive bool     `name:"i"`
+}
+
+func doSearch(cfg letarette.Config, options searchOptions) {
+	if len(options.Space) == 0 {
+		fmt.Println("Expected <space> arg")
+		return
+	}
+	fmt.Printf("Searching space %q\n", options.Space)
 	a, err := client.NewSearchAgent(
 		cfg.Nats.URLS,
 		client.WithSeedFile(cfg.Nats.SeedFile),
-		client.WithShardgroupSize(cmdline.GroupSize),
+		client.WithShardgroupSize(options.GroupSize),
 		client.WithRootCAs(cfg.Nats.RootCAs...),
 		client.WithTimeout(10*time.Second),
 	)
@@ -41,25 +55,25 @@ func doSearch(cfg letarette.Config) {
 	}
 	defer a.Close()
 
-	if cmdline.Interactive {
+	if options.Interactive {
 		scanner := bufio.NewScanner(os.Stdin)
 		const prompt = "search>"
 		_, _ = os.Stdout.WriteString(prompt)
 		for scanner.Scan() {
-			searchPhrase(scanner.Text(), a)
+			searchPhrase(scanner.Text(), a, options)
 			_, _ = os.Stdout.WriteString(prompt)
 		}
 	} else {
-		searchPhrase(strings.Join(cmdline.Phrases, " "), a)
+		searchPhrase(strings.Join(options.Phrases, " "), a, options)
 	}
 }
 
-func searchPhrase(phrase string, agent client.SearchAgent) {
+func searchPhrase(phrase string, agent client.SearchAgent, options searchOptions) {
 	res, err := agent.Search(
 		phrase,
-		[]string{cmdline.Space},
-		cmdline.Limit,
-		cmdline.Offset,
+		[]string{options.Space},
+		options.Limit,
+		options.Offset,
 	)
 	if err != nil {
 		logger.Error.Printf("Failed to perform search: %v", err)
