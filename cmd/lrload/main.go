@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docopt/docopt-go"
 	"github.com/nats-io/nats.go"
 
 	"github.com/erkkah/letarette/pkg/client"
 	"github.com/erkkah/letarette/pkg/logger"
+	"github.com/erkkah/letarette/pkg/pennant"
 	"github.com/erkkah/letarette/pkg/protocol"
 )
 
@@ -52,16 +52,17 @@ type testResult struct {
 	Err      error
 }
 
-var cmdline struct {
-	Agent bool
-	List  bool
-	Run   bool
+// NATSOptions holds common NATS connection params
+type NATSOptions struct {
+	NATSURL string `name:"n" default:"localhost"`
+}
 
-	TestSet string `docopt:"<testset.json>"`
+type runOptions struct {
+	NATSOptions
 
-	NATSURL string `docopt:"-n"`
-	Output  string `docopt:"-o"`
-	Limit   int    `docopt:"-l"`
+	TestSet string `arg:"0"`
+	Output  string `name:"o"`
+	Limit   int    `name:"l"`
 }
 
 func main() {
@@ -77,55 +78,62 @@ Options:
     -o <file>    Write raw CSV data to <file>
     -l <limit>   Limit the run to <limit> agents
 `
-
-	args, err := docopt.ParseDoc(usage)
-	if err != nil {
-		logger.Error.Printf("Failed to parse args: %v", err)
-		return
+	if len(os.Args) < 2 {
+		fmt.Println(usage)
+		os.Exit(1)
 	}
 
-	err = args.Bind(&cmdline)
-	if err != nil {
-		logger.Error.Printf("Failed to bind args: %v", err)
-		return
+	cmd := os.Args[1]
+	args := os.Args[2:]
+
+	switch cmd {
+	case "agent":
+		{
+			var options NATSOptions
+			pennant.MustParse(&options, args)
+			err := startAgent(options.NATSURL)
+			if err != nil {
+				logger.Error.Printf("Failed to start load agent: %v", err)
+				return
+			}
+			logger.Info.Printf("Agent waiting for load requests")
+			select {}
+		}
+	case "list":
+		{
+			var options NATSOptions
+			pennant.MustParse(&options, args)
+			err := listAgents(options.NATSURL)
+			if err != nil {
+				logger.Error.Printf("Failed to list agents: %v", err)
+			}
+		}
+	case "run":
+		{
+			var options runOptions
+			pennant.MustParse(&options, args)
+			testSet, err := loadTestSet(options.TestSet)
+			if err != nil {
+				logger.Error.Printf("Failed to load test set: %v", err)
+				return
+			}
+
+			if err = runTestSet(options.NATSURL, testSet, options.Limit, options.Output); err != nil {
+				logger.Error.Printf("Failed to run: %v", err)
+			}
+		}
 	}
 
-	if cmdline.Agent {
-		err := startAgent()
-		if err != nil {
-			logger.Error.Printf("Failed to start load agent: %v", err)
-			return
-		}
-		logger.Info.Printf("Agent waiting for load requests")
-		select {}
-	} else if cmdline.List {
-		err := listAgents()
-		if err != nil {
-			logger.Error.Printf("Failed to list agents: %v", err)
-		}
-	} else if cmdline.Run {
-		testSet, err := loadTestSet(cmdline.TestSet)
-		if err != nil {
-			logger.Error.Printf("Failed to load test set: %v", err)
-			return
-		}
-
-		if err = runTestSet(testSet); err != nil {
-			logger.Error.Printf("Failed to run: %v", err)
-		}
-	} else {
-		docopt.PrintHelpAndExit(nil, usage)
-	}
 }
 
 // NATSConnect connects to NATS :)
-func NATSConnect() (*nats.EncodedConn, error) {
+func NATSConnect(url string) (*nats.EncodedConn, error) {
 	natsOptions := []nats.Option{
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(time.Millisecond * 500),
 	}
 
-	nc, err := nats.Connect(cmdline.NATSURL, natsOptions...)
+	nc, err := nats.Connect(url, natsOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +145,8 @@ func NATSConnect() (*nats.EncodedConn, error) {
 	return ec, nil
 }
 
-func listAgents() error {
-	ec, err := NATSConnect()
+func listAgents(url string) error {
+	ec, err := NATSConnect(url)
 	if err != nil {
 		return err
 	}
@@ -153,13 +161,13 @@ func listAgents() error {
 	return nil
 }
 
-func startAgent() error {
-	agent, err := client.NewSearchAgent([]string{cmdline.NATSURL}, client.WithTimeout(time.Second*10))
+func startAgent(url string) error {
+	agent, err := client.NewSearchAgent([]string{url}, client.WithTimeout(time.Second*10))
 	if err != nil {
 		return err
 	}
 
-	ec, err := NATSConnect()
+	ec, err := NATSConnect(url)
 	if err != nil {
 		return err
 	}
@@ -227,8 +235,8 @@ func getAgents(ec *nats.EncodedConn) ([]string, error) {
 	return agents, nil
 }
 
-func runTestSet(set testSet) error {
-	ec, err := NATSConnect()
+func runTestSet(url string, set testSet, limit int, output string) error {
+	ec, err := NATSConnect(url)
 	if err != nil {
 		return err
 	}
@@ -239,12 +247,12 @@ func runTestSet(set testSet) error {
 	}
 	numAgents := len(agents)
 
-	if cmdline.Limit < 0 || numAgents < 1 {
+	if limit < 0 || numAgents < 1 {
 		return fmt.Errorf("no agents available")
 	}
 
-	if cmdline.Limit != 0 && numAgents > cmdline.Limit {
-		numAgents = cmdline.Limit
+	if limit != 0 && numAgents > limit {
+		numAgents = limit
 		agents = agents[:numAgents]
 	}
 
@@ -284,13 +292,13 @@ func runTestSet(set testSet) error {
 	end := time.Now()
 
 	logger.Debug.Printf("Reporting...")
-	report(results, numAgents, end.Sub(start))
+	report(results, numAgents, end.Sub(start), output)
 	return nil
 }
 
-func report(results []testResult, clients int, total time.Duration) {
-	if cmdline.Output != "" {
-		output, err := os.Create(cmdline.Output)
+func report(results []testResult, clients int, total time.Duration, output string) {
+	if output != "" {
+		output, err := os.Create(output)
 		if err != nil {
 			logger.Error.Printf("Failed to create output file: %v", err)
 			return
