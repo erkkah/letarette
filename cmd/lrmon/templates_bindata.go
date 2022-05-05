@@ -22,7 +22,6 @@ import (
 	"html/template"
 	"io"
 	"log"
-	"strings"
 
 	"github.com/erkkah/letarette/pkg/logger"
 )
@@ -60,9 +59,6 @@ func parseTemplates() (*template.Template, error) {
 	}
 
 	for _, file := range entries {
-		if !strings.HasSuffix(file.Name(), ".html") {
-			continue
-		}
 		logger.Debug.Printf("Parsing template %q", file)
 		templateData, err := templateFS.ReadFile("static/" + file.Name())
 		if err != nil {
