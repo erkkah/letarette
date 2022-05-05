@@ -17,16 +17,16 @@ jobs:
     steps:
 
     - name: Set up Go
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v3
       with:
         go-version: ${{ matrix.go-version }}
       id: go
 
     - name: Check out code
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
 
     - name: Cache go modules
-      uses: actions/cache@v1
+      uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
@@ -37,7 +37,7 @@ jobs:
       shell: bash
     
     - name: Cache go build cache
-      uses: actions/cache@v1
+      uses: actions/cache@v3
       with:
         path: ${{ env.GOCACHE }}
         key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
@@ -59,14 +59,14 @@ jobs:
 
     - name: Save license info
       if: startsWith(matrix.os, 'ubuntu')
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       with:
         name: licenses
         path: licenses
 
     - name: Save change log
       if: startsWith(matrix.os, 'ubuntu')
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       with:
         name: changelog
         path: CHANGELOG.md
@@ -77,7 +77,7 @@ jobs:
       run: echo EXE=.exe >> $GITHUB_ENV
 
     - name: Save artifacts
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ format('letarette-{0}', matrix.os) }}
         path: ${{ format('letarette{0}', env.EXE) }}
