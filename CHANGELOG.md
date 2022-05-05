@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2] - 2022-05-05
+
+### Fixed
+- Removed / replaced unnecessary dependencies
+- Updated dependencies
+- Fixed spin-wait bug in document update loop
+
 ## [0.2.1] - 2022-03-26
 
 - Bumped vulnerable dependencies
@@ -42,6 +49,7 @@
 ### First public release
 - Starting off the new decade with making Letarette public
 
+[0.2.2]: https://github.com/erkkah/letarette/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/erkkah/letarette/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/erkkah/letarette/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/erkkah/letarette/compare/v0.1.0...v0.1.1
