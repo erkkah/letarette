@@ -250,6 +250,11 @@ func (idx *indexer) runUpdateCycle(space string) int {
 			return total
 		}
 
+		err = idx.db.clearInterestList(idx.context, space)
+		if err != nil {
+			logger.Error.Printf("Failed to clean interest list: %v", err)
+		}
+
 		err = idx.processIndexUpdateQueue(space)
 		if err != nil {
 			logger.Error.Printf("Failed to request next chunk: %v", err)
@@ -371,13 +376,15 @@ func (idx *indexer) processIndexUpdateQueue(space string) error {
 		if len(update.Updates) > 0 {
 			logger.Debug.Printf("Received interest list of %v docs\n", len(update.Updates))
 			idx.notifyUpdateReceived()
+
+			err := idx.db.setInterestList(idx.context, update)
+			if err != nil {
+				return fmt.Errorf("failed to set interest list: %w", err)
+			}
 		}
 
-		err := idx.db.setInterestList(idx.context, update)
-		if err != nil {
-			return fmt.Errorf("failed to set interest list: %w", err)
-		}
-	default:
+	case <-time.After(idx.cfg.Index.Wait.Interest):
+		// timeout
 	}
 
 	return nil
@@ -417,6 +424,8 @@ func (idx *indexer) requestIndexUpdate(
 			filtered = append(filtered, u)
 		}
 	}
+
+	logger.Debug.Printf("Keeping %v out of %v updates for shard %v", len(filtered), len(update.Updates), idx.cfg.Shard)
 
 	update.Updates = filtered
 
