@@ -231,10 +231,20 @@ func (m *monitor) checkpoint() {
 			list, err := m.db.getInterestList(m.ctx, space)
 			if err != nil {
 				logger.Error.Printf("Failed to get interest list: %w", err)
-			}
-			if len(list) > 0 {
+			} else if len(list) > 0 {
 				newStatus = protocol.IndexStatusSyncing
 				break
+			}
+
+			state, err := m.db.getInterestListState(m.ctx, space)
+			if err != nil {
+				logger.Error.Printf("Failed to get interest list state: %w", err)
+			} else {
+				updateHorizon := time.Now().Add(-time.Second * 20)
+				if state.createdAtTime().After(updateHorizon) {
+					newStatus = protocol.IndexStatusSyncing
+					break
+				}
 			}
 		}
 	}
