@@ -61,7 +61,7 @@ Options:
     -d <db>        Override default or environment DB path
     -i             Interactive search
     -a             Auto-assign document ID on load
-	-m <max>       Max documents loaded
+    -m <max>       Max documents loaded
     -g <groupsize> Force shard group size, do not discover
     -v             Verbose, lists advanced options
 `
