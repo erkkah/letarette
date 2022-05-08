@@ -353,6 +353,12 @@ func initDB(db *sqlx.DB, spaces []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to set default page size: %w", err)
 		}
+
+		// Give titles three times the weight of the text body
+		_, err = db.Exec(`insert into fts (fts, rank) values("rank", "bm25(5.0, 1.0)")`)
+		if err != nil {
+			return fmt.Errorf("failed to set ranking weights: %w", err)
+		}
 	}
 
 	return nil
