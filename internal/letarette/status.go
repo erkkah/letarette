@@ -174,7 +174,7 @@ func (m *monitor) checkpoint() {
 	workersPerShard := map[uint16][]string{
 		m.cfg.ShardIndex: {m.indexID},
 	}
-	staleTime := time.Now().Add(-1 * time.Minute)
+	staleTime := time.Now().Add(-30 * time.Second)
 	var numWorkers int
 	newStatus := protocol.IndexStatusInSync
 
