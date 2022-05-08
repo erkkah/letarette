@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -136,7 +137,10 @@ func StartCloner(nc *nats.Conn, db Database, cfg Config) (*Cloner, error) {
 	}
 
 	go func() {
-		_ = self.server.ListenAndServe()
+		err = self.server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error.Printf("Failed to start cloning service: %v", err)
+		}
 		close(requests)
 		_ = subscription.Unsubscribe()
 	}()
