@@ -1,4 +1,4 @@
-FROM golang:1.18-alpine as builder
+FROM golang:1.24-alpine AS builder
 
 RUN apk update && apk add --no-cache make gcc libc-dev tzdata git bash
 RUN adduser -D -g '' letarette

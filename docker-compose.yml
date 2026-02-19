@@ -1,4 +1,3 @@
-version: '3'
 services:
     natsserver:
         image: nats:2-scratch
