@@ -40,14 +40,14 @@ jobs:
 
     - name: Save license info
       if: startsWith(matrix.os, 'ubuntu')
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v6
       with:
         name: licenses
         path: licenses
 
     - name: Save change log
       if: startsWith(matrix.os, 'ubuntu')
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v6
       with:
         name: changelog
         path: CHANGELOG.md
