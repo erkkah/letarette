@@ -14,13 +14,9 @@ require (
 
 require (
 	github.com/erkkah/bygg v0.6.2 // indirect
-	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/klauspost/compress v1.18.4 // indirect
-	github.com/nats-io/nats-server/v2 v2.7.4 // indirect
 	github.com/nats-io/nkeys v0.4.15 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/term v0.40.0 // indirect
 )
 
