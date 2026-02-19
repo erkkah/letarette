@@ -13,35 +13,16 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        go-version: [1.18]
+        go-version: [1.24]
     steps:
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v6
       with:
         go-version: ${{ matrix.go-version }}
-      id: go
 
     - name: Check out code
-      uses: actions/checkout@v3
-
-    - name: Cache go modules
-      uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
-        restore-keys: ${{ runner.os }}-go-
-
-    - name: Get GOCACHE
-      run: go run github.com/erkkah/bygg gocache >> $GITHUB_ENV
-      shell: bash
-    
-    - name: Cache go build cache
-      uses: actions/cache@v3
-      with:
-        path: ${{ env.GOCACHE }}
-        key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
-        restore-keys: ${{ runner.os }}-gocache-
+      uses: actions/checkout@v6
 
     - name: Build
       run: go run github.com/erkkah/bygg
@@ -77,7 +58,7 @@ jobs:
       run: echo EXE=.exe >> $GITHUB_ENV
 
     - name: Save artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ format('letarette-{0}', matrix.os) }}
         path: ${{ format('letarette{0}', env.EXE) }}

@@ -13,35 +13,16 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        go-version: [1.18]
+        go-version: [1.24]
     steps:
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v6
       with:
         go-version: ${{ matrix.go-version }}
-      id: go
 
     - name: Check out code
-      uses: actions/checkout@v3
-
-    - name: Cache go modules
-      uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
-        restore-keys: ${{ runner.os }}-go-
-
-    - name: Get GOCACHE
-      run: go run github.com/erkkah/bygg gocache >> $GITHUB_ENV
-      shell: bash
-    
-    - name: Cache go build cache
-      uses: actions/cache@v1
-      with:
-        path: ${{ env.GOCACHE }}
-        key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
-        restore-keys: ${{ runner.os }}-gocache-
+      uses: actions/checkout@v6
 
     - name: Build
       run: go run github.com/erkkah/bygg
@@ -76,7 +57,7 @@ jobs:
       run: tar czf binaries.tgz ${{ format('letarette{0}', env.EXE) }} ${{ format('lrcli{0}', env.EXE) }} ${{ format('lrload{0}', env.EXE) }}
 
     - name: Save artifacts
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ format('letarette-{0}', matrix.os) }}
         path: binaries.tgz
@@ -95,27 +76,27 @@ jobs:
       - name: Set ARCHIVE
         run: echo ARCHIVE=letarette-${TAG}.tgz >> $GITHUB_ENV
 
-      - uses: actions/download-artifact@v1.0.0
+      - uses: actions/download-artifact@v7
         with:
           name: letarette-macos-latest
           path: macos
 
-      - uses: actions/download-artifact@v1.0.0
+      - uses: actions/download-artifact@v7
         with:
           name: letarette-ubuntu-latest
           path: linux
 
-      - uses: actions/download-artifact@v1.0.0
+      - uses: actions/download-artifact@v7
         with:
           name: letarette-windows-latest
           path: windows
 
-      - uses: actions/download-artifact@v1.0.0
+      - uses: actions/download-artifact@v7
         with:
           name: licenses
           path: licenses
 
-      - uses: actions/download-artifact@v1.0.0
+      - uses: actions/download-artifact@v7
         with:
           name: changelog
           path: .
@@ -132,19 +113,11 @@ jobs:
         run: echo "::set-output name=body::$(cat CHANGELOG.md | sed -e 's/%/%25/g' | sed -e ':begin;$!N;s/\n/%0A/;tbegin')"
 
       - name: Create release
-        id: create_release
-        uses: actions/create-release@master
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
-          release_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
           body: ${{ steps.changelog.outputs.body }}
           draft: true
           prerelease: true
-      
-      - name: Upload release assets
-        uses: actions/upload-release-asset@v1.0.1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.ARCHIVE }}
-          asset_name: ${{ env.ARCHIVE }}
-          asset_content_type: application/tar+gzip
+          files: ${{ env.ARCHIVE }}

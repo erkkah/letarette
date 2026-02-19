@@ -14,40 +14,21 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        go-version: [1.18]
+        go-version: [1.24]
     steps:
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v6
       with:
         go-version: ${{ matrix.go-version }}
-      id: go
 
     - name: Check out code
-      uses: actions/checkout@v3
-
-    - name: Cache go modules
-      uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
-        restore-keys: ${{ runner.os }}-go-
+      uses: actions/checkout@v6
 
     - name: Install windows build helpers
       if: startsWith(matrix.os, 'windows')
       run: choco install mingw
-
-    - name: Get GOCACHE
-      shell: bash
-      run: go run github.com/erkkah/bygg gocache >> $GITHUB_ENV
     
-    - name: Cache go build cache
-      uses: actions/cache@v3
-      with:
-        path: ${{ env.GOCACHE }}
-        key: ${{ runner.os }}-gocache-${{ hashFiles('go.sum') }}
-        restore-keys: ${{ runner.os }}-gocache-
-
     - name: Build
       run: go generate
     
